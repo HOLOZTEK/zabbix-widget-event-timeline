@@ -5,6 +5,10 @@ class CWidgetEventTimeline extends CWidget {
 	#chart = null;
 	#data = null;
 
+	// Runtime状態（設定値ではない）。Tooltip詳細の並び: 'host'=Host単位（既定）/ 'time'=時系列。
+	// 再描画（自動更新）をまたいで維持するため、インスタンスに保持する。
+	#tip_mode = 'host';
+
 	onStop() {
 		this.#disposeChart();
 	}
@@ -14,8 +18,9 @@ class CWidgetEventTimeline extends CWidget {
 			requestAnimationFrame(() => {
 				if (this.#chart) {
 					this.#chart.resize();
-					// 表示されるTickは幅で変わるため、X軸ラベルの間引きと変化分判定をやり直す。
+					// 表示されるTickと期間線の位置は幅で変わるため、やり直す。
 					this.#chart.setOption({xAxis: {axisLabel: this.#axisLabelOption(this.#data)}});
+					this.#chart.setOption({graphic: this.#periodGraphic(this.#data)}, {replaceMerge: ['graphic']});
 				}
 			});
 		}
@@ -105,6 +110,8 @@ class CWidgetEventTimeline extends CWidget {
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
 		this.#data = data;
 		this.#chart.setOption(this.#buildOption(data));
+		// 期間線はグリッド領域が確定してから描画する。
+		this.#chart.setOption({graphic: this.#periodGraphic(data)}, {replaceMerge: ['graphic']});
 	}
 
 	#buildToolbar(data) {
@@ -119,10 +126,51 @@ class CWidgetEventTimeline extends CWidget {
 		total.className = 'et-total';
 		total.textContent = t('Total') + ': ' + data.total;
 
+		// Runtime操作領域。今後の操作（Severity Filter 等）もここへ並べる。
+		const controls = document.createElement('div');
+		controls.className = 'et-controls';
+		controls.appendChild(this.#buildTipModeButton());
+		controls.appendChild(interval);
+
 		bar.appendChild(total);
-		bar.appendChild(interval);
+		bar.appendChild(controls);
 
 		return bar;
+	}
+
+	// Tooltip詳細の並び順切替（Tooltip内に操作UIを置くとMouse移動で閉じるため、表示画面上に置く）。
+	#buildTipModeButton() {
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'et-tipmode';
+
+		const update = () => {
+			const by_host = this.#tip_mode === 'host';
+			const label = by_host
+				? t('Tooltip details: grouped by host (click to sort chronologically)')
+				: t('Tooltip details: chronological (click to group by host)');
+
+			button.title = label;
+			button.setAttribute('aria-label', label);
+			button.dataset.mode = this.#tip_mode;
+			// 左: Host単位（見出し＋インデント行）/ 右: 時系列（時刻順の平坦な行）を示すアイコン。
+			button.innerHTML = by_host
+				? '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor">' +
+					'<rect x="1" y="2" width="8" height="2"/><rect x="4" y="6" width="11" height="2"/>' +
+					'<rect x="1" y="10" width="8" height="2"/><rect x="4" y="14" width="11" height="1.5"/></g></svg>'
+				: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor">' +
+					'<rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="14" height="2"/>' +
+					'<rect x="1" y="12" width="14" height="2"/></g></svg>';
+		};
+
+		button.addEventListener('click', () => {
+			this.#tip_mode = this.#tip_mode === 'host' ? 'time' : 'host';
+			update();
+		});
+
+		update();
+
+		return button;
 	}
 
 	// Event取得上限に達した場合、グラフは実際より少ない件数を示す。目立つ警告を常時表示する。
@@ -199,15 +247,22 @@ class CWidgetEventTimeline extends CWidget {
 				stack: 'severity',
 				barCategoryGap: '20%',
 				itemStyle: {color: s.color},
-				emphasis: {focus: 'none'},
+				// Hover中のSeverity領域だけを枠線で強調する（他Severityは消さない）。
+				emphasis: {focus: 'none', itemStyle: {borderColor: colors.text, borderWidth: 2}},
 				data: buckets.map(b => b.counts[s.id])
 			}));
+
+		// Y軸の下端は常に0。「Y軸最小値」は最大値として最低限確保するスケールで、データがそれを超える場合は
+		// 固定せず自動スケール（データを切り捨てない）。
+		const data_max = Math.max(0, ...buckets.map(b => enabled.reduce((sum, s) => sum + b.counts[s.id], 0)));
+		const y_min_scale = data.style.y_axis_min;
 
 		return {
 			animation: false,
 			backgroundColor: 'transparent',
 			textStyle: {color: colors.text},
-			grid: {left: 8, right: 16, top: 28, bottom: 8, containLabel: true},
+			grid: {left: 8, right: 16, top: 28, bottom: 8 + this.#periodRows(data).length * CWidgetEventTimeline.ROW_HEIGHT,
+				containLabel: true},
 			xAxis: {
 				type: 'category',
 				data: buckets.map(b => b.start),
@@ -220,6 +275,7 @@ class CWidgetEventTimeline extends CWidget {
 				name: t('Event count'),
 				nameTextStyle: {color: colors.text, align: 'left'},
 				min: 0,
+				max: y_min_scale > 0 && data_max <= y_min_scale ? y_min_scale : undefined,
 				minInterval: 1,
 				axisLine: {show: true, lineStyle: {color: colors.line}},
 				axisTick: {show: true, lineStyle: {color: colors.line}},
@@ -238,37 +294,21 @@ class CWidgetEventTimeline extends CWidget {
 		};
 	}
 
+	static ROW_HEIGHT = 18;
+
 	/**
 	 * X軸ラベル。ラベルを表示するTickは幅から求めた一定間隔（step）で決め、ECharts任せの間引きは使わない。
-	 * こうして「実際に表示されるTick」が確定するので、各ラベルは直前に表示されたTick（index - step）と
-	 * 比較し、変化した要素（時間 → 月日 → 年の階層）だけを追加する。先頭Tickは全要素を表示する。
+	 * Tickには最小の単位（分・時Bucketは時刻、日・週・月Bucketは日付/月）だけを出し、
+	 * それより上位の階層（月日・年）は下部の期間線（#periodGraphic）で示す。
 	 */
 	#axisLabelOption(data) {
 		const buckets = data.buckets;
 		const colors = this.#resolveColors(data.style);
 		const width = this.#chart ? this.#chart.getWidth() : 0;
 
-		const lines = (b, prev) => {
-			const a = b.axis;
-			const out = [];
+		const text = b => b.axis.time ?? b.axis.date;
 
-			if (a.time !== null) {
-				out.push(a.time);
-			}
-
-			if (!prev || prev.axis.key !== a.key) {
-				out.push(a.date);
-			}
-
-			if (!prev || prev.axis.year !== a.year) {
-				out.push(a.year);
-			}
-
-			return out;
-		};
-
-		// 全Tickを表示したと仮定した最大ラベル幅（全要素を含む最悪ケース）から間引き間隔を決める。
-		const label_width = Math.max(...buckets.map(b => Math.max(...lines(b, null).map(l => l.length)))) * 7 + 16;
+		const label_width = Math.max(...buckets.map(b => text(b).length)) * 7 + 16;
 		const plot_width = Math.max(width - 48, 1);
 		const step = Math.max(1, Math.ceil(label_width * buckets.length / plot_width));
 
@@ -277,12 +317,79 @@ class CWidgetEventTimeline extends CWidget {
 			hideOverlap: false,
 			interval: step - 1,
 			lineHeight: 14,
-			formatter: (value, index) => {
-				const prev = index >= step ? buckets[index - step] : null;
-
-				return lines(buckets[index], prev).join('\n');
-			}
+			formatter: (value, index) => text(buckets[index])
 		};
+	}
+
+	/**
+	 * X軸下部に並べる期間線の行。上から、時刻Bucketでは 月日 → 年、日・週・月Bucketでは 年。
+	 * 長期間表示向けに月などの階層を足せるよう、行は配列で表す。
+	 */
+	#periodRows(data) {
+		const sub_day = data.interval.unit === 'minute' || data.interval.unit === 'hour';
+		const rows = [];
+
+		if (sub_day) {
+			rows.push({key: b => b.axis.key, text: b => b.axis.date});
+		}
+
+		rows.push({key: b => b.axis.year, text: b => b.axis.year});
+
+		return rows;
+	}
+
+	/**
+	 * 期間線（グラフ内部へは延ばさず、X軸下部のみ）。値が同じ連続Bucketを1本の線にまとめ、境界で分割する。
+	 * 位置はグリッド領域とBucket添字から求める（タイムゾーン変換はサーバー側で済んでいる）。
+	 */
+	#periodGraphic(data) {
+		const colors = this.#resolveColors(data.style);
+		const rows = this.#periodRows(data);
+		const H = CWidgetEventTimeline.ROW_HEIGHT;
+		const n = data.buckets.length;
+		const rect = this.#chart.getModel().getComponent('grid', 0).coordinateSystem.getRect();
+		const band = rect.width / n;
+		const top = this.#chart.getHeight() - 8 - rows.length * H;
+		const elements = [];
+
+		rows.forEach((row, r) => {
+			const y = top + r * H;
+			let from = 0;
+
+			for (let i = 1; i <= n; i++) {
+				if (i < n && row.key(data.buckets[i]) === row.key(data.buckets[from])) {
+					continue;
+				}
+
+				const x1 = rect.x + from * band;
+				const x2 = rect.x + i * band;
+				const label = String(row.text(data.buckets[from]));
+				const line = {stroke: colors.line, lineWidth: 1};
+
+				elements.push(
+					{type: 'line', silent: true, z: 100, shape: {x1, y1: y + 2, x2, y2: y + 2}, style: line},
+					// 区間の境界（先頭・末尾を含む）に短い縦線を付ける。
+					{type: 'line', silent: true, z: 100, shape: {x1, y1: y + 2, x2: x1, y2: y + 8}, style: line},
+					{type: 'line', silent: true, z: 100, shape: {x1: x2, y1: y + 2, x2, y2: y + 8}, style: line}
+				);
+
+				// 区間が狭くラベルが入りきらない場合は、ラベルだけ省略する（線は残す）。
+				if (x2 - x1 >= label.length * 7 + 8) {
+					elements.push({
+						type: 'text', silent: true, z: 100,
+						x: (x1 + x2) / 2, y: y + 5,
+						style: {
+							text: label, fill: colors.text, font: '12px sans-serif',
+							textAlign: 'center', textVerticalAlign: 'top'
+						}
+					});
+				}
+
+				from = i;
+			}
+		});
+
+		return {elements};
 	}
 
 	/**
@@ -308,25 +415,36 @@ class CWidgetEventTimeline extends CWidget {
 
 		const events = bucket.details[severity.id] ?? [];
 
-		// Host単位にまとめる。複数Hostに関連するEventは関連Hostすべての下に表示する（件数は増やさない）。
-		const groups = new Map();
+		if (this.#tip_mode === 'time') {
+			// 時系列: Hostでまとめず発生時刻順（サーバーが時刻昇順で返す）。複数Host関連Eventは1行にHostを併記。
+			for (const e of events) {
+				const hosts = e.hosts.length ? e.hosts.join(', ') : t('Unknown host');
 
-		for (const e of events) {
-			for (const host of (e.hosts.length ? e.hosts : [t('Unknown host')])) {
-				if (!groups.has(host)) {
-					groups.set(host, []);
-				}
-
-				groups.get(host).push(e);
+				html += `<div class="et-tip-event et-tip-flat"><span class="et-tip-time">${esc(e.time)}</span>` +
+					`<span class="et-tip-hostname">${esc(hosts)}</span><span class="et-tip-name">${esc(e.name)}</span></div>`;
 			}
 		}
+		else {
+			// Host単位: Hostは A-Z 順、Host内は発生時刻順。複数Host関連Eventは関連Hostすべての下に表示（件数は増やさない）。
+			const groups = new Map();
 
-		for (const [host, list] of groups) {
-			html += `<div class="et-tip-host">${esc(host)}</div>`;
+			for (const e of events) {
+				for (const host of (e.hosts.length ? e.hosts : [t('Unknown host')])) {
+					if (!groups.has(host)) {
+						groups.set(host, []);
+					}
 
-			for (const e of list) {
-				html += `<div class="et-tip-event"><span class="et-tip-time">${esc(e.time)}</span>` +
-					`<span class="et-tip-name">${esc(e.name)}</span></div>`;
+					groups.get(host).push(e);
+				}
+			}
+
+			for (const host of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+				html += `<div class="et-tip-host">${esc(host)}</div>`;
+
+				for (const e of groups.get(host)) {
+					html += `<div class="et-tip-event"><span class="et-tip-time">${esc(e.time)}</span>` +
+						`<span class="et-tip-name">${esc(e.name)}</span></div>`;
+				}
 			}
 		}
 

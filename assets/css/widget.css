@@ -117,3 +117,36 @@
 	margin-top: 4px;
 	opacity: 0.8;
 }
+
+.et-controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.et-tipmode {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 4px;
+	border: 1px solid transparent;
+	border-radius: 2px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	opacity: 0.75;
+}
+
+.et-tipmode:hover,
+.et-tipmode:focus-visible {
+	opacity: 1;
+	border-color: currentColor;
+}
+
+.et-tip-flat .et-tip-hostname {
+	flex-shrink: 0;
+	font-weight: bold;
+}
+
+.et-tip-flat {
+	padding-left: 0;
+}

@@ -18,6 +18,9 @@ window.widget_event_timeline_form = new class {
 				appendTo: '.overlay-dialogue-body',
 				use_default: true
 			});
+
+			// 空（= Auto、Zabbixテーマに追従）であることを入力欄に明示する。
+			colorpicker.setAttribute('placeholder', <?= json_encode(_et('Auto')) ?>);
 		}
 	}
 };

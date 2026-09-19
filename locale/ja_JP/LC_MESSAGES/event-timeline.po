@@ -93,3 +93,15 @@ msgstr "ほか %1$s イベント"
 
 msgid "Unknown host"
 msgstr "不明なホスト"
+
+msgid "Y-axis minimum"
+msgstr "Y軸最小値"
+
+msgid "Auto"
+msgstr "自動"
+
+msgid "Tooltip details: grouped by host (click to sort chronologically)"
+msgstr "Tooltip詳細: Host単位（クリックで時系列に切替）"
+
+msgid "Tooltip details: chronological (click to group by host)"
+msgstr "Tooltip詳細: 時系列（クリックでHost単位に切替）"

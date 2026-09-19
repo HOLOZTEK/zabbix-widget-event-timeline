@@ -93,3 +93,15 @@ msgstr ""
 
 msgid "Unknown host"
 msgstr ""
+
+msgid "Y-axis minimum"
+msgstr ""
+
+msgid "Auto"
+msgstr ""
+
+msgid "Tooltip details: grouped by host (click to sort chronologically)"
+msgstr ""
+
+msgid "Tooltip details: chronological (click to group by host)"
+msgstr ""

@@ -27,6 +27,9 @@
 				new CWidgetFieldIntegerBoxView($data['fields']['graph_height'])
 			)
 			->addField(
+				new CWidgetFieldIntegerBoxView($data['fields']['y_axis_min'])
+			)
+			->addField(
 				new CWidgetFieldColorView($data['fields']['line_color'])
 			)
 			->addField(
