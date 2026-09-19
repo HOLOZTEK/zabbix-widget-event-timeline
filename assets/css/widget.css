@@ -1,5 +1,9 @@
-/* _contents に flex column を設定（_body は display:contents のため toolbar/chart が直接の flex 子になる） */
-.dashboard-widget-event-timeline {
+/*
+ * _contents に flex column を設定（_body は display:contents のため toolbar/chart が直接の flex 子になる）。
+ * 設定モーダルの <form> にも同じ dashboard-widget-<id> クラスが付くため、form には適用しない
+ * （適用すると form-grid が崩れ、外観セクションのColor入力がはみ出して横スクロールが出る）。
+ */
+.dashboard-widget-event-timeline:not(form) {
 	display: flex;
 	flex-direction: column;
 	overflow: auto;
@@ -79,4 +83,37 @@
 	height: 9px;
 	margin-right: 6px;
 	border-radius: 50%;
+}
+
+.et-tip {
+	max-width: 420px;
+}
+
+.et-tip-host {
+	margin-top: 6px;
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.et-tip-event {
+	display: flex;
+	gap: 8px;
+	padding-left: 12px;
+}
+
+.et-tip-time {
+	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.8;
+}
+
+.et-tip-name {
+	min-width: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.et-tip-more {
+	margin-top: 4px;
+	opacity: 0.8;
 }

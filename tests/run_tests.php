@@ -215,5 +215,20 @@ check('axis parts day', TimeFormatter::axisParts(ts('2026-09-19 00:00:00', $jst)
 check('axis parts week', TimeFormatter::axisParts(ts('2026-09-14 00:00:00', $jst), 'week', $jst)['time'], null);
 check('axis parts month', TimeFormatter::axisParts(ts('2026-09-01 00:00:00', $jst), 'month', $jst), ['time' => null, 'date' => '09', 'year' => '2026', 'key' => '202609']);
 
+// pickDetails: Bucket×Severityごとに古い順で最大N件。集計値(aggregate)には影響しない。
+$pd = [];
+for ($i = 0; $i < 15; $i++) {
+	$pd[] = ['eventid' => (string) (100 + $i), 'clock' => 1000 + (14 - $i), 'severity' => 3];
+}
+$pd[] = ['eventid' => '200', 'clock' => 1500, 'severity' => 5];
+$pd[] = ['eventid' => '201', 'clock' => 6000, 'severity' => 3];
+$picked = Aggregator::pickDetails($pd, [0, 5000], 10);
+check('pickDetails limit 10', count($picked[0][3]), 10);
+check('pickDetails oldest first', $picked[0][3][0]['clock'], 1000);
+check('pickDetails per severity', count($picked[0][5]), 1);
+check('pickDetails out of range skipped', count($picked), 1);
+$agg = Aggregator::aggregate($pd, [0, 5000]);
+check('aggregate unaffected by details', [$agg[0]['average'], $agg[0]['disaster'], $agg[0]['total']], [15, 1, 16]);
+
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

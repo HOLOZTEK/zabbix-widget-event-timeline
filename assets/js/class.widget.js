@@ -191,8 +191,8 @@ class CWidgetEventTimeline extends CWidget {
 		const buckets = data.buckets;
 
 		// 積み上げ順は Severity 値の昇順（Not classified が最下段、Disaster が最上段）。
-		const series = data.severities
-			.filter(s => s.enabled)
+		const enabled = data.severities.filter(s => s.enabled);
+		const series = enabled
 			.map(s => ({
 				name: s.name,
 				type: 'bar',
@@ -210,9 +210,6 @@ class CWidgetEventTimeline extends CWidget {
 			grid: {left: 8, right: 16, top: 28, bottom: 8, containLabel: true},
 			xAxis: {
 				type: 'category',
-				name: t('Time'),
-				nameLocation: 'end',
-				nameTextStyle: {color: colors.text, align: 'right', verticalAlign: 'top', padding: [22, 0, 0, 0]},
 				data: buckets.map(b => b.start),
 				axisLine: {lineStyle: {color: colors.line}},
 				axisTick: {alignWithLabel: true, lineStyle: {color: colors.line}},
@@ -230,13 +227,12 @@ class CWidgetEventTimeline extends CWidget {
 				splitLine: {lineStyle: {color: colors.line, opacity: 0.6}}
 			},
 			tooltip: {
-				trigger: 'axis',
-				axisPointer: {type: 'shadow', shadowStyle: {color: colors.line, opacity: 0.25}},
+				trigger: 'item',
 				confine: true,
 				backgroundColor: colors.background,
 				borderColor: colors.line,
 				textStyle: {color: colors.text},
-				formatter: params => this.#tooltipHtml(data, params)
+				formatter: params => this.#tooltipHtml(data, params, enabled)
 			},
 			series
 		};
@@ -289,27 +285,53 @@ class CWidgetEventTimeline extends CWidget {
 		};
 	}
 
-	#tooltipHtml(data, params) {
-		const index = Array.isArray(params) ? params[0]?.dataIndex : params?.dataIndex;
-		const bucket = data.buckets[index];
+	/**
+	 * Hoverしているスタック部分（Severity）のEventだけを詳細に表示する。
+	 * Total は Bucket 全体、Severity件数は集計値（詳細一覧の上限で切らない）。
+	 */
+	#tooltipHtml(data, params, enabled) {
+		const p = Array.isArray(params) ? params[0] : params;
+		const bucket = data.buckets[p?.dataIndex];
+		const severity = enabled[p?.seriesIndex];
 
-		if (!bucket) {
+		if (!bucket || !severity) {
 			return '';
 		}
 
 		const esc = CWidgetEventTimeline.#escape;
+		const count = bucket.counts[severity.id];
 
 		let html = `<div class="et-tip"><div class="et-tip-range">${esc(bucket.range)}</div>` +
-			`<div class="et-tip-total"><b>${esc(t('Total'))}: ${bucket.total}</b></div>`;
+			`<div class="et-tip-total"><b>${esc(t('Total'))}: ${bucket.total}</b></div>` +
+			`<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
+			`${esc(severity.name)}: ${count}</div>`;
 
-		// 上に積まれている（重要度の高い）Severity から順に表示する。0件のSeverityは省略する。
-		for (const s of [...data.severities].reverse()) {
-			const count = bucket.counts[s.id];
+		const events = bucket.details[severity.id] ?? [];
 
-			if (s.enabled && count > 0) {
-				html += `<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(s.color)}"></span>` +
-					`${esc(s.name)}: ${count}</div>`;
+		// Host単位にまとめる。複数Hostに関連するEventは関連Hostすべての下に表示する（件数は増やさない）。
+		const groups = new Map();
+
+		for (const e of events) {
+			for (const host of (e.hosts.length ? e.hosts : [t('Unknown host')])) {
+				if (!groups.has(host)) {
+					groups.set(host, []);
+				}
+
+				groups.get(host).push(e);
 			}
+		}
+
+		for (const [host, list] of groups) {
+			html += `<div class="et-tip-host">${esc(host)}</div>`;
+
+			for (const e of list) {
+				html += `<div class="et-tip-event"><span class="et-tip-time">${esc(e.time)}</span>` +
+					`<span class="et-tip-name">${esc(e.name)}</span></div>`;
+			}
+		}
+
+		if (count > events.length) {
+			html += `<div class="et-tip-more">${esc(sprintf(t('And %1$s more events'), count - events.length))}</div>`;
 		}
 
 		return html + '</div>';

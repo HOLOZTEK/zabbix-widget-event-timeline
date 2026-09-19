@@ -87,3 +87,9 @@ msgstr "7日（週は月曜開始）"
 
 msgid "1 month"
 msgstr "1か月"
+
+msgid "And %1$s more events"
+msgstr "ほか %1$s イベント"
+
+msgid "Unknown host"
+msgstr "不明なホスト"

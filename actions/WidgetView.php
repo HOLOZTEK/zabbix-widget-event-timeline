@@ -22,6 +22,9 @@ use Modules\EventTimeline\Includes\{
  */
 class WidgetView extends CControllerDashboardWidgetView {
 
+	// Tooltipの詳細一覧に載せる最大Event数（Bucket × Severity あたり）。
+	private const DETAIL_LIMIT = 10;
+
 	protected function doAction(): void {
 		$fields = $this->fields_values;
 
@@ -78,9 +81,20 @@ class WidgetView extends CControllerDashboardWidgetView {
 		// 4. Aggregation
 		$rows = Aggregator::aggregate($events, $plan['bounds']);
 
+		// Tooltip詳細（集計とは独立。取得に失敗しても集計・描画は継続する）。
+		$picked = Aggregator::pickDetails($events, $plan['bounds'], self::DETAIL_LIMIT);
+		$event_details = $picked
+			? EventFetcher::fetchDetails(array_merge(...array_map(
+				static fn(array $by_sev): array => array_merge(...array_values(array_map(
+					static fn(array $list): array => array_column($list, 'eventid'), $by_sev
+				))),
+				$picked
+			)))
+			: [];
+
 		$this->setResponse(new CControllerResponseData([
 			'name' => $this->getInput('name', $this->widget->getDefaultName()),
-			'chart_data' => $this->buildChartData($rows, $plan, $tz, $severities, $fields, [
+			'chart_data' => $this->buildChartData($rows, $plan, $tz, $severities, $fields, $picked, $event_details ?? [], [
 				'total' => count($events),
 				'truncated' => $truncated,
 				'covered_from' => $covered_from !== null
@@ -94,21 +108,51 @@ class WidgetView extends CControllerDashboardWidgetView {
 	}
 
 	/**
+	 * Tooltip詳細。Severityごとに [time, name, hosts] の一覧を返す（時刻は表示用に整形済み）。
+	 * Bucketが複数日にまたがる場合は日付付き（MM/DD HH:mm）、同一日内なら HH:mm。
+	 */
+	private function buildDetails(array $by_severity, array $event_details, array $row, string $unit,
+			DateTimeZone $tz): object {
+		$start = (new \DateTimeImmutable('@'.$row['bucket_start']))->setTimezone($tz);
+		$last = (new \DateTimeImmutable('@'.($row['bucket_end'] - 1)))->setTimezone($tz);
+		$multi_day = $start->format('Ymd') !== $last->format('Ymd');
+		$format = $multi_day ? 'm/d H:i' : 'H:i';
+
+		$details = [];
+
+		foreach ($by_severity as $severity => $list) {
+			foreach ($list as $e) {
+				$d = $event_details[$e['eventid']] ?? ['name' => '', 'hosts' => []];
+
+				$details[$severity][] = [
+					'time' => (new \DateTimeImmutable('@'.$e['clock']))->setTimezone($tz)->format($format),
+					'name' => $d['name'],
+					'hosts' => $d['hosts']
+				];
+			}
+		}
+
+		return (object) $details;
+	}
+
+	/**
 	 * 描画用データ。Event配列ではなくBucket集計行と表示文字列だけを含む。
 	 */
 	private function buildChartData(array $rows, array $plan, DateTimeZone $tz, array $severities, array $fields,
-			array $meta): array {
+			array $picked, array $event_details, array $meta): array {
 		$unit = $plan['interval']['unit'];
 		$bounds = $plan['bounds'];
 
 		$buckets = [];
 
-		foreach ($rows as $row) {
+		foreach ($rows as $i => $row) {
 			$counts = [];
 
 			foreach (Aggregator::SEVERITIES as $severity) {
 				$counts[] = $row[Aggregator::SEVERITY_KEYS[$severity]];
 			}
+
+			$details = $this->buildDetails($picked[$i] ?? [], $event_details, $row, $unit, $tz);
 
 			$buckets[] = [
 				'start' => $row['bucket_start'],
@@ -116,6 +160,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'axis' => TimeFormatter::axisParts($row['bucket_start'], $unit, $tz),
 				'range' => TimeFormatter::rangeLabel($row['bucket_start'], $row['bucket_end'], $unit, $tz),
 				'counts' => $counts,
+				'details' => $details,
 				'total' => $row['total']
 			];
 		}
