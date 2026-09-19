@@ -184,6 +184,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'severities' => $severity_defs,
 			'interval' => [
 				'key' => $plan['interval']['key'],
+				'unit' => $plan['interval']['unit'],
 				'label' => self::intervalLabel($plan['interval']['key'])
 			],
 			'timezone' => $tz->getName(),
@@ -195,6 +196,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'style' => [
 				'graph_height' => max(WidgetForm::GRAPH_HEIGHT_MIN,
 					min(WidgetForm::GRAPH_HEIGHT_MAX, (int) ($fields['graph_height'] ?? WidgetForm::GRAPH_HEIGHT_DEFAULT))
+				),
+				'y_axis_min' => max(0,
+					min(WidgetForm::Y_AXIS_MIN_MAX, (int) ($fields['y_axis_min'] ?? 0))
 				),
 				'line_color' => self::color($fields['line_color'] ?? ''),
 				'text_color' => self::color($fields['text_color'] ?? '')

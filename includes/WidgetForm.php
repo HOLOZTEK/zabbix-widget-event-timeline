@@ -23,6 +23,7 @@ class WidgetForm extends CWidgetForm {
 
 	public const GRAPH_HEIGHT_MIN     = 100;
 	public const GRAPH_HEIGHT_MAX     = 2000;
+	public const Y_AXIS_MIN_MAX = 1000000000;
 	public const GRAPH_HEIGHT_DEFAULT = 300;
 
 	public const MAX_EVENTS_MIN     = 1000;
@@ -62,6 +63,11 @@ class WidgetForm extends CWidgetForm {
 				(new CWidgetFieldIntegerBox('graph_height', _et('Graph height'),
 					self::GRAPH_HEIGHT_MIN, self::GRAPH_HEIGHT_MAX
 				))->setDefault(self::GRAPH_HEIGHT_DEFAULT)
+			)
+			// 0 / 空 = Auto。Y軸の下端は常に0で、これは最大値として最低限確保するスケール（固定最大値ではない）。
+			->addField(
+				(new CWidgetFieldIntegerBox('y_axis_min', _et('Y-axis minimum'), 0, self::Y_AXIS_MIN_MAX))
+					->setDefault(0)
 			)
 			// 空 = 使用中のZabbixテーマに追従（固定の黒・白を使わない）。
 			->addField(

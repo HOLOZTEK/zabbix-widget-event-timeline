@@ -27,6 +27,10 @@ class Widget extends CWidget {
 					=> _et('No target hosts.'),
 				'Failed to retrieve events.'
 					=> _et('Failed to retrieve events.'),
+				'Tooltip details: grouped by host (click to sort chronologically)'
+					=> _et('Tooltip details: grouped by host (click to sort chronologically)'),
+				'Tooltip details: chronological (click to group by host)'
+					=> _et('Tooltip details: chronological (click to group by host)'),
 				'And %1$s more events'
 					=> _et('And %1$s more events'),
 				'Unknown host'

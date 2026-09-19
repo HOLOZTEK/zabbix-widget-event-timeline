@@ -117,3 +117,71 @@
 	margin-top: 4px;
 	opacity: 0.8;
 }
+
+.et-controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.et-tipmode {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 4px;
+	border: 1px solid transparent;
+	border-radius: 2px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	opacity: 0.75;
+}
+
+.et-tipmode:hover,
+.et-tipmode:focus-visible {
+	opacity: 1;
+	border-color: currentColor;
+}
+
+.et-tip-flat .et-tip-hostname {
+	flex-shrink: 0;
+	font-weight: bold;
+}
+
+.et-tip-flat {
+	padding-left: 0;
+}
+
+/* 設定画面: 色設定（自動 / Hex入力 / Reset）。モーダル幅に収まるよう折り返す。 */
+.et-color-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 10px;
+	margin-top: 4px;
+	max-width: 100%;
+}
+
+.et-color-controls .et-color-hex {
+	width: 90px;
+	min-width: 0;
+}
+
+.et-color-controls .et-color-invalid {
+	border-color: #e45959;
+}
+
+.et-color-controls .et-color-error {
+	flex-basis: 100%;
+	color: #e45959;
+	font-size: 12px;
+}
+
+.et-color-controls .et-color-reset {
+	min-width: 32px;
+	padding: 0 8px;
+}
+
+.et-color-controls .color-picker {
+	display: inline-block;
+	margin: 0;
+}
