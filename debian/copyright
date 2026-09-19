@@ -1,0 +1,11 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: zabbix-widget-event-timeline
+
+Files: *
+Copyright: 2026
+License: Proprietary
+
+License: Proprietary
+ This software is proprietary. Redistribution without permission is
+ prohibited. This package bundles Apache ECharts (Apache License 2.0);
+ see NOTICE and THIRD_PARTY_NOTICES.md for details.

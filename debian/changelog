@@ -1,0 +1,12 @@
+zabbix-widget-event-timeline (0.1.0) unstable; urgency=medium
+
+  * Initial release. Stacked bar chart of problem events per time bucket by
+    severity, for selected hosts / host groups.
+  * Automatic bucket width (up to 100 buckets, calendar aligned in the user's
+    time zone, weeks start on Monday).
+  * Tooltip with per-severity event details (host-grouped or chronological),
+    hover emphasis, X axis period lines, Y axis minimum scale, and line/text
+    colors (Auto follows the Zabbix theme; custom via picker or hex input).
+  * Japanese and English locale support.
+
+ -- claude <noreply@example.com>  Sat, 19 Sep 2026 00:00:00 +0000
