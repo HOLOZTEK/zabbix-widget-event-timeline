@@ -1,0 +1,4 @@
+*.tgz
+*.rpm
+*.deb
+*.mo.tmp

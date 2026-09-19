@@ -1,0 +1,22 @@
+{
+	"manifest_version": 2.0,
+	"id": "event-timeline",
+	"type": "widget",
+	"name": "Event Timeline",
+	"namespace": "EventTimeline",
+	"version": "0.1.0",
+	"widget": {
+		"size": {"width": 12, "height": 5},
+		"js_class": "CWidgetEventTimeline",
+		"in": {
+			"time_period": {"type": "_timeperiod"}
+		}
+	},
+	"actions": {
+		"widget.event-timeline.view": {"class": "WidgetView"}
+	},
+	"assets": {
+		"js": ["echarts.min.js", "class.widget.js"],
+		"css": ["widget.css"]
+	}
+}
