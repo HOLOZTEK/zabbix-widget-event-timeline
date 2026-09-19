@@ -24,6 +24,42 @@ window.widget_event_timeline_form = new class {
 		}
 	}
 
+	/**
+	 * 現在のテーマでの「自動」の見た目に相当する色（RRGGBB）。線と文字で別の色になる。
+	 * 文字 = 本文色、線 = 本文色を背景へ35%重ねた色（グラフの自動色と同じ考え方）。
+	 */
+	_defaultColor(name) {
+		const rgb = value => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+		const hex = c => c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+
+		const fg = rgb(getComputedStyle(this._form).color);
+
+		if (fg.length < 3) {
+			return null;
+		}
+
+		if (name.includes('text_color')) {
+			return hex(fg);
+		}
+
+		let bg = [255, 255, 255];
+
+		for (let el = this._form; el; el = el.parentElement) {
+			const m = getComputedStyle(el).backgroundColor.match(/rgba?\(([^)]+)\)/);
+
+			if (m) {
+				const parts = m[1].split(',').map(Number);
+
+				if (parts.length < 4 || parts[3] > 0) {
+					bg = parts.slice(0, 3);
+					break;
+				}
+			}
+		}
+
+		return hex(fg.map((v, i) => v * 0.35 + bg[i] * 0.65));
+	}
+
 	_enhance(hidden) {
 		const HEX = /^#?([0-9a-fA-F]{6})$/;
 		const DEFAULT_CUSTOM = '888888';
@@ -94,9 +130,9 @@ window.widget_event_timeline_form = new class {
 		});
 
 		reset.addEventListener('click', () => {
-			// 色指定だけを初期色へ戻す。自動/カスタムの切替（「自動」チェック）は変更しない。
-			last_custom = DEFAULT_CUSTOM;
-			commit(DEFAULT_CUSTOM);
+			// 色指定だけを、現在のテーマでの自動色に相当する色（線・文字で別々）へ戻す。自動/カスタムの切替（「自動」チェック）は変更しない。
+			last_custom = this._defaultColor(hidden.name) ?? DEFAULT_CUSTOM;
+			commit(last_custom);
 		});
 
 		hex.addEventListener('input', () => {
