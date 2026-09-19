@@ -33,4 +33,6 @@
 				new CWidgetFieldColorView($data['fields']['text_color'])
 			)
 	)
+	->includeJsFile('widget.edit.js.php')
+	->addJavaScript('widget_event_timeline_form.init();')
 	->show();
