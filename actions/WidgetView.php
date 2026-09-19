@@ -101,8 +101,6 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$unit = $plan['interval']['unit'];
 		$bounds = $plan['bounds'];
 
-		[$multi_day, $multi_year] = TimeFormatter::spans($bounds[0], $bounds[count($bounds) - 2], $tz);
-
 		$buckets = [];
 
 		foreach ($rows as $row) {
@@ -115,7 +113,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			$buckets[] = [
 				'start' => $row['bucket_start'],
 				'end' => $row['bucket_end'],
-				'axis' => TimeFormatter::axisLabel($row['bucket_start'], $unit, $multi_day, $multi_year, $tz),
+				'axis' => TimeFormatter::axisParts($row['bucket_start'], $unit, $tz),
 				'range' => TimeFormatter::rangeLabel($row['bucket_start'], $row['bucket_end'], $unit, $tz),
 				'counts' => $counts,
 				'total' => $row['total']

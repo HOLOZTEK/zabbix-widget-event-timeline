@@ -11,7 +11,13 @@ class CWidgetEventTimeline extends CWidget {
 
 	onResize() {
 		if (this.#chart) {
-			requestAnimationFrame(() => this.#chart && this.#chart.resize());
+			requestAnimationFrame(() => {
+				if (this.#chart) {
+					this.#chart.resize();
+					// 表示されるTickは幅で変わるため、X軸ラベルの間引きと変化分判定をやり直す。
+					this.#chart.setOption({xAxis: {axisLabel: this.#axisLabelOption(this.#data)}});
+				}
+			});
 		}
 	}
 
@@ -97,6 +103,7 @@ class CWidgetEventTimeline extends CWidget {
 		this._body.appendChild(holder);
 
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
+		this.#data = data;
 		this.#chart.setOption(this.#buildOption(data));
 	}
 
@@ -206,10 +213,10 @@ class CWidgetEventTimeline extends CWidget {
 				name: t('Time'),
 				nameLocation: 'end',
 				nameTextStyle: {color: colors.text, align: 'right', verticalAlign: 'top', padding: [22, 0, 0, 0]},
-				data: buckets.map(b => b.axis),
+				data: buckets.map(b => b.start),
 				axisLine: {lineStyle: {color: colors.line}},
 				axisTick: {alignWithLabel: true, lineStyle: {color: colors.line}},
-				axisLabel: {color: colors.text, hideOverlap: true, interval: 'auto', lineHeight: 14}
+				axisLabel: this.#axisLabelOption(data)
 			},
 			yAxis: {
 				type: 'value',
@@ -232,6 +239,53 @@ class CWidgetEventTimeline extends CWidget {
 				formatter: params => this.#tooltipHtml(data, params)
 			},
 			series
+		};
+	}
+
+	/**
+	 * X軸ラベル。ラベルを表示するTickは幅から求めた一定間隔（step）で決め、ECharts任せの間引きは使わない。
+	 * こうして「実際に表示されるTick」が確定するので、各ラベルは直前に表示されたTick（index - step）と
+	 * 比較し、変化した要素（時間 → 月日 → 年の階層）だけを追加する。先頭Tickは全要素を表示する。
+	 */
+	#axisLabelOption(data) {
+		const buckets = data.buckets;
+		const colors = this.#resolveColors(data.style);
+		const width = this.#chart ? this.#chart.getWidth() : 0;
+
+		const lines = (b, prev) => {
+			const a = b.axis;
+			const out = [];
+
+			if (a.time !== null) {
+				out.push(a.time);
+			}
+
+			if (!prev || prev.axis.key !== a.key) {
+				out.push(a.date);
+			}
+
+			if (!prev || prev.axis.year !== a.year) {
+				out.push(a.year);
+			}
+
+			return out;
+		};
+
+		// 全Tickを表示したと仮定した最大ラベル幅（全要素を含む最悪ケース）から間引き間隔を決める。
+		const label_width = Math.max(...buckets.map(b => Math.max(...lines(b, null).map(l => l.length)))) * 7 + 16;
+		const plot_width = Math.max(width - 48, 1);
+		const step = Math.max(1, Math.ceil(label_width * buckets.length / plot_width));
+
+		return {
+			color: colors.text,
+			hideOverlap: false,
+			interval: step - 1,
+			lineHeight: 14,
+			formatter: (value, index) => {
+				const prev = index >= step ? buckets[index - step] : null;
+
+				return lines(buckets[index], prev).join('\n');
+			}
 		};
 	}
 

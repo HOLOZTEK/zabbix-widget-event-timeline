@@ -210,10 +210,10 @@ check('range to 24:00', TimeFormatter::rangeLabel($s, $s + 43200, BucketPlanner:
 check('range day', TimeFormatter::rangeLabel(ts('2026-09-19 00:00:00', $jst), ts('2026-09-20 00:00:00', $jst), BucketPlanner::UNIT_DAY, $jst), '2026/09/19');
 check('range week', TimeFormatter::rangeLabel(ts('2026-09-14 00:00:00', $jst), ts('2026-09-21 00:00:00', $jst), BucketPlanner::UNIT_WEEK, $jst), '2026/09/14 - 2026/09/20');
 check('range month', TimeFormatter::rangeLabel(ts('2026-09-01 00:00:00', $jst), ts('2026-10-01 00:00:00', $jst), BucketPlanner::UNIT_MONTH, $jst), '2026/09');
-check('axis same-day', TimeFormatter::axisLabel(ts('2026-09-19 10:05:00', $jst), 'minute', false, false, $jst), '10:05');
-check('axis multi-day', TimeFormatter::axisLabel(ts('2026-09-19 10:00:00', $jst), 'hour', true, false, $jst), "09/19\n10:00");
-check('axis multi-year', TimeFormatter::axisLabel(ts('2026-09-19 10:00:00', $jst), 'hour', true, true, $jst), "2026/09/19\n10:00");
-check('axis month', TimeFormatter::axisLabel(ts('2026-09-01 00:00:00', $jst), 'month', true, false, $jst), '2026/09');
+check('axis parts hour', TimeFormatter::axisParts(ts('2026-09-19 10:05:00', $jst), 'minute', $jst), ['time' => '10:05', 'date' => '09/19', 'year' => '2026', 'key' => '20260919']);
+check('axis parts day', TimeFormatter::axisParts(ts('2026-09-19 00:00:00', $jst), 'day', $jst), ['time' => null, 'date' => '09/19', 'year' => '2026', 'key' => '20260919']);
+check('axis parts week', TimeFormatter::axisParts(ts('2026-09-14 00:00:00', $jst), 'week', $jst)['time'], null);
+check('axis parts month', TimeFormatter::axisParts(ts('2026-09-01 00:00:00', $jst), 'month', $jst), ['time' => null, 'date' => '09', 'year' => '2026', 'key' => '202609']);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

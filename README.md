@@ -15,6 +15,7 @@
   - Bucket境界とEvent所属は `start <= clock < end`
   - タイムゾーンはログインユーザーの実効TZ（Bucket境界・軸・Tooltipで共通）
 - **積み上げ棒グラフ**: Not classified → Disaster の順に下から積み上げ、Zabbix標準のSeverity色を使用
+- **X軸ラベル**: 時間 → 月日 → 年の階層で、前回表示したTickから変化した要素のみ追加表示（先頭Tickは全要素。日・週Bucketは時間行を省略、月Bucketは月と年）
 - **Tooltip**: 時間範囲、Total、Severity別件数
 - **取得上限**: 設定画面で変更可能（既定100,000件）。上限に達した場合はグラフ上部に警告を表示し、集計対象外となる期間を明示
 - **外観設定**: グラフ高さ、線の色、文字色（未設定時はZabbixテーマに追従。Light/Dark対応）
