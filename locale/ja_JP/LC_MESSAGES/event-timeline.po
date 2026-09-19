@@ -105,3 +105,12 @@ msgstr "Tooltip詳細: Host単位（クリックで時系列に切替）"
 
 msgid "Tooltip details: chronological (click to group by host)"
 msgstr "Tooltip詳細: 時系列（クリックでHost単位に切替）"
+
+msgid "Hex color"
+msgstr "16進カラーコード"
+
+msgid "Reset"
+msgstr "リセット"
+
+msgid "Enter a 6-digit hex color such as #FF0000."
+msgstr "#FF0000 のような6桁の16進カラーコードを入力してください。"
