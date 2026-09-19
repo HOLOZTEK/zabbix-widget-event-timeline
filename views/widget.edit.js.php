@@ -48,7 +48,9 @@ window.widget_event_timeline_form = new class {
 		const reset = document.createElement('button');
 		reset.type = 'button';
 		reset.className = 'btn-alt et-color-reset';
-		reset.textContent = <?= json_encode(_et('Reset')) ?>;
+		reset.textContent = '\u21B6';
+		reset.title = <?= json_encode(_et('Reset')) ?>;
+		reset.setAttribute('aria-label', <?= json_encode(_et('Reset')) ?>);
 
 		const error = document.createElement('span');
 		error.className = 'et-color-error';
@@ -132,8 +134,9 @@ window.widget_event_timeline_form = new class {
 
 		const wrap = document.createElement('div');
 		wrap.className = 'et-color-controls';
-		wrap.append(auto_label, hex, reset, error);
-		holder.after(wrap);
+		// 指示書の表示例どおり 1行: [自動] [色見本] [#RRGGBB] [↶]（狭い場合は折り返す）。
+		holder.before(wrap);
+		wrap.append(auto_label, holder, hex, reset, error);
 
 		show();
 	}

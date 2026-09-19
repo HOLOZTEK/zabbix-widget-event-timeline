@@ -175,3 +175,13 @@
 	color: #e45959;
 	font-size: 12px;
 }
+
+.et-color-controls .et-color-reset {
+	min-width: 32px;
+	padding: 0 8px;
+}
+
+.et-color-controls .color-picker {
+	display: inline-block;
+	margin: 0;
+}
