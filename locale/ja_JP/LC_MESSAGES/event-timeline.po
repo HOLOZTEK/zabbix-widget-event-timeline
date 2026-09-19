@@ -1,0 +1,89 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: event-timeline 0.1.0\n"
+"Language: ja_JP\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Event Timeline"
+msgstr "Event Timeline"
+
+msgid "Interval"
+msgstr "間隔"
+
+msgid "Total"
+msgstr "合計"
+
+msgid "Event count"
+msgstr "イベント件数"
+
+msgid "No events"
+msgstr "イベントなし"
+
+msgid "No target hosts."
+msgstr "対象ホストがありません。"
+
+msgid "Failed to retrieve events."
+msgstr "イベントの取得に失敗しました。"
+
+msgid "Time"
+msgstr "時間"
+
+msgid "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
+msgstr "不完全なデータ: イベント取得上限（%1$s件）に達しました。%2$s より前のイベントはこのグラフに集計されていません。"
+
+msgid "Maximum events to retrieve"
+msgstr "イベント取得上限数"
+
+msgid "Graph height"
+msgstr "グラフの高さ"
+
+msgid "Line color"
+msgstr "線の色"
+
+msgid "Text color"
+msgstr "文字の色"
+
+msgid "Appearance"
+msgstr "外観"
+
+msgid "1 minute"
+msgstr "1分"
+
+msgid "5 minutes"
+msgstr "5分"
+
+msgid "10 minutes"
+msgstr "10分"
+
+msgid "15 minutes"
+msgstr "15分"
+
+msgid "30 minutes"
+msgstr "30分"
+
+msgid "1 hour"
+msgstr "1時間"
+
+msgid "2 hours"
+msgstr "2時間"
+
+msgid "3 hours"
+msgstr "3時間"
+
+msgid "6 hours"
+msgstr "6時間"
+
+msgid "12 hours"
+msgstr "12時間"
+
+msgid "1 day"
+msgstr "1日"
+
+msgid "7 days (weeks start on Monday)"
+msgstr "7日（週は月曜開始）"
+
+msgid "1 month"
+msgstr "1か月"

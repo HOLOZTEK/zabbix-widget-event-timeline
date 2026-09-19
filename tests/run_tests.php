@@ -1,0 +1,219 @@
+<?php declare(strict_types = 0);
+
+/**
+ * 依存なしの単体テスト。実行: php tests/run_tests.php
+ * Zabbix / API には依存しない（BucketPlanner / Aggregator / TimeFormatter / SourceResolver::mergeUnique）。
+ */
+
+require_once __DIR__.'/../includes/BucketPlanner.php';
+require_once __DIR__.'/../includes/Aggregator.php';
+require_once __DIR__.'/../includes/TimeFormatter.php';
+require_once __DIR__.'/../includes/SourceResolver.php';
+
+use Modules\EventTimeline\Includes\Aggregator;
+use Modules\EventTimeline\Includes\BucketPlanner;
+use Modules\EventTimeline\Includes\SourceResolver;
+use Modules\EventTimeline\Includes\TimeFormatter;
+
+$pass = 0;
+$fail = 0;
+
+function check(string $name, $actual, $expected): void {
+	global $pass, $fail;
+
+	if ($actual === $expected) {
+		$pass++;
+		return;
+	}
+
+	$fail++;
+	echo "FAIL: $name\n  expected: ".json_encode($expected)."\n  actual:   ".json_encode($actual)."\n";
+}
+
+function ts(string $s, DateTimeZone $tz): int {
+	return (new DateTimeImmutable($s, $tz))->getTimestamp();
+}
+
+$jst = new DateTimeZone('Asia/Tokyo');
+$ny = new DateTimeZone('America/New_York');
+$utc = new DateTimeZone('UTC');
+
+// ---- 1. 境界（start <= clock < end）: 1時間Bucket、09:59:59 / 10:00:00 / 10:59:59 / 11:00:00 ----
+$from = ts('2026-09-19 09:00:00', $jst);
+$to = ts('2026-09-19 12:00:00', $jst);
+
+// 1時間Bucketを直接生成して境界を検証
+$bounds = BucketPlanner::generate($from, $to, BucketPlanner::UNIT_HOUR, 1, $jst, 1000);
+$events = [];
+
+foreach (['09:59:59', '10:00:00', '10:59:59', '11:00:00'] as $i => $t) {
+	$events[] = ['eventid' => (string) $i, 'clock' => ts('2026-09-19 '.$t, $jst), 'severity' => 4];
+}
+
+$rows = Aggregator::aggregate($events, $bounds);
+$by = [];
+
+foreach ($rows as $r) {
+	$by[gmdate('H', $r['bucket_start'] + 9 * 3600)] = $r['high'];
+}
+
+check('boundary 09-10', $by['09'], 1);
+check('boundary 10-11', $by['10'], 2);
+check('boundary 11-12', $by['11'], 1);
+check('boundary 12-13 (to inclusive bucket)', $by['12'] ?? 0, 0);
+check('boundary total', array_sum(array_column($rows, 'total')), 4);
+check('boundary each event once', array_sum(array_column($rows, 'high')), 4);
+
+// ---- 2. 指示書§12 の例 ----
+$bounds = BucketPlanner::generate(ts('2026-09-19 10:00:00', $jst), ts('2026-09-19 11:59:59', $jst),
+	BucketPlanner::UNIT_HOUR, 1, $jst, 1000
+);
+$rows = Aggregator::aggregate([
+	['eventid' => 'a', 'clock' => ts('2026-09-19 10:15:00', $jst), 'severity' => 3],
+	['eventid' => 'b', 'clock' => ts('2026-09-19 10:37:00', $jst), 'severity' => 3],
+	['eventid' => 'c', 'clock' => ts('2026-09-19 11:02:00', $jst), 'severity' => 3]
+], $bounds);
+check('example counts', array_column($rows, 'total'), [2, 1]);
+
+// ---- 3. Bucket幅の選択（表示期間 → 幅）と本数上限 ----
+$now = ts('2026-09-19 15:07:30', $jst);
+$cases = [
+	'1h' => 3600, '24h' => 86400, '7d' => 7 * 86400, '30d' => 30 * 86400, '90d' => 90 * 86400,
+	'365d' => 365 * 86400
+];
+$expected_keys = ['1h' => '1m', '24h' => '15m', '7d' => '2h', '30d' => '12h', '90d' => '1d', '365d' => '7d'];
+
+foreach ($cases as $name => $sec) {
+	$p = BucketPlanner::plan($now - $sec, $now, $jst);
+	$n = count($p['bounds']) - 1;
+	check("plan $name count<=100", $n <= 100, true);
+	check("plan $name interval", $p['interval']['key'], $expected_keys[$name]);
+}
+
+// 単純な 期間÷100 では101本になるケース: 10:30〜(10:30+100h) は1h幅だと101本 → 2hを選ぶ
+$p = BucketPlanner::plan(ts('2026-09-19 10:30:00', $utc), ts('2026-09-19 10:30:00', $utc) + 100 * 3600 - 1, $utc);
+check('non-aligned start avoids 101 buckets', $p['interval']['key'], '2h');
+check('non-aligned start count', count($p['bounds']) - 1 <= 100, true);
+
+// 前後に1本ずつ増える: ちょうど100本で収まる期間は採用される
+$p = BucketPlanner::plan(ts('2026-09-19 00:00:00', $utc), ts('2026-09-19 00:00:00', $utc) + 100 * 3600 - 1, $utc);
+check('exactly 100 buckets kept at 1h', [$p['interval']['key'], count($p['bounds']) - 1], ['1h', 100]);
+
+// 最粗（1か月）でも100を超える期間はそのまま採用（間引かない）
+$p = BucketPlanner::plan(ts('2010-01-01 00:00:00', $utc), ts('2026-09-19 00:00:00', $utc), $utc);
+check('very long: monthly', $p['interval']['key'], '1M');
+
+// ---- 4. 自然境界 ----
+$b = BucketPlanner::generate(ts('2026-09-19 10:03:00', $jst), ts('2026-09-19 10:16:00', $jst),
+	BucketPlanner::UNIT_MINUTE, 5, $jst, 1000
+);
+check('5m bounds', array_map(fn($x) => gmdate('H:i', $x + 9 * 3600), $b), ['10:00', '10:05', '10:10', '10:15', '10:20']);
+
+// 日: 現地 00:00-24:00
+$b = BucketPlanner::generate(ts('2026-09-19 10:00:00', $jst), ts('2026-09-20 10:00:00', $jst),
+	BucketPlanner::UNIT_DAY, 1, $jst, 1000
+);
+check('1d bounds', array_map(fn($x) => gmdate('m-d H:i', $x + 9 * 3600), $b), ['09-19 00:00', '09-20 00:00', '09-21 00:00']);
+
+// 12時間は 00:00/12:00 の壁時計
+$b = BucketPlanner::generate(ts('2026-09-19 05:00:00', $jst), ts('2026-09-19 20:00:00', $jst),
+	BucketPlanner::UNIT_HOUR, 12, $jst, 1000
+);
+check('12h bounds', array_map(fn($x) => gmdate('H:i', $x + 9 * 3600), $b), ['00:00', '12:00', '00:00']);
+
+// 週: 月曜開始（2026-09-19 は土曜。同週の月曜は 09-14）
+$b = BucketPlanner::generate(ts('2026-09-19 10:00:00', $jst), ts('2026-09-28 10:00:00', $jst),
+	BucketPlanner::UNIT_WEEK, 1, $jst, 1000
+);
+check('week bounds (Mon start)', array_map(fn($x) => gmdate('D m-d', $x + 9 * 3600), $b),
+	['Mon 09-14', 'Mon 09-21', 'Mon 09-28', 'Mon 10-05']
+);
+
+// 週: 日曜（N=7）の日付は前の月曜へ
+$b = BucketPlanner::generate(ts('2026-09-20 12:00:00', $jst), ts('2026-09-20 12:00:00', $jst),
+	BucketPlanner::UNIT_WEEK, 1, $jst, 1000
+);
+check('sunday belongs to previous Monday week', gmdate('D m-d', $b[0] + 9 * 3600), 'Mon 09-14');
+
+// 月: 月初〜翌月月初（うるう年2月・31日月）
+$b = BucketPlanner::generate(ts('2028-01-15 00:00:00', $jst), ts('2028-03-10 00:00:00', $jst),
+	BucketPlanner::UNIT_MONTH, 1, $jst, 1000
+);
+check('month bounds', array_map(fn($x) => gmdate('Y-m-d', $x + 9 * 3600), $b), ['2028-01-01', '2028-02-01', '2028-03-01', '2028-04-01']);
+check('leap Feb has 29 days', intdiv($b[2] - $b[1], 86400), 29);
+
+// ---- 5. DST: 1日は常に1Bucket（23時間・25時間の日） ----
+$b = BucketPlanner::generate(ts('2026-03-07 12:00:00', $ny), ts('2026-03-10 12:00:00', $ny),
+	BucketPlanner::UNIT_DAY, 1, $ny, 1000
+);
+check('NY spring-forward: 4 daily buckets', count($b) - 1, 4);
+check('NY spring-forward day is 23h', intdiv($b[2] - $b[1], 3600), 23);
+$b = BucketPlanner::generate(ts('2026-10-31 12:00:00', $ny), ts('2026-11-03 12:00:00', $ny),
+	BucketPlanner::UNIT_DAY, 1, $ny, 1000
+);
+check('NY fall-back day is 25h', intdiv($b[2] - $b[1], 3600), 25);
+
+// DSTをまたぐ1時間Bucketでも単調増加・重複なし
+$b = BucketPlanner::generate(ts('2026-11-01 00:00:00', $ny), ts('2026-11-01 06:00:00', $ny),
+	BucketPlanner::UNIT_HOUR, 1, $ny, 1000
+);
+$mono = true;
+
+for ($i = 1; $i < count($b); $i++) {
+	$mono = $mono && $b[$i] > $b[$i - 1];
+}
+
+check('hourly across DST monotonic', $mono, true);
+
+// ---- 6. locate ----
+$b = [100, 200, 300, 400];
+check('locate below', BucketPlanner::locate($b, 99), -1);
+check('locate start', BucketPlanner::locate($b, 100), 0);
+check('locate end-1', BucketPlanner::locate($b, 199), 0);
+check('locate boundary', BucketPlanner::locate($b, 200), 1);
+check('locate last', BucketPlanner::locate($b, 399), 2);
+check('locate end (exclusive)', BucketPlanner::locate($b, 400), -1);
+
+// ---- 7. Severity Filter / 集計 ----
+$events = [];
+
+foreach ([0, 1, 2, 3, 4, 5, 5, 4] as $i => $sev) {
+	$events[] = ['eventid' => (string) $i, 'clock' => 1000 + $i, 'severity' => $sev];
+}
+
+$f = Aggregator::filterBySeverity($events, [5]);
+check('filter disaster only', count($f), 2);
+$f = Aggregator::filterBySeverity($events, [4, 5]);
+check('filter high and above', count($f), 4);
+$f = Aggregator::filterBySeverity($events, []);
+check('filter none', count($f), 0);
+$rows = Aggregator::aggregate($f, [0, 5000]);
+check('empty aggregate total', $rows[0]['total'], 0);
+$rows = Aggregator::aggregate($events, [1000, 2000]);
+check('aggregate per severity', [$rows[0]['not_classified'], $rows[0]['information'], $rows[0]['warning'],
+	$rows[0]['average'], $rows[0]['high'], $rows[0]['disaster'], $rows[0]['total']], [1, 1, 1, 1, 2, 2, 8]
+);
+check('unique by eventid', count(Aggregator::uniqueByEventid([
+	['eventid' => '1', 'clock' => 1, 'severity' => 1], ['eventid' => '1', 'clock' => 1, 'severity' => 1],
+	['eventid' => '2', 'clock' => 1, 'severity' => 1]
+])), 2);
+
+// ---- 8. Host集合の重複排除（Host直接指定 + Host group所属） ----
+check('mergeUnique', SourceResolver::mergeUnique([3, 1, '2', 3], [2, 4, 1], []), [1, 2, 3, 4]);
+check('mergeUnique empty', SourceResolver::mergeUnique([], []), []);
+
+// ---- 9. 表示文字列 ----
+$s = ts('2026-09-19 10:00:00', $jst);
+check('range 1h', TimeFormatter::rangeLabel($s, $s + 3600, BucketPlanner::UNIT_HOUR, $jst), '2026/09/19 10:00 - 11:00');
+$s = ts('2026-09-19 12:00:00', $jst);
+check('range to 24:00', TimeFormatter::rangeLabel($s, $s + 43200, BucketPlanner::UNIT_HOUR, $jst), '2026/09/19 12:00 - 24:00');
+check('range day', TimeFormatter::rangeLabel(ts('2026-09-19 00:00:00', $jst), ts('2026-09-20 00:00:00', $jst), BucketPlanner::UNIT_DAY, $jst), '2026/09/19');
+check('range week', TimeFormatter::rangeLabel(ts('2026-09-14 00:00:00', $jst), ts('2026-09-21 00:00:00', $jst), BucketPlanner::UNIT_WEEK, $jst), '2026/09/14 - 2026/09/20');
+check('range month', TimeFormatter::rangeLabel(ts('2026-09-01 00:00:00', $jst), ts('2026-10-01 00:00:00', $jst), BucketPlanner::UNIT_MONTH, $jst), '2026/09');
+check('axis same-day', TimeFormatter::axisLabel(ts('2026-09-19 10:05:00', $jst), 'minute', false, false, $jst), '10:05');
+check('axis multi-day', TimeFormatter::axisLabel(ts('2026-09-19 10:00:00', $jst), 'hour', true, false, $jst), "09/19\n10:00");
+check('axis multi-year', TimeFormatter::axisLabel(ts('2026-09-19 10:00:00', $jst), 'hour', true, true, $jst), "2026/09/19\n10:00");
+check('axis month', TimeFormatter::axisLabel(ts('2026-09-01 00:00:00', $jst), 'month', true, false, $jst), '2026/09');
+
+echo "passed: $pass, failed: $fail\n";
+exit($fail === 0 ? 0 : 1);

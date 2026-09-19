@@ -1,0 +1,82 @@
+/* _contents に flex column を設定（_body は display:contents のため toolbar/chart が直接の flex 子になる） */
+.dashboard-widget-event-timeline {
+	display: flex;
+	flex-direction: column;
+	overflow: auto;
+}
+
+.et-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-shrink: 0;
+	padding: 2px 8px;
+	font-size: 12px;
+}
+
+.et-interval,
+.et-total {
+	white-space: nowrap;
+}
+
+.et-chart {
+	flex-shrink: 0;
+	width: 100%;
+	min-width: 0;
+}
+
+.et-warning {
+	flex-shrink: 0;
+	margin: 2px 8px 4px;
+	padding: 6px 10px;
+	border-left: 4px solid #ff8c00;
+	background: rgba(255, 140, 0, 0.18);
+	font-size: 13px;
+	font-weight: bold;
+}
+
+.et-empty,
+.et-error {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	flex: 1 1 auto;
+	min-height: 60px;
+	padding: 12px;
+	text-align: center;
+	opacity: 0.75;
+}
+
+.et-error {
+	opacity: 1;
+	color: #e45959;
+	font-weight: bold;
+}
+
+.et-empty-sub {
+	margin-top: 4px;
+	font-size: 12px;
+}
+
+.et-tip {
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.et-tip-range {
+	margin-bottom: 2px;
+}
+
+.et-tip-total {
+	margin-bottom: 2px;
+}
+
+.et-tip-dot {
+	display: inline-block;
+	width: 9px;
+	height: 9px;
+	margin-right: 6px;
+	border-radius: 50%;
+}

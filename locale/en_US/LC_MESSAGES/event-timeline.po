@@ -1,0 +1,89 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: event-timeline 0.1.0\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Event Timeline"
+msgstr "Event Timeline"
+
+msgid "Interval"
+msgstr "Interval"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "Event count"
+msgstr "Event count"
+
+msgid "No events"
+msgstr "No events"
+
+msgid "No target hosts."
+msgstr "No target hosts."
+
+msgid "Failed to retrieve events."
+msgstr "Failed to retrieve events."
+
+msgid "Time"
+msgstr "Time"
+
+msgid "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
+msgstr "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
+
+msgid "Maximum events to retrieve"
+msgstr "Maximum events to retrieve"
+
+msgid "Graph height"
+msgstr "Graph height"
+
+msgid "Line color"
+msgstr "Line color"
+
+msgid "Text color"
+msgstr "Text color"
+
+msgid "Appearance"
+msgstr "Appearance"
+
+msgid "1 minute"
+msgstr "1 minute"
+
+msgid "5 minutes"
+msgstr "5 minutes"
+
+msgid "10 minutes"
+msgstr "10 minutes"
+
+msgid "15 minutes"
+msgstr "15 minutes"
+
+msgid "30 minutes"
+msgstr "30 minutes"
+
+msgid "1 hour"
+msgstr "1 hour"
+
+msgid "2 hours"
+msgstr "2 hours"
+
+msgid "3 hours"
+msgstr "3 hours"
+
+msgid "6 hours"
+msgstr "6 hours"
+
+msgid "12 hours"
+msgstr "12 hours"
+
+msgid "1 day"
+msgstr "1 day"
+
+msgid "7 days (weeks start on Monday)"
+msgstr "7 days (weeks start on Monday)"
+
+msgid "1 month"
+msgstr "1 month"
