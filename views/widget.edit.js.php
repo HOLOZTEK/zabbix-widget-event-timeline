@@ -94,8 +94,9 @@ window.widget_event_timeline_form = new class {
 		});
 
 		reset.addEventListener('click', () => {
-			// 特定のRGB値を書き戻さず、Custom指定そのものを解除する。
-			commit('');
+			// 色指定だけを初期色へ戻す。自動/カスタムの切替（「自動」チェック）は変更しない。
+			last_custom = DEFAULT_CUSTOM;
+			commit(DEFAULT_CUSTOM);
 		});
 
 		hex.addEventListener('input', () => {
@@ -134,9 +135,9 @@ window.widget_event_timeline_form = new class {
 
 		const wrap = document.createElement('div');
 		wrap.className = 'et-color-controls';
-		// 指示書の表示例どおり 1行: [自動] [色見本] [#RRGGBB] [↶]（狭い場合は折り返す）。
+		// 指示書の表示例どおり 1行: [色見本] [#RRGGBB] [↶] [自動]（狭い場合は折り返す）。
 		holder.before(wrap);
-		wrap.append(auto_label, holder, hex, reset, error);
+		wrap.append(holder, hex, reset, auto_label, error);
 
 		show();
 	}
