@@ -12,23 +12,29 @@ use DateTimeZone;
 class TimeFormatter {
 
 	/**
-	 * X軸ラベル。Bucketの開始時刻を示す。改行（\n）で日付と時刻を2段にする。
-	 * 「今どの時間を示しているか」を誤認しないよう、期間が日をまたぐ場合は日付を、年をまたぐ場合は年も含める。
+	 * X軸ラベルの構成要素。Bucketの開始時刻を「時間 → 月日 → 年」の階層に分けて返す。
+	 * どの要素を表示するか（前回表示したTickからの変化分のみ）は、実際に表示されるTickが確定する
+	 * 描画側で判定する。タイムゾーン変換はここで済ませ、JavaScript側では行わない。
+	 *
+	 * @return array{time: ?string, date: string, year: string, key: string}
+	 *         time: 時間行（日・週・月Bucketでは null）、date: 月日行（月Bucketでは月）、
+	 *         year: 年行、key: 月日行が変わったかを判定するキー
 	 */
-	public static function axisLabel(int $start, string $unit, bool $multi_day, bool $multi_year, DateTimeZone $tz): string {
+	public static function axisParts(int $start, string $unit, DateTimeZone $tz): array {
 		$d = (new DateTimeImmutable('@'.$start))->setTimezone($tz);
 
 		if ($unit === BucketPlanner::UNIT_MONTH) {
-			return $d->format('Y/m');
+			return ['time' => null, 'date' => $d->format('m'), 'year' => $d->format('Y'), 'key' => $d->format('Ym')];
 		}
 
-		$date = $multi_year ? $d->format('Y/m/d') : $d->format('m/d');
+		$is_time_unit = $unit === BucketPlanner::UNIT_MINUTE || $unit === BucketPlanner::UNIT_HOUR;
 
-		if ($unit === BucketPlanner::UNIT_DAY || $unit === BucketPlanner::UNIT_WEEK) {
-			return $date;
-		}
-
-		return $multi_day ? $date."\n".$d->format('H:i') : $d->format('H:i');
+		return [
+			'time' => $is_time_unit ? $d->format('H:i') : null,
+			'date' => $d->format('m/d'),
+			'year' => $d->format('Y'),
+			'key' => $d->format('Ymd')
+		];
 	}
 
 	/**

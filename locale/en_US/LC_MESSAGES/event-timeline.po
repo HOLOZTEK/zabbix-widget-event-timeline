@@ -87,3 +87,30 @@ msgstr "7 days (weeks start on Monday)"
 
 msgid "1 month"
 msgstr "1 month"
+
+msgid "And %1$s more events"
+msgstr ""
+
+msgid "Unknown host"
+msgstr ""
+
+msgid "Y-axis minimum"
+msgstr ""
+
+msgid "Auto"
+msgstr ""
+
+msgid "Tooltip details: grouped by host (click to sort chronologically)"
+msgstr ""
+
+msgid "Tooltip details: chronological (click to group by host)"
+msgstr ""
+
+msgid "Hex color"
+msgstr "Hex color"
+
+msgid "Reset"
+msgstr "Reset"
+
+msgid "Enter a 6-digit hex color such as #FF0000."
+msgstr "Enter a 6-digit hex color such as #FF0000."

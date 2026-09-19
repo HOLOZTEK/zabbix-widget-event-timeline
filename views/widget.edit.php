@@ -27,10 +27,15 @@
 				new CWidgetFieldIntegerBoxView($data['fields']['graph_height'])
 			)
 			->addField(
+				new CWidgetFieldIntegerBoxView($data['fields']['y_axis_min'])
+			)
+			->addField(
 				new CWidgetFieldColorView($data['fields']['line_color'])
 			)
 			->addField(
 				new CWidgetFieldColorView($data['fields']['text_color'])
 			)
 	)
+	->includeJsFile('widget.edit.js.php')
+	->addJavaScript('widget_event_timeline_form.init();')
 	->show();

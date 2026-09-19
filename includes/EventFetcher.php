@@ -94,4 +94,43 @@ class EventFetcher {
 			'covered_from' => $truncated && $events ? min(array_column($events, 'clock')) : null
 		];
 	}
+
+	/**
+	 * Tooltip用の詳細（Event名・関連Host名）を eventid 指定でまとめて取得する。
+	 * Timeline生成時に1度だけ呼び、Hover時の追加Requestは行わない。集計値には影響しない。
+	 * 1つのEventが複数Hostに関連する場合は、関連Hostをすべて返す。
+	 *
+	 * @param string[] $eventids
+	 *
+	 * @return array<string, array{name: string, hosts: string[]}>|null  失敗時は null
+	 */
+	public static function fetchDetails(array $eventids): ?array {
+		$details = [];
+
+		foreach (array_chunk(array_values(array_unique($eventids)), 500) as $chunk) {
+			$rows = API::Event()->get([
+				'output' => ['eventid', 'name'],
+				'selectHosts' => ['hostid', 'name'],
+				'eventids' => $chunk,
+				'source' => EVENT_SOURCE_TRIGGERS,
+				'object' => EVENT_OBJECT_TRIGGER
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$details[(string) $row['eventid']] = [
+					'name' => (string) $row['name'],
+					'hosts' => array_values(array_map(
+						static fn(array $h): string => (string) $h['name'],
+						$row['hosts'] ?? []
+					))
+				];
+			}
+		}
+
+		return $details;
+	}
 }

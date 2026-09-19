@@ -1,5 +1,9 @@
-/* _contents に flex column を設定（_body は display:contents のため toolbar/chart が直接の flex 子になる） */
-.dashboard-widget-event-timeline {
+/*
+ * _contents に flex column を設定（_body は display:contents のため toolbar/chart が直接の flex 子になる）。
+ * 設定モーダルの <form> にも同じ dashboard-widget-<id> クラスが付くため、form には適用しない
+ * （適用すると form-grid が崩れ、外観セクションのColor入力がはみ出して横スクロールが出る）。
+ */
+.dashboard-widget-event-timeline:not(form) {
 	display: flex;
 	flex-direction: column;
 	overflow: auto;
@@ -79,4 +83,105 @@
 	height: 9px;
 	margin-right: 6px;
 	border-radius: 50%;
+}
+
+.et-tip {
+	max-width: 420px;
+}
+
+.et-tip-host {
+	margin-top: 6px;
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.et-tip-event {
+	display: flex;
+	gap: 8px;
+	padding-left: 12px;
+}
+
+.et-tip-time {
+	flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.8;
+}
+
+.et-tip-name {
+	min-width: 0;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.et-tip-more {
+	margin-top: 4px;
+	opacity: 0.8;
+}
+
+.et-controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.et-tipmode {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 4px;
+	border: 1px solid transparent;
+	border-radius: 2px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	opacity: 0.75;
+}
+
+.et-tipmode:hover,
+.et-tipmode:focus-visible {
+	opacity: 1;
+	border-color: currentColor;
+}
+
+.et-tip-flat .et-tip-hostname {
+	flex-shrink: 0;
+	font-weight: bold;
+}
+
+.et-tip-flat {
+	padding-left: 0;
+}
+
+/* 設定画面: 色設定（自動 / Hex入力 / Reset）。モーダル幅に収まるよう折り返す。 */
+.et-color-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 10px;
+	margin-top: 4px;
+	max-width: 100%;
+}
+
+.et-color-controls .et-color-hex {
+	width: 90px;
+	min-width: 0;
+}
+
+.et-color-controls .et-color-invalid {
+	border-color: #e45959;
+}
+
+.et-color-controls .et-color-error {
+	flex-basis: 100%;
+	color: #e45959;
+	font-size: 12px;
+}
+
+.et-color-controls .et-color-reset {
+	min-width: 32px;
+	padding: 0 8px;
+}
+
+.et-color-controls .color-picker {
+	display: inline-block;
+	margin: 0;
 }

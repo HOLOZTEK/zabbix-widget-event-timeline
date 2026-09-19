@@ -45,6 +45,34 @@ class Aggregator {
 	}
 
 	/**
+	 * Tooltipの詳細一覧に載せるEventを、Bucket × Severity ごとに古い順で最大 $limit 件選ぶ。
+	 * 集計（aggregate）には関与しない。件数の実数は aggregate の結果を使う。
+	 *
+	 * @return array<int, array<int, array>>  [bucket添字][severity] => [['eventid','clock'], ...]
+	 */
+	public static function pickDetails(array $events, array $bounds, int $limit): array {
+		usort($events, static fn(array $a, array $b): int => [(int) $a['clock'], (int) $a['eventid']]
+			<=> [(int) $b['clock'], (int) $b['eventid']]);
+
+		$picked = [];
+
+		foreach ($events as $e) {
+			$index = BucketPlanner::locate($bounds, (int) $e['clock']);
+			$severity = (int) $e['severity'];
+
+			if ($index < 0 || !isset(self::SEVERITY_KEYS[$severity])) {
+				continue;
+			}
+
+			if (count($picked[$index][$severity] ?? []) < $limit) {
+				$picked[$index][$severity][] = ['eventid' => $e['eventid'], 'clock' => (int) $e['clock']];
+			}
+		}
+
+		return $picked;
+	}
+
+	/**
 	 * 発生イベント数モード: Eventの clock が属するBucketへ1件加算する（start <= clock < end）。
 	 *
 	 * @param array $events  [['clock' => int, 'severity' => int], ...]
