@@ -9,6 +9,53 @@ class CWidgetEventTimeline extends CWidget {
 	// 再描画（自動更新）をまたいで維持するため、インスタンスに保持する。
 	#tip_mode = 'host';
 
+	// Runtime Filter / Count Mode（設定値ではない。設定を書き換えず、設定値を初期値として最初の応答で作る）。
+	// 通常のWidget更新（Refresh）では維持し、ダッシュボードの再表示・Widget再生成で設定値から初期化し直す。
+	// 形式: {severities: number[], ack: number[], count_mode: number}
+	#runtime = null;
+
+	// Widget Source の参照（Tree Navigator / Event Navigator）。Selectionが未受信でも更新を止めず、
+	// サーバーへ空の Selection として渡して「対象が選択されていません」を表示させる（全Host・全Eventへは広げない）。
+	static SELECTION_PATHS = ['tn_hostids', 'tn_groupids', 'en_eventids', 'en_triggerids'];
+
+	// 発生イベント数 / 継続イベント加算（WidgetForm::COUNT_* と同じ値）。
+	static COUNT_OCCURRENCE = 0;
+	static COUNT_CONTINUOUS = 1;
+
+	isFieldsReferredDataReady() {
+		const received = this.getFieldsReferredData();
+
+		for (const path of CWidgetBase.getFieldsReferencesAccessors(this._fields).keys()) {
+			if (!CWidgetEventTimeline.SELECTION_PATHS.includes(path) && !received.has(path)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	getFieldsData() {
+		const fields = super.getFieldsData();
+
+		for (const path of CWidgetEventTimeline.SELECTION_PATHS) {
+			const value = fields[path];
+
+			// 未受信（参照のまま）または参照先が未設定は、空のSelectionとして扱う。
+			if (value === null || (typeof value === 'object' && !Array.isArray(value))) {
+				fields[path] = [];
+			}
+		}
+
+		if (this.#runtime !== null) {
+			fields.rt_active = 1;
+			fields.rt_severities = this.#runtime.severities;
+			fields.rt_ack = this.#runtime.ack;
+			fields.rt_count_mode = this.#runtime.count_mode;
+		}
+
+		return fields;
+	}
+
 	onStop() {
 		this.#disposeChart();
 	}
@@ -42,6 +89,15 @@ class CWidgetEventTimeline extends CWidget {
 		}
 
 		this.#data = response.chart_data;
+
+		if (this.#runtime === null) {
+			// 初回のみ設定値（configured_filter / 初期モード）から runtime を作る。
+			this.#runtime = {
+				severities: [...this.#data.configured.severities],
+				ack: [...this.#data.configured.ack],
+				count_mode: this.#data.configured.count_mode
+			};
+		}
 
 		requestAnimationFrame(() => this.#render());
 	}
@@ -86,13 +142,19 @@ class CWidgetEventTimeline extends CWidget {
 			empty.className = 'et-empty';
 
 			const title = document.createElement('div');
-			title.textContent = t('No events');
+			// 「対象が選択されていません」と「イベントはありません」は別の状態として表示する。
+			title.textContent = data.empty_reason === 'no_selection' ? t('No target selected') : t('No events');
 			empty.appendChild(title);
 
-			if (data.empty_reason === 'no_hosts') {
+			const reason = {
+				no_hosts: t('No target hosts.'),
+				filtered: t('All events are excluded by the current filters.')
+			}[data.empty_reason];
+
+			if (reason) {
 				const sub = document.createElement('div');
 				sub.className = 'et-empty-sub';
-				sub.textContent = t('No target hosts.');
+				sub.textContent = reason;
 				empty.appendChild(sub);
 			}
 
@@ -126,16 +188,163 @@ class CWidgetEventTimeline extends CWidget {
 		total.className = 'et-total';
 		total.textContent = t('Total') + ': ' + data.total;
 
-		// Runtime操作領域。今後の操作（Severity Filter 等）もここへ並べる。
+		// Runtime操作領域: Severity Filter / Ack Filter / Event Count Mode / Tooltip並び / Filter Reset を1か所に集約する。
 		const controls = document.createElement('div');
 		controls.className = 'et-controls';
+		controls.appendChild(this.#buildSeverityFilter(data));
+		controls.appendChild(this.#buildAckFilter());
+		controls.appendChild(this.#buildCountModeButton());
 		controls.appendChild(this.#buildTipModeButton());
+		controls.appendChild(this.#buildResetButton(data));
 		controls.appendChild(interval);
 
 		bar.appendChild(total);
 		bar.appendChild(controls);
 
 		return bar;
+	}
+
+	// Runtime の変更を反映する。表示（ボタン状態）は即時に更新し、集計は再取得（Filter → Aggregation → Rendering）する。
+	#applyRuntimeChange() {
+		if (this.#data) {
+			this.#render();
+		}
+
+		this._startUpdating();
+	}
+
+	static #sameSet(a, b) {
+		return a.length === b.length && a.every(v => b.includes(v));
+	}
+
+	// Severity Filter: Severity色の小さなON/OFFボタン（凡例を兼ねる。名称は Tooltip / aria-label）。
+	#buildSeverityFilter(data) {
+		const group = document.createElement('div');
+		group.className = 'et-filter et-filter-severity';
+		group.setAttribute('role', 'group');
+
+		for (const s of data.severities) {
+			const on = this.#runtime.severities.includes(s.id);
+			const button = document.createElement('button');
+
+			button.type = 'button';
+			button.className = 'et-chip et-sev' + (on ? ' et-on' : ' et-off');
+			button.style.setProperty('--et-sev-color', s.color);
+			button.title = s.name;
+			button.setAttribute('aria-label', s.name);
+			button.setAttribute('aria-pressed', on ? 'true' : 'false');
+
+			button.addEventListener('click', () => {
+				const list = this.#runtime.severities;
+
+				this.#runtime.severities = list.includes(s.id) ? list.filter(v => v !== s.id) : [...list, s.id];
+				this.#applyRuntimeChange();
+			});
+
+			group.appendChild(button);
+		}
+
+		return group;
+	}
+
+	// Acknowledged Filter: 確認済み / 未確認のON/OFF。取得時点のEventの現在の確認状態で判定する。
+	#buildAckFilter() {
+		const group = document.createElement('div');
+		group.className = 'et-filter et-filter-ack';
+		group.setAttribute('role', 'group');
+
+		const defs = [
+			// 確認済み: チェック / 未確認: 感嘆符
+			{id: 1, label: t('Acknowledged'),
+				svg: '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>'},
+			{id: 0, label: t('Unacknowledged'),
+				svg: '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><rect x="7" y="2" width="2.4" height="8"/><rect x="7" y="12" width="2.4" height="2.4"/></g></svg>'}
+		];
+
+		for (const d of defs) {
+			const on = this.#runtime.ack.includes(d.id);
+			const button = document.createElement('button');
+
+			button.type = 'button';
+			button.className = 'et-chip et-ack' + (on ? ' et-on' : ' et-off');
+			button.title = d.label;
+			button.setAttribute('aria-label', d.label);
+			button.setAttribute('aria-pressed', on ? 'true' : 'false');
+			button.innerHTML = d.svg;
+
+			button.addEventListener('click', () => {
+				const list = this.#runtime.ack;
+
+				this.#runtime.ack = list.includes(d.id) ? list.filter(v => v !== d.id) : [...list, d.id];
+				this.#applyRuntimeChange();
+			});
+
+			group.appendChild(button);
+		}
+
+		return group;
+	}
+
+	// Event Count Mode: 発生イベント数 ⇄ 継続イベント加算。
+	#buildCountModeButton() {
+		const continuous = this.#runtime.count_mode === CWidgetEventTimeline.COUNT_CONTINUOUS;
+		const button = document.createElement('button');
+		const label = continuous
+			? t('Count mode: continuing events (click for occurred events)')
+			: t('Count mode: occurred events (click for continuing events)');
+
+		button.type = 'button';
+		button.className = 'et-chip et-countmode';
+		button.dataset.mode = continuous ? 'continuous' : 'occurrence';
+		button.title = label;
+		button.setAttribute('aria-label', label);
+		// 発生: 先頭の1本だけ / 継続: 連続する複数本（継続期間に沿って加算）を示すアイコン。
+		button.innerHTML = continuous
+			? '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor">' +
+				'<rect x="1" y="6" width="3" height="8"/><rect x="5" y="6" width="3" height="8"/>' +
+				'<rect x="9" y="6" width="3" height="8"/><rect x="13" y="6" width="2" height="8"/></g></svg>'
+			: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor">' +
+				'<rect x="1" y="6" width="3" height="8"/><rect x="5" y="12" width="3" height="2" opacity=".35"/>' +
+				'<rect x="9" y="12" width="3" height="2" opacity=".35"/><rect x="13" y="12" width="2" height="2" opacity=".35"/></g></svg>';
+
+		button.addEventListener('click', () => {
+			this.#runtime.count_mode = continuous
+				? CWidgetEventTimeline.COUNT_OCCURRENCE
+				: CWidgetEventTimeline.COUNT_CONTINUOUS;
+			this.#applyRuntimeChange();
+		});
+
+		return button;
+	}
+
+	// Filter Reset: runtime を設定値（configured_filter / 初期Count Mode）へ戻す。「全ON」ではない。
+	// Tooltip並びは Filter ではないので対象外。設定値と同じ状態のときは無効。
+	#buildResetButton(data) {
+		const configured = data.configured;
+		const same = CWidgetEventTimeline.#sameSet(this.#runtime.severities, configured.severities)
+			&& CWidgetEventTimeline.#sameSet(this.#runtime.ack, configured.ack)
+			&& this.#runtime.count_mode === configured.count_mode;
+
+		const button = document.createElement('button');
+		const label = t('Reset filters to the configured values');
+
+		button.type = 'button';
+		button.className = 'et-chip et-reset';
+		button.disabled = same;
+		button.title = label;
+		button.setAttribute('aria-label', label);
+		button.textContent = '\u21BA';
+
+		button.addEventListener('click', () => {
+			this.#runtime = {
+				severities: [...configured.severities],
+				ack: [...configured.ack],
+				count_mode: configured.count_mode
+			};
+			this.#applyRuntimeChange();
+		});
+
+		return button;
 	}
 
 	// Tooltip詳細の並び順切替（Tooltip内に操作UIを置くとMouse移動で閉じるため、表示画面上に置く）。
@@ -408,10 +617,19 @@ class CWidgetEventTimeline extends CWidget {
 		const esc = CWidgetEventTimeline.#escape;
 		const count = bucket.counts[severity.id];
 
+		const continuous = data.runtime.count_mode === CWidgetEventTimeline.COUNT_CONTINUOUS;
+
+		// 継続モードでは Bucket と重なる継続中のEventを数えていることを明示する。
 		let html = `<div class="et-tip"><div class="et-tip-range">${esc(bucket.range)}</div>` +
+			(continuous ? `<div class="et-tip-mode">${esc(t('Continuing events'))}</div>` : '') +
 			`<div class="et-tip-total"><b>${esc(t('Total'))}: ${bucket.total}</b></div>` +
 			`<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
 			`${esc(severity.name)}: ${count}</div>`;
+
+		// 継続モード: 発生時刻 → 復旧時刻（未復旧は「継続中」）。
+		const timeText = e => continuous
+			? `${e.time} \u2192 ${e.end ?? t('Ongoing')}`
+			: e.time;
 
 		const events = bucket.details[severity.id] ?? [];
 
@@ -420,7 +638,7 @@ class CWidgetEventTimeline extends CWidget {
 			for (const e of events) {
 				const hosts = e.hosts.length ? e.hosts.join(', ') : t('Unknown host');
 
-				html += `<div class="et-tip-event et-tip-flat"><span class="et-tip-time">${esc(e.time)}</span>` +
+				html += `<div class="et-tip-event et-tip-flat"><span class="et-tip-time">${esc(timeText(e))}</span>` +
 					`<span class="et-tip-hostname">${esc(hosts)}</span><span class="et-tip-name">${esc(e.name)}</span></div>`;
 			}
 		}
@@ -442,7 +660,7 @@ class CWidgetEventTimeline extends CWidget {
 				html += `<div class="et-tip-host">${esc(host)}</div>`;
 
 				for (const e of groups.get(host)) {
-					html += `<div class="et-tip-event"><span class="et-tip-time">${esc(e.time)}</span>` +
+					html += `<div class="et-tip-event"><span class="et-tip-time">${esc(timeText(e))}</span>` +
 						`<span class="et-tip-name">${esc(e.name)}</span></div>`;
 				}
 			}

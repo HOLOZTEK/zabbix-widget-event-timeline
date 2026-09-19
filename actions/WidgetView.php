@@ -32,34 +32,63 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$from = (int) ($time_period['from_ts'] ?? (time() - SEC_PER_DAY));
 		$to = (int) ($time_period['to_ts'] ?? time());
 
-		$severities = array_values(array_unique(array_map('intval', (array) ($fields['severities'] ?? []))));
 		$max_events = max(WidgetForm::MAX_EVENTS_MIN,
 			min(WidgetForm::MAX_EVENTS_MAX, (int) ($fields['max_events'] ?? WidgetForm::MAX_EVENTS_DEFAULT))
 		);
+
+		// Filter / Count Mode: 設定値（configured）が初期値。表示画面から runtime 値が届いていればそちらを使う。
+		// runtime 値は設定を書き換えない（リクエストごとにJSが送る一時的な値）。
+		$configured = [
+			'severities' => self::ints($fields['severities'] ?? Aggregator::SEVERITIES),
+			'ack' => self::ints($fields['ack_states'] ?? [WidgetForm::ACK_ACKNOWLEDGED, WidgetForm::ACK_UNACKNOWLEDGED]),
+			'count_mode' => (int) ($fields['count_mode'] ?? WidgetForm::COUNT_OCCURRENCE)
+		];
+
+		if (!empty($fields['rt_active'])) {
+			$runtime = [
+				'severities' => self::ints($fields['rt_severities'] ?? []),
+				'ack' => self::ints($fields['rt_ack'] ?? []),
+				'count_mode' => (int) ($fields['rt_count_mode'] ?? WidgetForm::COUNT_OCCURRENCE)
+			];
+		}
+		else {
+			$runtime = $configured;
+		}
+
+		$continuous = $runtime['count_mode'] === WidgetForm::COUNT_CONTINUOUS;
 
 		// Bucket境界・軸ラベル・Tooltipはすべてログインユーザーの有効タイムゾーンで統一する
 		// （Zabbix フロントエンドは "System default" 選択時もここへ有効値を設定済み）。
 		$tz = new DateTimeZone(date_default_timezone_get());
 
 		$plan = BucketPlanner::plan($from, $to, $tz);
+		$now = time();
 
-		// 1. Source resolution
-		$hostids = SourceResolver::resolve(
-			(array) ($fields['hostids'] ?? []),
-			(array) ($fields['groupids'] ?? [])
-		);
+		// 1. Source config → Fixed/Widget Selection resolve → Host set resolve → Event Selection resolve
+		$target = SourceResolver::resolveTarget($fields);
+		$event_selection = SourceResolver::resolveEventSelection($fields);
 
 		$events = [];
 		$truncated = false;
 		$covered_from = null;
 		$empty_reason = null;
 
-		if (!$hostids) {
+		if (!$target['selected'] || !$event_selection['selected']) {
+			// Widget Source で Selection 未受信/空。全Host・全Eventへ広げず、専用のEmpty Stateにする。
+			$empty_reason = 'no_selection';
+		}
+		elseif (!$target['hostids']) {
 			$empty_reason = 'no_hosts';
 		}
+		elseif (!$runtime['severities'] || !$runtime['ack']) {
+			// Filterが全OFF: 取得せず0件（Event自体は存在し得るので、Filter起因の表示にする）。
+			$empty_reason = 'filtered';
+		}
 		else {
-			// 2. Event retrieval
-			$result = EventFetcher::fetch($hostids, $from, $to, $severities, $max_events);
+			// 2. Event fetch
+			$result = EventFetcher::fetch($target['hostids'], $from, $to, $runtime['severities'], $max_events,
+				$event_selection['selectors'], $continuous, $runtime['ack']
+			);
 
 			if ($result === null) {
 				$this->setResponse(new CControllerResponseData([
@@ -74,15 +103,29 @@ class WidgetView extends CControllerDashboardWidgetView {
 			$truncated = $result['truncated'];
 			$covered_from = $result['covered_from'];
 
-			// 3. Filtering（重複eventidの排除 + Severity Filter）
-			$events = Aggregator::filterBySeverity(Aggregator::uniqueByEventid($result['events']), $severities);
+			// 3. Severity filter → Ack filter（重複eventidの排除を含む）
+			$events = Aggregator::uniqueByEventid($result['events']);
+			$events = Aggregator::filterBySeverity($events, $runtime['severities']);
+			$events = Aggregator::filterByAck($events, $runtime['ack']);
 		}
 
-		// 4. Aggregation
-		$rows = Aggregator::aggregate($events, $plan['bounds']);
+		// 4. Event Count Mode → Bucket aggregation
+		$rows = Aggregator::aggregate($events, $plan['bounds'], $continuous, $now);
+
+		// 合計: 有効なFilterを通り、表示期間と重なるEventの件数（Bucketごとの件数の合計ではない）。
+		$total = 0;
+
+		foreach ($events as $e) {
+			[$start, $end] = Aggregator::span($e, $now);
+
+			if (Aggregator::bucketRange($plan['bounds'], $continuous ? $start : (int) $e['clock'],
+					$continuous ? $end : (int) $e['clock'] + 1) !== null) {
+				$total++;
+			}
+		}
 
 		// Tooltip詳細（集計とは独立。取得に失敗しても集計・描画は継続する）。
-		$picked = Aggregator::pickDetails($events, $plan['bounds'], self::DETAIL_LIMIT);
+		$picked = Aggregator::pickDetails($events, $plan['bounds'], self::DETAIL_LIMIT, $continuous, $now);
 		$event_details = $picked
 			? EventFetcher::fetchDetails(array_merge(...array_map(
 				static fn(array $by_sev): array => array_merge(...array_values(array_map(
@@ -94,14 +137,15 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 		$this->setResponse(new CControllerResponseData([
 			'name' => $this->getInput('name', $this->widget->getDefaultName()),
-			'chart_data' => $this->buildChartData($rows, $plan, $tz, $severities, $fields, $picked, $event_details ?? [], [
-				'total' => count($events),
+			'chart_data' => $this->buildChartData($rows, $plan, $tz, $runtime, $configured, $fields, $picked,
+				$event_details ?? [], $continuous, [
+				'total' => $total,
 				'truncated' => $truncated,
 				'covered_from' => $covered_from !== null
 					? (new \DateTimeImmutable('@'.$covered_from))->setTimezone($tz)->format('Y/m/d H:i')
 					: null,
 				'max_events' => $max_events,
-				'empty_reason' => $events ? null : ($empty_reason ?? 'no_events')
+				'empty_reason' => $total > 0 ? null : ($empty_reason ?? 'no_events')
 			]),
 			'user' => ['debug_mode' => $this->getDebugMode()]
 		]));
@@ -109,14 +153,16 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 	/**
 	 * Tooltip詳細。Severityごとに [time, name, hosts] の一覧を返す（時刻は表示用に整形済み）。
-	 * Bucketが複数日にまたがる場合は日付付き（MM/DD HH:mm）、同一日内なら HH:mm。
+	 * 発生モード: Bucketが複数日にまたがる場合は日付付き（MM/DD HH:mm）、同一日内なら HH:mm。
+	 * 継続モード: 発生時刻と復旧時刻（未復旧は null = 継続中）を日付付きで返す。
 	 */
-	private function buildDetails(array $by_severity, array $event_details, array $row, string $unit,
-			DateTimeZone $tz): object {
+	private function buildDetails(array $by_severity, array $event_details, array $row, DateTimeZone $tz,
+			bool $continuous): object {
 		$start = (new \DateTimeImmutable('@'.$row['bucket_start']))->setTimezone($tz);
 		$last = (new \DateTimeImmutable('@'.($row['bucket_end'] - 1)))->setTimezone($tz);
 		$multi_day = $start->format('Ymd') !== $last->format('Ymd');
-		$format = $multi_day ? 'm/d H:i' : 'H:i';
+		$format = $continuous || $multi_day ? 'm/d H:i' : 'H:i';
+		$fmt = static fn(int $ts): string => (new \DateTimeImmutable('@'.$ts))->setTimezone($tz)->format($format);
 
 		$details = [];
 
@@ -124,11 +170,17 @@ class WidgetView extends CControllerDashboardWidgetView {
 			foreach ($list as $e) {
 				$d = $event_details[$e['eventid']] ?? ['name' => '', 'hosts' => []];
 
-				$details[$severity][] = [
-					'time' => (new \DateTimeImmutable('@'.$e['clock']))->setTimezone($tz)->format($format),
+				$item = [
+					'time' => $fmt($e['clock']),
 					'name' => $d['name'],
 					'hosts' => $d['hosts']
 				];
+
+				if ($continuous) {
+					$item['end'] = $e['end'] !== null ? $fmt((int) $e['end']) : null;
+				}
+
+				$details[$severity][] = $item;
 			}
 		}
 
@@ -138,8 +190,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 	/**
 	 * 描画用データ。Event配列ではなくBucket集計行と表示文字列だけを含む。
 	 */
-	private function buildChartData(array $rows, array $plan, DateTimeZone $tz, array $severities, array $fields,
-			array $picked, array $event_details, array $meta): array {
+	private function buildChartData(array $rows, array $plan, DateTimeZone $tz, array $runtime, array $configured,
+			array $fields, array $picked, array $event_details, bool $continuous, array $meta): array {
+		$severities = $runtime['severities'];
 		$unit = $plan['interval']['unit'];
 		$bounds = $plan['bounds'];
 
@@ -152,7 +205,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				$counts[] = $row[Aggregator::SEVERITY_KEYS[$severity]];
 			}
 
-			$details = $this->buildDetails($picked[$i] ?? [], $event_details, $row, $unit, $tz);
+			$details = $this->buildDetails($picked[$i] ?? [], $event_details, $row, $tz, $continuous);
 
 			$buckets[] = [
 				'start' => $row['bucket_start'],
@@ -188,6 +241,17 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'label' => self::intervalLabel($plan['interval']['key'])
 			],
 			'timezone' => $tz->getName(),
+			// Filter / Count Mode。configured は設定値（Resetの戻り先）、runtime は今回の集計に使った値。
+			'configured' => [
+				'severities' => $configured['severities'],
+				'ack' => $configured['ack'],
+				'count_mode' => $configured['count_mode']
+			],
+			'runtime' => [
+				'severities' => $runtime['severities'],
+				'ack' => $runtime['ack'],
+				'count_mode' => $runtime['count_mode']
+			],
 			'total' => $meta['total'],
 			'empty_reason' => $meta['empty_reason'],
 			'truncated' => $meta['truncated'],
@@ -204,6 +268,10 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'text_color' => self::color($fields['text_color'] ?? '')
 			]
 		];
+	}
+
+	private static function ints($values): array {
+		return array_values(array_unique(array_map('intval', (array) $values)));
 	}
 
 	private static function color($value): string {

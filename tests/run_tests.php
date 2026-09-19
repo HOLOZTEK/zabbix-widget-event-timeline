@@ -10,6 +10,8 @@ require_once __DIR__.'/../includes/Aggregator.php';
 require_once __DIR__.'/../includes/TimeFormatter.php';
 require_once __DIR__.'/../includes/SourceResolver.php';
 
+require_once __DIR__.'/stubs.php';
+
 use Modules\EventTimeline\Includes\Aggregator;
 use Modules\EventTimeline\Includes\BucketPlanner;
 use Modules\EventTimeline\Includes\SourceResolver;
@@ -229,6 +231,61 @@ check('pickDetails per severity', count($picked[0][5]), 1);
 check('pickDetails out of range skipped', count($picked), 1);
 $agg = Aggregator::aggregate($pd, [0, 5000]);
 check('aggregate unaffected by details', [$agg[0]['average'], $agg[0]['disaster'], $agg[0]['total']], [15, 1, 16]);
+
+// --- 第2フェーズ: Ack Filter / 継続イベント加算 ---
+$h = 3600;
+$T0 = ts('2026-09-19 10:00:00', $jst);
+
+$ev = [
+	['eventid' => '1', 'clock' => 1, 'severity' => 3, 'acknowledged' => 1],
+	['eventid' => '2', 'clock' => 2, 'severity' => 3, 'acknowledged' => 0],
+	['eventid' => '3', 'clock' => 3, 'severity' => 3]
+];
+check('ack both', count(Aggregator::filterByAck($ev, [1, 0])), 3);
+check('ack only', array_column(Aggregator::filterByAck($ev, [1]), 'eventid'), ['1']);
+check('unack only (missing = 0)', array_column(Aggregator::filterByAck($ev, [0]), 'eventid'), ['2', '3']);
+check('ack none', Aggregator::filterByAck($ev, []), []);
+
+check('span unresolved', Aggregator::span(['clock' => 100, 'end' => null], 500), [100, 500]);
+check('span resolved', Aggregator::span(['clock' => 100, 'end' => 300], 500), [100, 300]);
+check('span zero length', Aggregator::span(['clock' => 100, 'end' => 100], 500), [100, 101]);
+
+// 1時間Bucket 10:00-15:00 の例: 10:15 発生 → 13:20 復旧
+$bounds = [];
+for ($i = 0; $i <= 5; $i++) {
+	$bounds[] = $T0 + $i * $h;
+}
+$e1 = ['eventid' => '1', 'clock' => $T0 + 900, 'end' => $T0 + 3 * $h + 1200, 'severity' => 4];
+$occ = Aggregator::aggregate([$e1], $bounds);
+check('occurrence: only start bucket', array_column($occ, 'total'), [1, 0, 0, 0, 0]);
+$con = Aggregator::aggregate([$e1], $bounds, true, $T0 + 5 * $h);
+check('continuous: 10:15-13:20', array_column($con, 'total'), [1, 1, 1, 1, 0]);
+check('continuous: severity column', array_column($con, 'high'), [1, 1, 1, 1, 0]);
+
+// 境界: Bucket開始ちょうどで発生 / Bucket終了ちょうどで復旧
+$e2 = ['eventid' => '2', 'clock' => $T0 + $h, 'end' => $T0 + 2 * $h, 'severity' => 3];
+check('continuous: exact bucket', array_column(Aggregator::aggregate([$e2], $bounds, true, $T0 + 5 * $h), 'total'), [0, 1, 0, 0, 0]);
+// 期間前に発生・期間内で復旧
+$e3 = ['eventid' => '3', 'clock' => $T0 - 5 * $h, 'end' => $T0 + $h + 1, 'severity' => 3];
+check('continuous: pre-period recovering', array_column(Aggregator::aggregate([$e3], $bounds, true, $T0 + 5 * $h), 'total'), [1, 1, 0, 0, 0]);
+check('occurrence: pre-period excluded', array_sum(array_column(Aggregator::aggregate([$e3], $bounds), 'total')), 0);
+// 期間前に発生・未復旧: 期間末（now）まで。nowより先のBucketには加算しない
+$e4 = ['eventid' => '4', 'clock' => $T0 - $h, 'end' => null, 'severity' => 5];
+check('continuous: unresolved to now', array_column(Aggregator::aggregate([$e4], $bounds, true, $T0 + 2 * $h + 10), 'total'), [1, 1, 1, 0, 0]);
+check('continuous: unresolved to period end', array_column(Aggregator::aggregate([$e4], $bounds, true, $T0 + 9 * $h), 'total'), [1, 1, 1, 1, 1]);
+// 期間後に発生したEventは加算しない / 期間前に復旧済みは加算しない
+$e5 = ['eventid' => '5', 'clock' => $T0 + 6 * $h, 'end' => null, 'severity' => 3];
+$e6 = ['eventid' => '6', 'clock' => $T0 - 3 * $h, 'end' => $T0, 'severity' => 3];
+check('continuous: outside excluded', array_sum(array_column(Aggregator::aggregate([$e5, $e6], $bounds, true, $T0 + 9 * $h), 'total')), 0);
+// 継続 >= 発生（各Bucketで1Eventは1回のみ）
+check('continuous: once per bucket', max(array_column(Aggregator::aggregate([$e1], $bounds, true, $T0 + 5 * $h), 'total')), 1);
+// pickDetails 継続モード
+$pk = Aggregator::pickDetails([$e1], $bounds, 10, true, $T0 + 5 * $h);
+check('pickDetails continuous buckets', array_keys($pk), [0, 1, 2, 3]);
+check('bucketRange none', Aggregator::bucketRange($bounds, $T0 + 6 * $h, $T0 + 7 * $h), null);
+
+// parseEventNames
+check('parseEventNames', SourceResolver::parseEventNames(" a \n\nb\r\na\n"), ['a', 'b']);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

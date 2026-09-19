@@ -2,7 +2,7 @@
 
 固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
 
-> **v0.1.0（第一段階）スコープ**: 固定選択のHost / Host groupに対する発生イベント数の時系列表示のみ。Navigator連携、Event選択、動的フィルタ、By Host / By Event表示は対象外です（構造は拡張可能にしてあります）。
+> **第2フェーズ（開発中・v0.2.0）**: Monitoring target / Event を Fixed または Widget（Tree Navigator / Event Navigator 連携）から選択でき、表示画面上で Severity・確認状態・イベントカウント方式を動的に切り替えられます。By Host / By Event 表示、Sort、Paging は対象外です。
 
 ## 機能
 
@@ -24,11 +24,23 @@
 - **空状態 / エラー表示**: 「No events」・対象Hostなし・取得失敗
 - 日本語 / English ロケール対応
 
+## 第2フェーズの機能
+
+- **Source**: Monitoring target と Event は独立して Fixed / Widget を選択（4通りの組み合わせ）。条件は `Monitoring target AND Event Selection`
+  - Monitoring target = Widget: Tree Navigator の Host / Host group 選択（Groupはサブグループ含む・Hostは重複排除）
+  - Event = Widget: Event Navigator の Event / Trigger 選択。Event = Fixed: Event名（1行1件・部分一致・OR。空なら絞り込みなし）
+  - Widget Source で選択が届いていない場合は全Host・全Eventへ広げず「対象が選択されていません」を表示し、選択の到着・変更で再取得
+- **Severity Filter / Acknowledged Filter**: 設定値が実行時の初期値。表示画面のツールバーでON/OFF（Severityチップは凡例を兼ねる）。OFFは集計から除外され、合計は現在のフィルター下で再計算。確認状態は取得時点の現在値（過去時点の再構成なし）
+- **Filter Reset**: 設定値へ戻す（全ONではない）。実行時状態が設定値と同じ間は無効
+- **Event Count Mode**: 発生イベント数（Eventのclockが属するBucketのみ）/ 継続イベント加算（継続期間と重なるすべてのBucketへ加算。`start < bucket_end AND end > bucket_start`。未復旧は現在時刻・期間終端まで、未来のBucketには加算しない）
+- 実行時の状態は設定を書き換えず、通常のRefreshでは保持され、ダッシュボード再表示・ウィジェット再作成で設定値に戻る
+
 ## 制約事項
 
 - Event取得はページング（5,000件単位）で、上限件数に達すると古いEventから集計対象外になります（警告表示あり）。
 - 約8年を超える期間では1 monthでもBucket数が100を超える場合があります（Zabbixの Time period 上限は730日のため通常は発生しません）。
 - Host指定は監視有効/無効を区別しません。
+- 継続イベント加算モードの復旧時刻はEventの復旧Event（r_eventid）から取得します。取得上限は期間前に発生したEventの取得分も含みます。
 
 ## 動作環境
 

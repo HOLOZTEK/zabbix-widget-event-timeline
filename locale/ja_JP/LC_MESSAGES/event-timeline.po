@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: event-timeline 0.1.0\n"
+"Project-Id-Version: event-timeline 0.2.0\n"
 "Language: ja_JP\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -20,7 +20,7 @@ msgid "Event count"
 msgstr "イベント件数"
 
 msgid "No events"
-msgstr "イベントなし"
+msgstr "イベントはありません"
 
 msgid "No target hosts."
 msgstr "対象ホストがありません。"
@@ -114,3 +114,78 @@ msgstr "リセット"
 
 msgid "Enter a 6-digit hex color such as #FF0000."
 msgstr "#FF0000 のような6桁の16進カラーコードを入力してください。"
+
+msgid "Monitoring target source"
+msgstr "監視対象のソース"
+
+msgid "Fixed"
+msgstr "固定"
+
+msgid "Widget"
+msgstr "ウィジェット"
+
+msgid "Tree Navigator"
+msgstr "Tree Navigator"
+
+msgid "Tree Navigator widget"
+msgstr "Tree Navigator ウィジェット"
+
+msgid "Tree Navigator widgets"
+msgstr "Tree Navigator ウィジェット"
+
+msgid "Event source"
+msgstr "イベントのソース"
+
+msgid "Events (event names)"
+msgstr "イベント（イベント名・1行1件・部分一致）"
+
+msgid "Event Navigator"
+msgstr "Event Navigator"
+
+msgid "Event Navigator widget"
+msgstr "Event Navigator ウィジェット"
+
+msgid "Event Navigator widgets"
+msgstr "Event Navigator ウィジェット"
+
+msgid "widget is required"
+msgstr "ウィジェットを選択してください"
+
+msgid "Acknowledgement"
+msgstr "確認状態"
+
+msgid "Acknowledged"
+msgstr "確認済み"
+
+msgid "Unacknowledged"
+msgstr "未確認"
+
+msgid "Event count mode"
+msgstr "イベントカウント方式"
+
+msgid "Occurred events"
+msgstr "発生イベント数"
+
+msgid "Continuing events (add to every bucket)"
+msgstr "継続イベント加算（継続中のすべてのバケットへ加算）"
+
+msgid "No target selected"
+msgstr "対象が選択されていません"
+
+msgid "All events are excluded by the current filters."
+msgstr "現在のフィルターにより、すべてのイベントが除外されています。"
+
+msgid "Count mode: continuing events (click for occurred events)"
+msgstr "カウント方式: 継続イベント加算（クリックで発生イベント数へ）"
+
+msgid "Count mode: occurred events (click for continuing events)"
+msgstr "カウント方式: 発生イベント数（クリックで継続イベント加算へ）"
+
+msgid "Reset filters to the configured values"
+msgstr "フィルターを設定値に戻す"
+
+msgid "Continuing events"
+msgstr "継続中イベント"
+
+msgid "Ongoing"
+msgstr "継続中"

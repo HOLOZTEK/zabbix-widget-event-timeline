@@ -15,6 +15,24 @@ class Widget extends CWidget {
 	public function getTranslationStrings(): array {
 		return [
 			'class.widget.js' => [
+				'No target selected'
+					=> _et('No target selected'),
+				'All events are excluded by the current filters.'
+					=> _et('All events are excluded by the current filters.'),
+				'Count mode: continuing events (click for occurred events)'
+					=> _et('Count mode: continuing events (click for occurred events)'),
+				'Count mode: occurred events (click for continuing events)'
+					=> _et('Count mode: occurred events (click for continuing events)'),
+				'Reset filters to the configured values'
+					=> _et('Reset filters to the configured values'),
+				'Continuing events'
+					=> _et('Continuing events'),
+				'Ongoing'
+					=> _et('Ongoing'),
+				'Acknowledged'
+					=> _et('Acknowledged'),
+				'Unacknowledged'
+					=> _et('Unacknowledged'),
 				'Interval'
 					=> _et('Interval'),
 				'Total'

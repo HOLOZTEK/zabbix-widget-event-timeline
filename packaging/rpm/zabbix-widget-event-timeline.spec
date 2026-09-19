@@ -35,6 +35,8 @@ install -D -m 644 ${SRCDIR}/assets/js/class.widget.js ${STAGEDIR}/assets/js/clas
 install -D -m 644 ${SRCDIR}/assets/js/echarts.min.js ${STAGEDIR}/assets/js/echarts.min.js
 install -D -m 644 ${SRCDIR}/includes/Aggregator.php ${STAGEDIR}/includes/Aggregator.php
 install -D -m 644 ${SRCDIR}/includes/BucketPlanner.php ${STAGEDIR}/includes/BucketPlanner.php
+install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectBroadcastSource.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectBroadcastSource.php
+install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectBroadcastSourceView.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectBroadcastSourceView.php
 install -D -m 644 ${SRCDIR}/includes/EventFetcher.php ${STAGEDIR}/includes/EventFetcher.php
 install -D -m 644 ${SRCDIR}/includes/helpers.php ${STAGEDIR}/includes/helpers.php
 install -D -m 644 ${SRCDIR}/includes/SourceResolver.php ${STAGEDIR}/includes/SourceResolver.php

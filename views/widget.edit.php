@@ -5,15 +5,42 @@
  * @var array $data
  */
 
+use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectBroadcastSourceView;
+
 (new CWidgetFormView($data))
+	// Monitoring target: Source（Fixed / Widget）。表示する入力は widget.edit.js.php が Source に合わせて切り替える。
 	->addField(
-		new CWidgetFieldMultiSelectHostView($data['fields']['hostids'])
+		new CWidgetFieldSelectView($data['fields']['host_source'])
 	)
 	->addField(
-		new CWidgetFieldMultiSelectGroupView($data['fields']['groupids'])
+		(new CWidgetFieldMultiSelectHostView($data['fields']['hostids']))->addRowClass('js-row-host-fixed')
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectGroupView($data['fields']['groupids']))->addRowClass('js-row-host-fixed')
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['tn_hostids']))
+			->addRowClass('js-row-host-widget')
+	)
+	// Event: Source（Fixed / Widget）。
+	->addField(
+		new CWidgetFieldSelectView($data['fields']['event_source'])
+	)
+	->addField(
+		(new CWidgetFieldTextAreaView($data['fields']['event_names']))->addRowClass('js-row-event-fixed')
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['en_eventids']))
+			->addRowClass('js-row-event-widget')
 	)
 	->addField(
 		new CWidgetFieldCheckBoxListView($data['fields']['severities'])
+	)
+	->addField(
+		new CWidgetFieldCheckBoxListView($data['fields']['ack_states'])
+	)
+	->addField(
+		new CWidgetFieldSelectView($data['fields']['count_mode'])
 	)
 	->addField(
 		new CWidgetFieldIntegerBoxView($data['fields']['max_events'])

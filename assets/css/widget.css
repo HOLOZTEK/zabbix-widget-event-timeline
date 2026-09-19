@@ -120,8 +120,85 @@
 
 .et-controls {
 	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
 	align-items: center;
-	gap: 12px;
+	gap: 6px 10px;
+}
+
+.et-filter {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+}
+
+/* Runtime操作の小さなボタン（Severity / Ack / Count Mode / Reset）。 */
+.et-chip {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 3px;
+	border: 1px solid currentColor;
+	border-radius: 2px;
+	background: transparent;
+	color: inherit;
+	font-size: 13px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.et-chip:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 1px;
+}
+
+.et-chip:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+/* Severity: ON = Severity色で塗りつぶし / OFF = 枠線のみ（色は薄く）。 */
+.et-sev {
+	width: 20px;
+	padding: 0;
+	border-color: var(--et-sev-color);
+}
+
+.et-sev.et-on {
+	background: var(--et-sev-color);
+}
+
+.et-sev.et-off {
+	background: transparent;
+	opacity: 0.45;
+}
+
+/* Ack: ON = 太い実線の枠 / OFF = 破線の枠（薄く）。 */
+.et-ack.et-on {
+	border-width: 2px;
+}
+
+.et-ack.et-off {
+	border-style: dashed;
+	opacity: 0.45;
+}
+
+.et-countmode {
+	border-color: transparent;
+	opacity: 0.85;
+}
+
+.et-countmode:hover {
+	opacity: 1;
+	border-color: currentColor;
+}
+
+.et-tip-mode {
+	opacity: 0.8;
+	font-style: italic;
 }
 
 .et-tipmode {
