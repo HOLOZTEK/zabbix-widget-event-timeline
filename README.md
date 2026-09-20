@@ -28,7 +28,7 @@
 
 - **Source**: Monitoring target と Event は独立して Fixed / Widget を選択（4通りの組み合わせ）。条件は `Monitoring target AND Event Selection`
   - Monitoring target = Widget: Tree Navigator の Host / Host group 選択（Groupはサブグループ含む・Hostは重複排除）
-  - Event = Widget: Event Navigator の Event / Trigger 選択。Event = Fixed: Event名（1行1件・部分一致・OR。空なら絞り込みなし）
+  - Event（イベント＝トリガー）= Fixed: Trigger をホスト等と同じ選択UIで指定。Event = Widget: Event Navigator の Trigger 選択。どちらも未選択なら対象なし
   - Widget Source で選択が届いていない場合は全Host・全Eventへ広げず「対象が選択されていません」を表示し、選択の到着・変更で再取得
 - **Severity Filter / Acknowledged Filter**: 設定値が実行時の初期値。表示画面のツールバーでON/OFF（Severityチップは凡例を兼ねる）。OFFは集計から除外され、合計は現在のフィルター下で再計算。確認状態は取得時点の現在値（過去時点の再構成なし）
 - **Filter Reset**: 設定値へ戻す（全ONではない）。実行時状態が設定値と同じ間は無効

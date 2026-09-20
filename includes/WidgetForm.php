@@ -44,10 +44,7 @@ class WidgetForm extends CWidgetForm {
 	// 送信元ウィジェットのブロードキャスト型。
 	public const TYPE_HOST_IDS       = '_hostids';
 	public const TYPE_HOST_GROUP_IDS = '_hostgroupids';
-	public const TYPE_EVENT_IDS      = '_eventids';
 	public const TYPE_TRIGGER_IDS    = '_triggerids';
-
-	public const EVENT_NAMES_MAX = 50;
 
 	public const MAX_EVENTS_MIN     = 1000;
 	public const MAX_EVENTS_MAX     = 1000000;
@@ -88,8 +85,8 @@ class WidgetForm extends CWidgetForm {
 					self::TYPE_HOST_GROUP_IDS, _et('Tree Navigator widget'), _et('Tree Navigator widgets')
 				)
 			)
-			// Event の Source。Fixed は Event名（部分一致・複数指定はOR）、Widget は Event Navigator の
-			// Event / Trigger Selection（en_eventids は参照フィールド、en_triggerids は自動生成）。
+			// Event の Source。イベント＝トリガーとして、Fixed は Trigger の選択（ホスト等と同じ方式）、
+			// Widget は Event Navigator の Trigger Selection（en_triggerids は参照フィールド）。
 			->addField(
 				(new CWidgetFieldSelect('event_source', _et('Event source'), [
 					self::SOURCE_FIXED => _et('Fixed'),
@@ -97,12 +94,8 @@ class WidgetForm extends CWidgetForm {
 				]))->setDefault(self::SOURCE_FIXED)
 			)
 			->addField(
-				new CWidgetFieldTextArea('event_names', _et('Events (event names)'))
-			)
-			->addField(
-				new CWidgetFieldMultiSelectBroadcastSource('en_eventids', _et('Event Navigator'),
-					self::TYPE_EVENT_IDS, _et('Event Navigator widget'), _et('Event Navigator widgets')
-				)
+				(new CWidgetFieldMultiSelectTrigger('triggerids', _et('Events')))
+					->setMultiple(true)
 			)
 			->addField(
 				new CWidgetFieldMultiSelectBroadcastSource('en_triggerids', _et('Event Navigator'),
@@ -182,14 +175,13 @@ class WidgetForm extends CWidgetForm {
 	}
 
 	/**
-	 * Widget Source の参照は、選んだ1つの送信元ウィジェットから2種類の型（Host+Host group / Event+Trigger）を
+	 * Widget Source の参照は、選んだ1つの送信元ウィジェットから2種類の型（Host+Host group）を
 	 * 受け取る必要がある。設定画面には片方の参照フィールドだけを表示するので、もう一方の参照は同じ送信元から作る。
 	 * Fixed のときは参照を残さない（未使用の参照でダッシュボードが送信元を待たないようにする）。
 	 */
 	protected function normalizeValues(array $values): array {
 		$pairs = [
-			['host_source', 'tn_hostids', self::TYPE_HOST_IDS, 'tn_groupids', self::TYPE_HOST_GROUP_IDS],
-			['event_source', 'en_eventids', self::TYPE_EVENT_IDS, 'en_triggerids', self::TYPE_TRIGGER_IDS]
+			['host_source', 'tn_hostids', self::TYPE_HOST_IDS, 'tn_groupids', self::TYPE_HOST_GROUP_IDS]
 		];
 		$key = CWidgetField::FOREIGN_REFERENCE_KEY;
 
@@ -209,6 +201,11 @@ class WidgetForm extends CWidgetForm {
 			}
 		}
 
+		// Event の Widget Source は参照フィールド（en_triggerids）1つだけ。Fixed のときは参照を残さない。
+		if ((int) ($values['event_source'] ?? self::SOURCE_FIXED) !== self::SOURCE_WIDGET) {
+			unset($values['en_triggerids']);
+		}
+
 		return $values;
 	}
 
@@ -224,7 +221,7 @@ class WidgetForm extends CWidgetForm {
 			}
 
 			if ((int) $this->getFieldValue('event_source') === self::SOURCE_WIDGET
-					&& empty($this->getFieldValue('en_eventids')[$key])) {
+					&& empty($this->getFieldValue('en_triggerids')[$key])) {
 				$errors[] = _s('Invalid parameter "%1$s": %2$s.', _et('Event Navigator'), _et('widget is required'));
 			}
 		}

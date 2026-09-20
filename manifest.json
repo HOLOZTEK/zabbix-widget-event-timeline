@@ -12,7 +12,6 @@
 			"time_period": {"type": "_timeperiod"},
 			"tn_hostids": {"type": "_hostids", "prevent_default": true},
 			"tn_groupids": {"type": "_hostgroupids", "prevent_default": true},
-			"en_eventids": {"type": "_eventids", "prevent_default": true},
 			"en_triggerids": {"type": "_triggerids", "prevent_default": true}
 		}
 	},

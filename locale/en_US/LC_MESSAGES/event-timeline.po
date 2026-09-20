@@ -136,8 +136,17 @@ msgstr "Tree Navigator widgets"
 msgid "Event source"
 msgstr "Event source"
 
-msgid "Events (event names)"
-msgstr "Events (event names)"
+msgid "Events"
+msgstr "Events"
+
+msgid "Trigger"
+msgstr "Trigger"
+
+msgid "Triggers"
+msgstr "Triggers"
+
+msgid "Inaccessible trigger"
+msgstr "Inaccessible trigger"
 
 msgid "Event Navigator"
 msgstr "Event Navigator"

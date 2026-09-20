@@ -13,9 +13,6 @@ use API;
  */
 class SourceResolver {
 
-	// Event名の検索キーワードの最大長。
-	private const EVENT_NAME_MAX_LENGTH = 255;
-
 	/**
 	 * Monitoring target の解決。
 	 *
@@ -40,55 +37,21 @@ class SourceResolver {
 	}
 
 	/**
-	 * Event Selection の解決。
-	 * - Fixed: Event名（1行1件・部分一致・複数はOR）。未指定なら絞り込みなし（全Event）。
-	 * - Widget: Event Navigator が送る Event ID / Trigger ID（ORで統合）。空なら「未選択」。
+	 * Event Selection の解決。イベント＝Trigger として、Fixed は選択したTrigger、Widget は Event Navigator が
+	 * 送る Trigger ID を使う。空なら「未選択」（全Eventへは広げない）。
 	 *
 	 * @return array{selected: bool, selectors: array[]}
-	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。[[]] は絞り込みなし。
+	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。
 	 */
 	public static function resolveEventSelection(array $fields): array {
-		if ((int) ($fields['event_source'] ?? WidgetForm::SOURCE_FIXED) === WidgetForm::SOURCE_WIDGET) {
-			$eventids = self::normalize((array) ($fields['en_eventids'] ?? []));
-			$triggerids = self::normalize((array) ($fields['en_triggerids'] ?? []));
-			$selectors = [];
+		$name = (int) ($fields['event_source'] ?? WidgetForm::SOURCE_FIXED) === WidgetForm::SOURCE_WIDGET
+			? 'en_triggerids'
+			: 'triggerids';
+		$triggerids = array_values(array_unique(self::normalize((array) ($fields[$name] ?? []))));
 
-			if ($eventids) {
-				$selectors[] = ['eventids' => array_map('strval', $eventids)];
-			}
-
-			if ($triggerids) {
-				$selectors[] = ['objectids' => array_map('strval', $triggerids)];
-			}
-
-			return ['selected' => (bool) $selectors, 'selectors' => $selectors];
-		}
-
-		$names = self::parseEventNames((string) ($fields['event_names'] ?? ''));
-
-		return [
-			'selected' => true,
-			'selectors' => $names ? [['search' => ['name' => $names], 'searchByAny' => true]] : [[]]
-		];
-	}
-
-	/**
-	 * 1行1件のEvent名を配列にする（空行除去・重複排除・件数と長さの上限あり）。
-	 *
-	 * @return string[]
-	 */
-	public static function parseEventNames(string $text): array {
-		$names = [];
-
-		foreach (preg_split('/\R/u', $text) ?: [] as $line) {
-			$line = trim($line);
-
-			if ($line !== '') {
-				$names[mb_substr($line, 0, self::EVENT_NAME_MAX_LENGTH)] = true;
-			}
-		}
-
-		return array_slice(array_map('strval', array_keys($names)), 0, WidgetForm::EVENT_NAMES_MAX);
+		return $triggerids
+			? ['selected' => true, 'selectors' => [['objectids' => array_map('strval', $triggerids)]]]
+			: ['selected' => false, 'selectors' => []];
 	}
 
 	/**

@@ -136,8 +136,17 @@ msgstr "Tree Navigator ウィジェット"
 msgid "Event source"
 msgstr "イベントのソース"
 
-msgid "Events (event names)"
+msgid "Events"
 msgstr "イベント"
+
+msgid "Trigger"
+msgstr "トリガー"
+
+msgid "Triggers"
+msgstr "トリガー"
+
+msgid "Inaccessible trigger"
+msgstr "アクセス不可のトリガー"
 
 msgid "Event Navigator"
 msgstr "Event Navigator"

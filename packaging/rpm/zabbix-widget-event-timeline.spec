@@ -37,6 +37,8 @@ install -D -m 644 ${SRCDIR}/includes/Aggregator.php ${STAGEDIR}/includes/Aggrega
 install -D -m 644 ${SRCDIR}/includes/BucketPlanner.php ${STAGEDIR}/includes/BucketPlanner.php
 install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectBroadcastSource.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectBroadcastSource.php
 install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectBroadcastSourceView.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectBroadcastSourceView.php
+install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectTrigger.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectTrigger.php
+install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectTriggerView.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectTriggerView.php
 install -D -m 644 ${SRCDIR}/includes/EventFetcher.php ${STAGEDIR}/includes/EventFetcher.php
 install -D -m 644 ${SRCDIR}/includes/helpers.php ${STAGEDIR}/includes/helpers.php
 install -D -m 644 ${SRCDIR}/includes/SourceResolver.php ${STAGEDIR}/includes/SourceResolver.php

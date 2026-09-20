@@ -5,32 +5,30 @@
  * @var array $data
  */
 
-use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectBroadcastSourceView;
+use Modules\EventTimeline\Includes\{CWidgetFieldMultiSelectBroadcastSourceView, CWidgetFieldMultiSelectTriggerView};
 
 (new CWidgetFormView($data))
-	->addFieldset(
-		(new CWidgetFormFieldsetCollapsibleView(_et('Target')))
-			->addField(
-				new CWidgetFieldSelectView($data['fields']['host_source'])
-			)
-			->addField(
-				(new CWidgetFieldMultiSelectHostView($data['fields']['hostids']))->addRowClass('js-row-host-fixed')
-			)
-			->addField(
-				(new CWidgetFieldMultiSelectGroupView($data['fields']['groupids']))->addRowClass('js-row-host-fixed')
-			)
-			->addField(
-				(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['tn_hostids']))->addRowClass('js-row-host-widget')
-			)
-			->addField(
-				new CWidgetFieldSelectView($data['fields']['event_source'])
-			)
-			->addField(
-				(new CWidgetFieldTextAreaView($data['fields']['event_names']))->addRowClass('js-row-event-fixed')
-			)
-			->addField(
-				(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['en_eventids']))->addRowClass('js-row-event-widget')
-			)
+	// 対象は必須の設定なので、折りたたみにせず常に表示する。
+	->addField(
+		new CWidgetFieldSelectView($data['fields']['host_source'])
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectHostView($data['fields']['hostids']))->addRowClass('js-row-host-fixed')
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectGroupView($data['fields']['groupids']))->addRowClass('js-row-host-fixed')
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['tn_hostids']))->addRowClass('js-row-host-widget')
+	)
+	->addField(
+		new CWidgetFieldSelectView($data['fields']['event_source'])
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectTriggerView($data['fields']['triggerids']))->addRowClass('js-row-event-fixed')
+	)
+	->addField(
+		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['en_triggerids']))->addRowClass('js-row-event-widget')
 	)
 	->addFieldset(
 		(new CWidgetFormFieldsetCollapsibleView(_et('Initial display state')))
