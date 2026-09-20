@@ -245,17 +245,12 @@ class CWidgetEventTimeline extends CWidget {
 		return mode === 'ack' ? [1] : (mode === 'unack' ? [0] : [1, 0]);
 	}
 
-	// ラベル付きグループ: 「ラベル [ボタン][ボタン]…」。
+	// ボタングループ。説明ラベルは表示せず、支援技術向けの aria-label のみ付ける。
 	#buildGroup(label) {
 		const group = document.createElement('div');
 		group.className = 'et-group';
 		group.setAttribute('role', 'group');
 		group.setAttribute('aria-label', label);
-
-		const caption = document.createElement('span');
-		caption.className = 'et-group-label';
-		caption.textContent = label;
-		group.appendChild(caption);
 
 		return group;
 	}
@@ -373,11 +368,6 @@ class CWidgetEventTimeline extends CWidget {
 		row.className = 'et-severity-row';
 		row.setAttribute('role', 'group');
 		row.setAttribute('aria-label', t('Severity level'));
-
-		const caption = document.createElement('span');
-		caption.className = 'et-group-label';
-		caption.textContent = t('Severity level');
-		row.appendChild(caption);
 
 		const labels = [t('Not classified (chip)'), t('Information (chip)'), t('Warning (chip)'),
 			t('Average (chip)'), t('High (chip)'), t('Disaster (chip)')];

@@ -140,13 +140,6 @@
 	border-left: 0;
 }
 
-.et-group-label {
-	margin-right: 2px;
-	font-size: 12px;
-	opacity: 0.75;
-	white-space: nowrap;
-}
-
 /* ラベル付きボタン（排他選択）。選択中 = 塗りつぶし＋太字、非選択 = 枠のみ。 */
 .et-btn {
 	box-sizing: border-box;
