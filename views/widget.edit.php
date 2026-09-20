@@ -33,11 +33,15 @@ use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectBroadcastSourceView;
 		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['en_eventids']))
 			->addRowClass('js-row-event-widget')
 	)
-	->addField(
-		new CWidgetFieldCheckBoxListView($data['fields']['severities'])
-	)
-	->addField(
-		new CWidgetFieldCheckBoxListView($data['fields']['ack_states'])
+	// Filterの初期状態: 表示画面のRuntime Filterの初期値（Event取得条件ではない）。
+	->addFieldset(
+		(new CWidgetFormFieldsetCollapsibleView(_et('Initial filter state')))
+			->addField(
+				new CWidgetFieldCheckBoxListView($data['fields']['severities'])
+			)
+			->addField(
+				new CWidgetFieldCheckBoxListView($data['fields']['ack_states'])
+			)
 	)
 	->addField(
 		new CWidgetFieldSelectView($data['fields']['count_mode'])

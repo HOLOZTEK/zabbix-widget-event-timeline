@@ -160,8 +160,8 @@ msgstr "Acknowledged"
 msgid "Unacknowledged"
 msgstr "Unacknowledged"
 
-msgid "Event count mode"
-msgstr "Event count mode"
+msgid "Initial aggregation mode"
+msgstr "Initial aggregation mode"
 
 msgid "Occurred events"
 msgstr "Occurred events"
@@ -246,3 +246,6 @@ msgstr "Disaster"
 
 msgid "%1$s events"
 msgstr "%1$s events"
+
+msgid "Initial filter state"
+msgstr "Initial filter state"

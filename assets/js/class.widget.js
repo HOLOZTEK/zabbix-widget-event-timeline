@@ -162,6 +162,7 @@ class CWidgetEventTimeline extends CWidget {
 			}
 
 			this._body.appendChild(empty);
+			this._body.appendChild(this.#buildFooter(data));
 
 			return;
 		}
@@ -171,6 +172,7 @@ class CWidgetEventTimeline extends CWidget {
 		holder.style.height = data.style.graph_height + 'px';
 
 		this._body.appendChild(holder);
+		this._body.appendChild(this.#buildFooter(data));
 
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
 		this.#data = data;
@@ -179,8 +181,27 @@ class CWidgetEventTimeline extends CWidget {
 		this.#chart.setOption({graphic: this.#periodGraphic(data)}, {replaceMerge: ['graphic']});
 	}
 
+	// グラフ下部（X軸の時刻・期間線より下）: 左に合計、右に間隔。
+	#buildFooter(data) {
+		const footer = document.createElement('div');
+		footer.className = 'et-footer';
+
+		const total = document.createElement('span');
+		total.className = 'et-total';
+		total.textContent = t('Total') + ': ' + data.total;
+
+		const interval = document.createElement('span');
+		interval.className = 'et-interval';
+		interval.textContent = t('Interval') + ': ' + data.interval.label;
+
+		footer.appendChild(total);
+		footer.appendChild(interval);
+
+		return footer;
+	}
+
 	// Runtime操作領域（2行構成）。
-	// 1行目: 集計 / 確認 / 詳細 / リセット（機能ごとのグループを横並び）と、右端の合計・間隔。
+	// 1行目: 集計 / 確認状態 / 詳細表示順 / 条件リセット（機能ごとのグループを横並び。操作専用）。
 	// 2行目: 深刻度（Severity Filter）専用行。
 	#buildToolbar(data) {
 		const bar = document.createElement('div');
@@ -192,21 +213,6 @@ class CWidgetEventTimeline extends CWidget {
 		row1.appendChild(this.#buildAckGroup());
 		row1.appendChild(this.#buildTipModeGroup());
 		row1.appendChild(this.#buildResetGroup(data));
-
-		const info = document.createElement('div');
-		info.className = 'et-info';
-
-		const total = document.createElement('span');
-		total.className = 'et-total';
-		total.textContent = t('Total') + ': ' + data.total;
-
-		const interval = document.createElement('span');
-		interval.className = 'et-interval';
-		interval.textContent = t('Interval') + ': ' + data.interval.label;
-
-		info.appendChild(total);
-		info.appendChild(interval);
-		row1.appendChild(info);
 
 		bar.appendChild(row1);
 		bar.appendChild(this.#buildSeverityRow(data));

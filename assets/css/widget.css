@@ -126,14 +126,6 @@
 	gap: 6px 0;
 }
 
-.et-info {
-	display: inline-flex;
-	flex-wrap: wrap;
-	gap: 0 12px;
-	margin-left: auto;
-	padding-left: 12px;
-	white-space: nowrap;
-}
 
 .et-group {
 	display: inline-flex;
@@ -278,4 +270,14 @@
 .et-tip-mode {
 	opacity: 0.8;
 	font-style: italic;
+}
+
+/* グラフ下部: 左に合計、右に間隔（X軸の期間線より下。軸の一部に見えないよう余白を取る）。 */
+.et-footer {
+	display: flex;
+	flex-shrink: 0;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 8px 8px 4px;
+	font-size: 12px;
 }

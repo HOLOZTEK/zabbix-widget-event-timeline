@@ -160,14 +160,14 @@ msgstr "確認済み"
 msgid "Unacknowledged"
 msgstr "未確認"
 
-msgid "Event count mode"
-msgstr "イベントカウント方式"
+msgid "Initial aggregation mode"
+msgstr "集計方法の初期値"
 
 msgid "Occurred events"
 msgstr "発生イベント数"
 
 msgid "Continuing events (add to every bucket)"
-msgstr "継続イベント加算（継続中のすべてのバケットへ加算）"
+msgstr "継続イベント数"
 
 msgid "No target selected"
 msgstr "対象が選択されていません"
@@ -206,13 +206,13 @@ msgid "Number of events overlapping each bucket"
 msgstr "各Bucketと継続期間が重なるEventの数"
 
 msgid "Ack status"
-msgstr "確認"
+msgstr "確認状態"
 
 msgid "All"
 msgstr "全て"
 
 msgid "Tooltip order"
-msgstr "詳細"
+msgstr "詳細表示順"
 
 msgid "By host"
 msgstr "ホスト順"
@@ -221,7 +221,7 @@ msgid "Chronological"
 msgstr "時系列"
 
 msgid "Reset conditions"
-msgstr "リセット"
+msgstr "条件リセット"
 
 msgid "Severity level"
 msgstr "深刻度"
@@ -246,3 +246,6 @@ msgstr "致命的"
 
 msgid "%1$s events"
 msgstr "%1$s件"
+
+msgid "Initial filter state"
+msgstr "フィルタの初期状態"

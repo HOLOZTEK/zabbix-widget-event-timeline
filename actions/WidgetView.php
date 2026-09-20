@@ -87,9 +87,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 		}
 		else {
 			// 2. Event fetch
-			// Severityは取得段階で絞らない（SeverityチップのTooltipがOFFのSeverityの件数も示すため）。
+			// SeverityもAckも取得段階では絞らない（設定値は表示開始時のRuntime Filter初期値であり、取得条件ではない。SeverityチップのTooltipがOFFのSeverityの件数も示すため）。
 			$result = EventFetcher::fetch($target['hostids'], $from, $to, Aggregator::SEVERITIES, $max_events,
-				$event_selection['selectors'], $continuous, $runtime['ack']
+				$event_selection['selectors'], $continuous, [WidgetForm::ACK_UNACKNOWLEDGED, WidgetForm::ACK_ACKNOWLEDGED]
 			);
 
 			if ($result === null) {
