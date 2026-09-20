@@ -38,7 +38,8 @@ class SourceResolver {
 
 	/**
 	 * Event Selection の解決。イベント＝Trigger として、Fixed は選択したTrigger、Widget は Event Navigator が
-	 * 送る Trigger ID を使う。空なら「未選択」（全Eventへは広げない）。
+	 * 送る Trigger ID を使う。未指定（空）のときは絞り込みなしとし、対象Hostの期間内の全Eventを扱う
+	 * （対象Host自体が未選択の場合の扱いは resolveTarget 側）。
 	 *
 	 * @return array{selected: bool, selectors: array[]}
 	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。
@@ -49,9 +50,7 @@ class SourceResolver {
 			: 'triggerids';
 		$triggerids = array_values(array_unique(self::normalize((array) ($fields[$name] ?? []))));
 
-		return $triggerids
-			? ['selected' => true, 'selectors' => [['objectids' => array_map('strval', $triggerids)]]]
-			: ['selected' => false, 'selectors' => []];
+		return ['selected' => true, 'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : [[]]];
 	}
 
 	/**

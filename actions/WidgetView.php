@@ -75,7 +75,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$empty_reason = null;
 
 		if (!$target['selected'] || !$event_selection['selected']) {
-			// Widget Source で Selection 未受信/空。全Host・全Eventへ広げず、専用のEmpty Stateにする。
+			// 対象Hostが未選択（Widget Source で未受信/空を含む）。全Hostへ広げず、専用のEmpty Stateにする。
 			$empty_reason = 'no_selection';
 		}
 		elseif (!$target['hostids']) {
