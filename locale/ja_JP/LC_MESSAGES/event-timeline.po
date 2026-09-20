@@ -137,7 +137,7 @@ msgid "Event source"
 msgstr "イベントのソース"
 
 msgid "Events (event names)"
-msgstr "イベント（イベント名・1行1件・部分一致）"
+msgstr "イベント"
 
 msgid "Event Navigator"
 msgstr "Event Navigator"
@@ -160,8 +160,8 @@ msgstr "確認済み"
 msgid "Unacknowledged"
 msgstr "未確認"
 
-msgid "Initial aggregation mode"
-msgstr "集計方法の初期値"
+msgid "Aggregation method"
+msgstr "集計方法"
 
 msgid "Occurred events"
 msgstr "発生イベント数"
@@ -249,3 +249,12 @@ msgstr "%1$s件"
 
 msgid "Initial filter state"
 msgstr "フィルタの初期状態"
+
+msgid "Target"
+msgstr "対象"
+
+msgid "Initial display state"
+msgstr "表示の初期状態"
+
+msgid "Data retrieval"
+msgstr "データ取得"

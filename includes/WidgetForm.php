@@ -126,7 +126,7 @@ class WidgetForm extends CWidgetForm {
 			)
 			// Event Count Mode の初期値（表示画面から切り替え可能）。
 			->addField(
-				(new CWidgetFieldSelect('count_mode', _et('Initial aggregation mode'), [
+				(new CWidgetFieldSelect('count_mode', _et('Aggregation method'), [
 					self::COUNT_OCCURRENCE => _et('Occurred events'),
 					self::COUNT_CONTINUOUS => _et('Continuing events (add to every bucket)')
 				]))->setDefault(self::COUNT_OCCURRENCE)

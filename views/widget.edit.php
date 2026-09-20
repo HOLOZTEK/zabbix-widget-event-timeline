@@ -8,34 +8,35 @@
 use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectBroadcastSourceView;
 
 (new CWidgetFormView($data))
-	// Monitoring target: Source（Fixed / Widget）。表示する入力は widget.edit.js.php が Source に合わせて切り替える。
-	->addField(
-		new CWidgetFieldSelectView($data['fields']['host_source'])
-	)
-	->addField(
-		(new CWidgetFieldMultiSelectHostView($data['fields']['hostids']))->addRowClass('js-row-host-fixed')
-	)
-	->addField(
-		(new CWidgetFieldMultiSelectGroupView($data['fields']['groupids']))->addRowClass('js-row-host-fixed')
-	)
-	->addField(
-		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['tn_hostids']))
-			->addRowClass('js-row-host-widget')
-	)
-	// Event: Source（Fixed / Widget）。
-	->addField(
-		new CWidgetFieldSelectView($data['fields']['event_source'])
-	)
-	->addField(
-		(new CWidgetFieldTextAreaView($data['fields']['event_names']))->addRowClass('js-row-event-fixed')
-	)
-	->addField(
-		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['en_eventids']))
-			->addRowClass('js-row-event-widget')
-	)
-	// Filterの初期状態: 表示画面のRuntime Filterの初期値（Event取得条件ではない）。
 	->addFieldset(
-		(new CWidgetFormFieldsetCollapsibleView(_et('Initial filter state')))
+		(new CWidgetFormFieldsetCollapsibleView(_et('Target')))
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['host_source'])
+			)
+			->addField(
+				(new CWidgetFieldMultiSelectHostView($data['fields']['hostids']))->addRowClass('js-row-host-fixed')
+			)
+			->addField(
+				(new CWidgetFieldMultiSelectGroupView($data['fields']['groupids']))->addRowClass('js-row-host-fixed')
+			)
+			->addField(
+				(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['tn_hostids']))->addRowClass('js-row-host-widget')
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['event_source'])
+			)
+			->addField(
+				(new CWidgetFieldTextAreaView($data['fields']['event_names']))->addRowClass('js-row-event-fixed')
+			)
+			->addField(
+				(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['en_eventids']))->addRowClass('js-row-event-widget')
+			)
+	)
+	->addFieldset(
+		(new CWidgetFormFieldsetCollapsibleView(_et('Initial display state')))
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['count_mode'])
+			)
 			->addField(
 				new CWidgetFieldCheckBoxListView($data['fields']['severities'])
 			)
@@ -43,14 +44,14 @@ use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectBroadcastSourceView;
 				new CWidgetFieldCheckBoxListView($data['fields']['ack_states'])
 			)
 	)
-	->addField(
-		new CWidgetFieldSelectView($data['fields']['count_mode'])
-	)
-	->addField(
-		new CWidgetFieldIntegerBoxView($data['fields']['max_events'])
-	)
-	->addField(
-		new CWidgetFieldTimePeriodView($data['fields']['time_period'])
+	->addFieldset(
+		(new CWidgetFormFieldsetCollapsibleView(_et('Data retrieval')))
+			->addField(
+				new CWidgetFieldIntegerBoxView($data['fields']['max_events'])
+			)
+			->addField(
+				new CWidgetFieldTimePeriodView($data['fields']['time_period'])
+			)
 	)
 	->addFieldset(
 		(new CWidgetFormFieldsetCollapsibleView(_et('Appearance')))

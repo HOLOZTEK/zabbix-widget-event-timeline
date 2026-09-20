@@ -160,8 +160,8 @@ msgstr "Acknowledged"
 msgid "Unacknowledged"
 msgstr "Unacknowledged"
 
-msgid "Initial aggregation mode"
-msgstr "Initial aggregation mode"
+msgid "Aggregation method"
+msgstr "Aggregation method"
 
 msgid "Occurred events"
 msgstr "Occurred events"
@@ -249,3 +249,12 @@ msgstr "%1$s events"
 
 msgid "Initial filter state"
 msgstr "Initial filter state"
+
+msgid "Target"
+msgstr "Target"
+
+msgid "Initial display state"
+msgstr "Initial display state"
+
+msgid "Data retrieval"
+msgstr "Data retrieval"
