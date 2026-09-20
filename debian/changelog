@@ -1,3 +1,15 @@
+zabbix-widget-event-timeline (0.1.1) unstable; urgency=medium
+
+  * Monitoring target and events can be taken from fixed settings or from
+    widgets (Tree Navigator / Event Navigator).
+  * Events are specified by selecting triggers; with no trigger selected, all
+    events of the target hosts are shown.
+  * Runtime controls: severity chips, acknowledgement filter, aggregation
+    (occurred / continuing), tooltip order, and reset.
+  * Total / interval moved below the chart; settings dialog reorganized.
+
+ -- claude <noreply@example.com>  Sun, 20 Sep 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.1.0) unstable; urgency=medium
 
   * Initial release. Stacked bar chart of problem events per time bucket by

@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.1.0
+Version:        0.1.1
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -12,7 +12,8 @@ Zabbix dashboard widget that shows how many problem events occurred over time
 as a stacked bar chart (by severity).
 
 Features:
-- Host / Host group selection, Severity filter, dashboard Time period support
+- Host / Host group and trigger selection (fixed or from Tree Navigator / Event Navigator),
+  runtime Severity / acknowledgement filters, dashboard Time period support
 - Automatic bucket width (at most 100 buckets, 1 minute to 1 month, calendar
   aligned in the user's time zone, weeks start on Monday)
 - Stacked bars per Severity with hover emphasis; tooltip with per-severity
@@ -86,6 +87,13 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sun Sep 20 2026 claude <noreply> - 0.1.1-0
+- Monitoring target / イベントを Fixed または Widget（Tree Navigator / Event Navigator）から選択可能に
+- イベントの指定をトリガー選択方式に変更（未指定時は対象ホストの全イベント）
+- 表示画面上で Severity・確認状態・集計方法（発生数/継続数）・詳細表示順を切替、条件リセット
+- Severityチップ（Hoverで名称・件数）、合計/間隔をグラフ下部へ移動、操作UIの説明ラベルを削除
+- 設定画面を 対象 / 表示の初期状態 / データ取得 / 外観 に再構成
+
 * Sat Sep 19 2026 claude <noreply> - 0.1.0-0
 - 初回リリース。Host / Host group 指定の Problem Event を Severity 別の積み上げ棒グラフで時間Bucket集計表示
 - Bucket幅の自動選択（最大100本・1分〜1か月・ユーザーTZの暦基準・週は月曜開始）
