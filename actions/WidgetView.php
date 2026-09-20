@@ -69,6 +69,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$event_selection = SourceResolver::resolveEventSelection($fields);
 
 		$events = [];
+		$severity_counts = array_fill_keys(Aggregator::SEVERITIES, 0);
 		$truncated = false;
 		$covered_from = null;
 		$empty_reason = null;
@@ -80,13 +81,14 @@ class WidgetView extends CControllerDashboardWidgetView {
 		elseif (!$target['hostids']) {
 			$empty_reason = 'no_hosts';
 		}
-		elseif (!$runtime['severities'] || !$runtime['ack']) {
-			// Filterが全OFF: 取得せず0件（Event自体は存在し得るので、Filter起因の表示にする）。
+		elseif (!$runtime['ack']) {
+			// 確認状態が空（通常のUIでは発生しない）: 取得せず0件。Filter起因の表示にする。
 			$empty_reason = 'filtered';
 		}
 		else {
 			// 2. Event fetch
-			$result = EventFetcher::fetch($target['hostids'], $from, $to, $runtime['severities'], $max_events,
+			// Severityは取得段階で絞らない（SeverityチップのTooltipがOFFのSeverityの件数も示すため）。
+			$result = EventFetcher::fetch($target['hostids'], $from, $to, Aggregator::SEVERITIES, $max_events,
 				$event_selection['selectors'], $continuous, $runtime['ack']
 			);
 
@@ -105,8 +107,17 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 			// 3. Severity filter → Ack filter（重複eventidの排除を含む）
 			$events = Aggregator::uniqueByEventid($result['events']);
-			$events = Aggregator::filterBySeverity($events, $runtime['severities']);
 			$events = Aggregator::filterByAck($events, $runtime['ack']);
+
+			// Severityチップ用の件数: Severity自身のON/OFFを除く現在条件（Selection・期間・確認状態・カウント方式）での件数。
+			foreach ($events as $e) {
+				if (isset($severity_counts[(int) $e['severity']]) && self::overlapsPeriod($e, $plan['bounds'],
+						$continuous, $now)) {
+					$severity_counts[(int) $e['severity']]++;
+				}
+			}
+
+			$events = Aggregator::filterBySeverity($events, $runtime['severities']);
 		}
 
 		// 4. Event Count Mode → Bucket aggregation
@@ -116,10 +127,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$total = 0;
 
 		foreach ($events as $e) {
-			[$start, $end] = Aggregator::span($e, $now);
-
-			if (Aggregator::bucketRange($plan['bounds'], $continuous ? $start : (int) $e['clock'],
-					$continuous ? $end : (int) $e['clock'] + 1) !== null) {
+			if (self::overlapsPeriod($e, $plan['bounds'], $continuous, $now)) {
 				$total++;
 			}
 		}
@@ -145,10 +153,22 @@ class WidgetView extends CControllerDashboardWidgetView {
 					? (new \DateTimeImmutable('@'.$covered_from))->setTimezone($tz)->format('Y/m/d H:i')
 					: null,
 				'max_events' => $max_events,
-				'empty_reason' => $total > 0 ? null : ($empty_reason ?? 'no_events')
+				'severity_counts' => array_values($severity_counts),
+				'empty_reason' => $total > 0 ? null
+					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events'))
 			]),
 			'user' => ['debug_mode' => $this->getDebugMode()]
 		]));
+	}
+
+	/**
+	 * Eventが表示期間に数えられるか（発生モード: clockが期間内 / 継続モード: 継続期間が期間と重なる）。
+	 */
+	private static function overlapsPeriod(array $e, array $bounds, bool $continuous, int $now): bool {
+		[$start, $end] = Aggregator::span($e, $now);
+
+		return Aggregator::bucketRange($bounds, $continuous ? $start : (int) $e['clock'],
+			$continuous ? $end : (int) $e['clock'] + 1) !== null;
 	}
 
 	/**
@@ -253,6 +273,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'count_mode' => $runtime['count_mode']
 			],
 			'total' => $meta['total'],
+			'severity_counts' => $meta['severity_counts'],
 			'empty_reason' => $meta['empty_reason'],
 			'truncated' => $meta['truncated'],
 			'covered_from' => $meta['covered_from'],

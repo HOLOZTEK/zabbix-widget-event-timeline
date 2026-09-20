@@ -189,3 +189,60 @@ msgstr "Continuing events"
 
 msgid "Ongoing"
 msgstr "Ongoing"
+
+msgid "Aggregation"
+msgstr "Aggregation"
+
+msgid "Occurred count"
+msgstr "Occurred"
+
+msgid "Continuing count"
+msgstr "Continuing"
+
+msgid "Number of events that started in each bucket"
+msgstr "Number of events that started in each bucket"
+
+msgid "Number of events overlapping each bucket"
+msgstr "Number of events overlapping each bucket"
+
+msgid "Ack status"
+msgstr "Ack"
+
+msgid "All"
+msgstr "All"
+
+msgid "Tooltip order"
+msgstr "Details"
+
+msgid "By host"
+msgstr "By host"
+
+msgid "Chronological"
+msgstr "Chronological"
+
+msgid "Reset conditions"
+msgstr "Reset"
+
+msgid "Severity level"
+msgstr "Severity"
+
+msgid "Not classified (chip)"
+msgstr "Not classified"
+
+msgid "Information (chip)"
+msgstr "Information"
+
+msgid "Warning (chip)"
+msgstr "Warning"
+
+msgid "Average (chip)"
+msgstr "Average"
+
+msgid "High (chip)"
+msgstr "High"
+
+msgid "Disaster (chip)"
+msgstr "Disaster"
+
+msgid "%1$s events"
+msgstr "%1$s events"

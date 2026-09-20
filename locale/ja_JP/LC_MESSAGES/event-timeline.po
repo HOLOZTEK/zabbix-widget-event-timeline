@@ -189,3 +189,60 @@ msgstr "継続中イベント"
 
 msgid "Ongoing"
 msgstr "継続中"
+
+msgid "Aggregation"
+msgstr "集計"
+
+msgid "Occurred count"
+msgstr "発生数"
+
+msgid "Continuing count"
+msgstr "継続数"
+
+msgid "Number of events that started in each bucket"
+msgstr "各Bucketで新規に発生したEventの数"
+
+msgid "Number of events overlapping each bucket"
+msgstr "各Bucketと継続期間が重なるEventの数"
+
+msgid "Ack status"
+msgstr "確認"
+
+msgid "All"
+msgstr "全て"
+
+msgid "Tooltip order"
+msgstr "詳細"
+
+msgid "By host"
+msgstr "ホスト順"
+
+msgid "Chronological"
+msgstr "時系列"
+
+msgid "Reset conditions"
+msgstr "リセット"
+
+msgid "Severity level"
+msgstr "深刻度"
+
+msgid "Not classified (chip)"
+msgstr "未分類"
+
+msgid "Information (chip)"
+msgstr "情報"
+
+msgid "Warning (chip)"
+msgstr "警告"
+
+msgid "Average (chip)"
+msgstr "軽度"
+
+msgid "High (chip)"
+msgstr "重度"
+
+msgid "Disaster (chip)"
+msgstr "致命的"
+
+msgid "%1$s events"
+msgstr "%1$s件"

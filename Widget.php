@@ -33,6 +33,44 @@ class Widget extends CWidget {
 					=> _et('Acknowledged'),
 				'Unacknowledged'
 					=> _et('Unacknowledged'),
+				'Aggregation'
+					=> _et('Aggregation'),
+				'Occurred count'
+					=> _et('Occurred count'),
+				'Continuing count'
+					=> _et('Continuing count'),
+				'Number of events that started in each bucket'
+					=> _et('Number of events that started in each bucket'),
+				'Number of events overlapping each bucket'
+					=> _et('Number of events overlapping each bucket'),
+				'Ack status'
+					=> _et('Ack status'),
+				'All'
+					=> _et('All'),
+				'Tooltip order'
+					=> _et('Tooltip order'),
+				'By host'
+					=> _et('By host'),
+				'Chronological'
+					=> _et('Chronological'),
+				'Reset conditions'
+					=> _et('Reset conditions'),
+				'Severity level'
+					=> _et('Severity level'),
+				'Not classified (chip)'
+					=> _et('Not classified (chip)'),
+				'Information (chip)'
+					=> _et('Information (chip)'),
+				'Warning (chip)'
+					=> _et('Warning (chip)'),
+				'Average (chip)'
+					=> _et('Average (chip)'),
+				'High (chip)'
+					=> _et('High (chip)'),
+				'Disaster (chip)'
+					=> _et('Disaster (chip)'),
+				'%1$s events'
+					=> _et('%1$s events'),
 				'Interval'
 					=> _et('Interval'),
 				'Total'
