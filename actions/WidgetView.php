@@ -9,6 +9,7 @@ use DateTimeZone;
 
 use Modules\EventTimeline\Includes\{
 	Aggregator,
+	DimensionAggregator,
 	BucketPlanner,
 	EventFetcher,
 	SourceResolver,
@@ -41,14 +42,18 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$configured = [
 			'severities' => self::ints($fields['severities'] ?? Aggregator::SEVERITIES),
 			'ack' => self::ints($fields['ack_states'] ?? [WidgetForm::ACK_ACKNOWLEDGED, WidgetForm::ACK_UNACKNOWLEDGED]),
-			'count_mode' => (int) ($fields['count_mode'] ?? WidgetForm::COUNT_OCCURRENCE)
+			'count_mode' => (int) ($fields['count_mode'] ?? WidgetForm::COUNT_OCCURRENCE),
+			'mode' => self::mode($fields['display_mode'] ?? WidgetForm::MODE_TIMELINE),
+			'sort' => self::sortKey($fields['sort_order'] ?? DimensionAggregator::SORT_COUNT)
 		];
 
 		if (!empty($fields['rt_active'])) {
 			$runtime = [
 				'severities' => self::ints($fields['rt_severities'] ?? []),
 				'ack' => self::ints($fields['rt_ack'] ?? []),
-				'count_mode' => (int) ($fields['rt_count_mode'] ?? WidgetForm::COUNT_OCCURRENCE)
+				'count_mode' => (int) ($fields['rt_count_mode'] ?? WidgetForm::COUNT_OCCURRENCE),
+				'mode' => self::mode($fields['rt_mode'] ?? WidgetForm::MODE_TIMELINE),
+				'sort' => self::sortKey($fields['rt_sort'] ?? DimensionAggregator::SORT_COUNT)
 			];
 		}
 		else {
@@ -56,6 +61,15 @@ class WidgetView extends CControllerDashboardWidgetView {
 		}
 
 		$continuous = $runtime['count_mode'] === WidgetForm::COUNT_CONTINUOUS;
+
+		$page_size = in_array((int) ($fields['page_size'] ?? 0), WidgetForm::PAGE_SIZES, true)
+			? (int) $fields['page_size']
+			: WidgetForm::PAGE_SIZE_DEFAULT;
+		$auto_page = in_array((int) ($fields['auto_page'] ?? 0), WidgetForm::AUTO_PAGE_INTERVALS, true)
+			? (int) $fields['auto_page']
+			: 0;
+		$page = !empty($fields['rt_active']) ? max(1, (int) ($fields['rt_page'] ?? 1)) : 1;
+		$category = null;
 
 		// Bucket境界・軸ラベル・Tooltipはすべてログインユーザーの有効タイムゾーンで統一する
 		// （Zabbix フロントエンドは "System default" 選択時もここへ有効値を設定済み）。
@@ -118,10 +132,30 @@ class WidgetView extends CControllerDashboardWidgetView {
 			}
 
 			$events = Aggregator::filterBySeverity($events, $runtime['severities']);
+
+			if ($runtime['mode'] !== WidgetForm::MODE_TIMELINE) {
+				// 次元集計: 表示期間に数えられるEventだけを、Event名・関連Host・Host groupと突き合わせて集計する。
+				$events = array_values(array_filter($events, fn(array $e): bool => self::overlapsPeriod($e,
+					$plan['bounds'], $continuous, $now
+				)));
+
+				$category = $this->buildCategory($events, $target['hostids'], $runtime, $page_size, $page);
+
+				if ($category === null) {
+					$this->setResponse(new CControllerResponseData([
+						'name' => $this->getInput('name', $this->widget->getDefaultName()),
+						'error' => _et('Failed to retrieve events.'),
+						'user' => ['debug_mode' => $this->getDebugMode()]
+					]));
+
+					return;
+				}
+			}
 		}
 
-		// 4. Event Count Mode → Bucket aggregation
-		$rows = Aggregator::aggregate($events, $plan['bounds'], $continuous, $now);
+		// 4. Event Count Mode → Bucket aggregation（Timeline のみ。次元モードは buildCategory で集計済み）
+		$is_timeline = $runtime['mode'] === WidgetForm::MODE_TIMELINE;
+		$rows = $is_timeline ? Aggregator::aggregate($events, $plan['bounds'], $continuous, $now) : [];
 
 		// 合計: 有効なFilterを通り、表示期間と重なるEventの件数（Bucketごとの件数の合計ではない）。
 		$total = 0;
@@ -132,8 +166,13 @@ class WidgetView extends CControllerDashboardWidgetView {
 			}
 		}
 
+		// 次元モードでは「対象」件数（カテゴリ数）が表示対象。空判定もカテゴリ数で行う。
+		$shown = $category !== null ? $category['pager']['total'] : $total;
+
 		// Tooltip詳細（集計とは独立。取得に失敗しても集計・描画は継続する）。
-		$picked = Aggregator::pickDetails($events, $plan['bounds'], self::DETAIL_LIMIT, $continuous, $now);
+		$picked = $is_timeline
+			? Aggregator::pickDetails($events, $plan['bounds'], self::DETAIL_LIMIT, $continuous, $now)
+			: [];
 		$event_details = $picked
 			? EventFetcher::fetchDetails(array_merge(...array_map(
 				static fn(array $by_sev): array => array_merge(...array_values(array_map(
@@ -154,11 +193,65 @@ class WidgetView extends CControllerDashboardWidgetView {
 					: null,
 				'max_events' => $max_events,
 				'severity_counts' => array_values($severity_counts),
-				'empty_reason' => $total > 0 ? null
+				'category' => $category,
+				'page_size' => $page_size,
+				'auto_page' => $auto_page,
+				'empty_reason' => $shown > 0 ? null
 					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events'))
 			]),
 			'user' => ['debug_mode' => $this->getDebugMode()]
 		]));
+	}
+
+	/**
+	 * 次元集計（By Host / By Host group / By Event）→ Sort → Paging。
+	 *
+	 * @return array|null  失敗時は null
+	 */
+	private function buildCategory(array $events, array $hostids, array $runtime, int $page_size, int $page): ?array {
+		$info = $events
+			? EventFetcher::fetchDimensionInfo(array_column($events, 'eventid'), $hostids)
+			: ['names' => [], 'hosts' => [], 'host_names' => []];
+
+		if ($info === null) {
+			return null;
+		}
+
+		switch ($runtime['mode']) {
+			case WidgetForm::MODE_HOST:
+				$rows = DimensionAggregator::byHost($events, $info['hosts'], $info['host_names']);
+				break;
+
+			case WidgetForm::MODE_GROUP:
+				$groups = $events ? EventFetcher::fetchHostGroups(array_keys($info['host_names'])) : [];
+
+				if ($groups === null) {
+					return null;
+				}
+
+				$rows = DimensionAggregator::byHostGroup($events, $info['hosts'], $groups);
+				break;
+
+			default:
+				$rows = DimensionAggregator::byEvent($events, $info['hosts'], $info['names']);
+		}
+
+		$pager = DimensionAggregator::paginate(DimensionAggregator::sort($rows, $runtime['sort']), $page_size, $page);
+
+		return ['rows' => $pager['rows'], 'pager' => array_diff_key($pager, ['rows' => 1])];
+	}
+
+	private static function mode($value): int {
+		$value = (int) $value;
+
+		return in_array($value, [WidgetForm::MODE_TIMELINE, WidgetForm::MODE_HOST, WidgetForm::MODE_GROUP,
+			WidgetForm::MODE_EVENT], true) ? $value : WidgetForm::MODE_TIMELINE;
+	}
+
+	private static function sortKey($value): int {
+		$value = (int) $value;
+
+		return in_array($value, DimensionAggregator::SORTS, true) ? $value : DimensionAggregator::SORT_COUNT;
 	}
 
 	/**
@@ -265,13 +358,20 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'configured' => [
 				'severities' => $configured['severities'],
 				'ack' => $configured['ack'],
-				'count_mode' => $configured['count_mode']
+				'count_mode' => $configured['count_mode'],
+				'mode' => $configured['mode'],
+				'sort' => $configured['sort']
 			],
 			'runtime' => [
 				'severities' => $runtime['severities'],
 				'ack' => $runtime['ack'],
-				'count_mode' => $runtime['count_mode']
+				'count_mode' => $runtime['count_mode'],
+				'mode' => $runtime['mode'],
+				'sort' => $runtime['sort']
 			],
+			'category' => $meta['category'],
+			'page_size' => $meta['page_size'],
+			'auto_page' => $meta['auto_page'],
 			'total' => $meta['total'],
 			'severity_counts' => $meta['severity_counts'],
 			'empty_reason' => $meta['empty_reason'],

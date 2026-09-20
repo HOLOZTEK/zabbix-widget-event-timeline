@@ -274,3 +274,14 @@
 	padding: 8px 8px 4px;
 	font-size: 12px;
 }
+
+.et-pager {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.et-pager .et-btn:disabled {
+	opacity: .4;
+	cursor: default;
+}

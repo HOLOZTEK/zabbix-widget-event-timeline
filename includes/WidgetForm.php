@@ -46,6 +46,17 @@ class WidgetForm extends CWidgetForm {
 	public const TYPE_HOST_GROUP_IDS = '_hostgroupids';
 	public const TYPE_TRIGGER_IDS    = '_triggerids';
 
+	// 表示モード（Dimension）。
+	public const MODE_TIMELINE = 0;
+	public const MODE_HOST     = 1;
+	public const MODE_GROUP    = 2;
+	public const MODE_EVENT    = 3;
+
+	// ページング。
+	public const PAGE_SIZES         = [10, 20, 50];
+	public const PAGE_SIZE_DEFAULT  = 20;
+	public const AUTO_PAGE_INTERVALS = [0, 10, 30, 60];
+
 	public const MAX_EVENTS_MIN     = 1000;
 	public const MAX_EVENTS_MAX     = 1000000;
 	public const MAX_EVENTS_DEFAULT = 100000;
@@ -124,8 +135,50 @@ class WidgetForm extends CWidgetForm {
 					self::COUNT_CONTINUOUS => _et('Continuing events (add to every bucket)')
 				]))->setDefault(self::COUNT_OCCURRENCE)
 			)
+			// 表示モード・並び順の初期値（表示画面から切り替え可能）。並び順は Timeline では使わないが設定として保持する。
+			->addField(
+				(new CWidgetFieldSelect('display_mode', _et('Display mode'), [
+					self::MODE_TIMELINE => _et('Timeline'),
+					self::MODE_HOST => _et('Host'),
+					self::MODE_GROUP => _et('Host group'),
+					self::MODE_EVENT => _et('Event')
+				]))->setDefault(self::MODE_TIMELINE)
+			)
+			->addField(
+				(new CWidgetFieldSelect('sort_order', _et('Sort order'), [
+					DimensionAggregator::SORT_COUNT => _et('By count'),
+					DimensionAggregator::SORT_ASC => _et('A to Z'),
+					DimensionAggregator::SORT_DESC => _et('Z to A')
+				]))->setDefault(DimensionAggregator::SORT_COUNT)
+			)
+			// ページング（Host / Host group / Event の各モードで使う）。
+			->addField(
+				(new CWidgetFieldSelect('page_size', _et('Items per page'), array_combine(self::PAGE_SIZES,
+					array_map('strval', self::PAGE_SIZES)
+				)))->setDefault(self::PAGE_SIZE_DEFAULT)
+			)
+			->addField(
+				(new CWidgetFieldSelect('auto_page', _et('Auto paging'), [
+					0 => _et('Off'),
+					10 => _et('10 seconds'),
+					30 => _et('30 seconds'),
+					60 => _et('60 seconds')
+				]))->setDefault(0)
+			)
 			// Runtime状態（表示画面から送られる一時的な値）。設定画面には表示せず、保存もされない。
 			->addField((new CWidgetFieldCheckBox('rt_active'))->setDefault(0))
+			->addField(
+				(new CWidgetFieldSelect('rt_mode', '', [
+					self::MODE_TIMELINE => '', self::MODE_HOST => '', self::MODE_GROUP => '', self::MODE_EVENT => ''
+				]))->setDefault(self::MODE_TIMELINE)
+			)
+			->addField(
+				(new CWidgetFieldSelect('rt_sort', '', [
+					DimensionAggregator::SORT_COUNT => '', DimensionAggregator::SORT_ASC => '',
+					DimensionAggregator::SORT_DESC => ''
+				]))->setDefault(DimensionAggregator::SORT_COUNT)
+			)
+			->addField((new CWidgetFieldIntegerBox('rt_page', '', 1, 1000000))->setDefault(1))
 			->addField(
 				(new CWidgetFieldCheckBoxList('rt_severities', '', $severities))->setDefault([])
 			)

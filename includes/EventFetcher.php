@@ -274,4 +274,80 @@ class EventFetcher {
 
 		return $details;
 	}
+
+	/**
+	 * 次元集計（By Host / By Host group / By Event）用に、Event名と関連Host（ID・名前）を取得する。
+	 * 関連Hostは対象Host集合（$target_hostids）との交差だけを返す。
+	 *
+	 * @param string[] $eventids
+	 * @param int[]    $target_hostids
+	 *
+	 * @return array{names: array<string, string>, hosts: array<string, string[]>, host_names: array<string, string>}|null
+	 */
+	public static function fetchDimensionInfo(array $eventids, array $target_hostids): ?array {
+		$target = array_flip(array_map('strval', $target_hostids));
+		$names = [];
+		$hosts = [];
+		$host_names = [];
+
+		foreach (array_chunk(array_values(array_unique($eventids)), 500) as $chunk) {
+			$rows = API::Event()->get([
+				'output' => ['eventid', 'name'],
+				'selectHosts' => ['hostid', 'name'],
+				'eventids' => $chunk,
+				'source' => EVENT_SOURCE_TRIGGERS,
+				'object' => EVENT_OBJECT_TRIGGER
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$eventid = (string) $row['eventid'];
+				$names[$eventid] = (string) $row['name'];
+				$hosts[$eventid] = [];
+
+				foreach ($row['hosts'] ?? [] as $h) {
+					if (isset($target[(string) $h['hostid']])) {
+						$hosts[$eventid][] = (string) $h['hostid'];
+						$host_names[(string) $h['hostid']] = (string) $h['name'];
+					}
+				}
+			}
+		}
+
+		return ['names' => $names, 'hosts' => $hosts, 'host_names' => $host_names];
+	}
+
+	/**
+	 * Hostごとの所属Host group。
+	 *
+	 * @param string[] $hostids
+	 *
+	 * @return array<string, array<string, string>>|null  hostid => [groupid => group名]。失敗時は null
+	 */
+	public static function fetchHostGroups(array $hostids): ?array {
+		$map = [];
+
+		foreach (array_chunk(array_values(array_unique($hostids)), 500) as $chunk) {
+			$rows = API::Host()->get([
+				'output' => ['hostid'],
+				'selectHostGroups' => ['groupid', 'name'],
+				'hostids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				foreach ($row['hostgroups'] ?? [] as $g) {
+					$map[(string) $row['hostid']][(string) $g['groupid']] = (string) $g['name'];
+				}
+			}
+		}
+
+		return $map;
+	}
 }

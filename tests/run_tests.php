@@ -8,12 +8,14 @@
 require_once __DIR__.'/../includes/BucketPlanner.php';
 require_once __DIR__.'/../includes/Aggregator.php';
 require_once __DIR__.'/../includes/TimeFormatter.php';
+require_once __DIR__.'/../includes/DimensionAggregator.php';
 require_once __DIR__.'/../includes/SourceResolver.php';
 
 require_once __DIR__.'/stubs.php';
 
 use Modules\EventTimeline\Includes\Aggregator;
 use Modules\EventTimeline\Includes\BucketPlanner;
+use Modules\EventTimeline\Includes\DimensionAggregator as D;
 use Modules\EventTimeline\Includes\SourceResolver;
 use Modules\EventTimeline\Includes\TimeFormatter;
 
@@ -291,6 +293,53 @@ check('event fixed empty', SourceResolver::resolveEventSelection([]), ['selected
 check('event widget', SourceResolver::resolveEventSelection(['event_source' => 1, 'en_triggerids' => [9], 'triggerids' => [1]]),
 	['selected' => true, 'selectors' => [['objectids' => ['9']]]]);
 check('event widget empty', SourceResolver::resolveEventSelection(['event_source' => 1, 'triggerids' => [1]]), ['selected' => true, 'selectors' => [[]]]);
+
+// --- 第3フェーズ: 次元集計 / Sort / Paging ---
+$ev = static fn(string $id, int $sev): array => ['eventid' => $id, 'clock' => 0, 'end' => null, 'severity' => $sev];
+$c = static fn(array $rows): array => array_map(static fn(array $r): array => [$r['label'], $r['total']], $rows);
+
+// By Host: 複数Hostに関連するEventは各Hostで1件、Host内は重複なし
+$evs = [$ev('1', 4), $ev('2', 2), $ev('3', 4), $ev('1', 4)];
+$eh = ['1' => ['10', '11'], '2' => ['10'], '3' => ['11', '11']];
+$hn = ['10' => 'hostA', '11' => 'hostB'];
+$r = D::byHost($evs, $eh, $hn);
+check('byHost totals', $c($r), [['hostA', 2], ['hostB', 2]]);
+check('byHost severity', $r[0]['counts'], [0, 0, 1, 0, 1, 0]);
+check('byHost non-target host ignored', $c(D::byHost([$ev('9', 1)], ['9' => ['99']], $hn)), []);
+
+// By Host group: Group内で1 eventid = 1件、複数Groupに現れる
+$hg = ['10' => ['g1' => 'G1', 'g2' => 'G2'], '11' => ['g1' => 'G1']];
+$r = D::byHostGroup([$ev('1', 4), $ev('2', 2)], ['1' => ['10', '11'], '2' => ['10']], $hg);
+check('byHostGroup dedupe', $c($r), [['G1', 2], ['G2', 2]]);
+$r = D::byHostGroup([$ev('1', 4)], ['1' => ['10', '11']], $hg);
+check('byHostGroup one event two groups', $c($r), [['G1', 1], ['G2', 1]]);
+
+// By Event: Event名 × Host のユニーク数、同一Hostの繰り返しは1、複数Severityは最高
+$names = ['1' => 'CPU', '2' => 'CPU', '3' => 'CPU', '4' => 'Disk'];
+$r = D::byEvent([$ev('1', 2), $ev('2', 4), $ev('3', 2), $ev('4', 3)],
+	['1' => ['10'], '2' => ['10'], '3' => ['11'], '4' => ['10']], $names);
+check('byEvent unique host', $c($r), [['CPU', 2], ['Disk', 1]]);
+check('byEvent highest severity', $r[0]['counts'], [0, 0, 1, 0, 1, 0]);
+check('byEvent same host repeated', $c(D::byEvent([$ev('1', 3), $ev('2', 3)], ['1' => ['10'], '2' => ['10']], $names)),
+	[['CPU', 1]]);
+check('byEvent empty', D::byEvent([], [], []), []);
+
+// Sort
+$rows = [['label' => 'b10', 'total' => 1], ['label' => 'B2', 'total' => 5], ['label' => 'a', 'total' => 5]];
+check('sort count', array_column(D::sort($rows, D::SORT_COUNT), 'label'), ['a', 'B2', 'b10']);
+check('sort asc natural', array_column(D::sort($rows, D::SORT_ASC), 'label'), ['a', 'B2', 'b10']);
+check('sort desc', array_column(D::sort($rows, D::SORT_DESC), 'label'), ['b10', 'B2', 'a']);
+
+// Paging
+$many = array_map(static fn(int $i): array => ['label' => "h$i", 'total' => $i], range(1, 25));
+$p = D::paginate($many, 10, 2);
+check('page 2', [$p['page'], $p['pages'], $p['from'], $p['to'], $p['total'], count($p['rows'])], [2, 3, 11, 20, 25, 10]);
+$p = D::paginate($many, 10, 9);
+check('page clamp', [$p['page'], $p['from'], $p['to'], count($p['rows'])], [3, 21, 25, 5]);
+$p = D::paginate([], 20, 3);
+check('page empty', [$p['page'], $p['pages'], $p['from'], $p['to']], [1, 1, 0, 0]);
+$p = D::paginate(array_slice($many, 0, 20), 20, 1);
+check('page single', $p['pages'], 1);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

@@ -15,6 +15,32 @@ class Widget extends CWidget {
 	public function getTranslationStrings(): array {
 		return [
 			'class.widget.js' => [
+				'Display mode'
+					=> _et('Display mode'),
+				'Timeline'
+					=> _et('Timeline'),
+				'Host'
+					=> _et('Host'),
+				'Host group'
+					=> _et('Host group'),
+				'Event'
+					=> _et('Event'),
+				'Sort order'
+					=> _et('Sort order'),
+				'By count'
+					=> _et('By count'),
+				'A to Z'
+					=> _et('A to Z'),
+				'Z to A'
+					=> _et('Z to A'),
+				'Affected hosts'
+					=> _et('Affected hosts'),
+				'No target host groups.'
+					=> _et('No target host groups.'),
+				'Targets: %1$s'
+					=> _et('Targets: %1$s'),
+				'Page %1$s / %2$s'
+					=> _et('Page %1$s / %2$s'),
 				'No target selected'
 					=> _et('No target selected'),
 				'All events are excluded by the current filters.'

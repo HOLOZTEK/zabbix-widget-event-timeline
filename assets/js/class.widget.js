@@ -11,8 +11,12 @@ class CWidgetEventTimeline extends CWidget {
 
 	// Runtime Filter / Count Mode（設定値ではない。設定を書き換えず、設定値を初期値として最初の応答で作る）。
 	// 通常のWidget更新（Refresh）では維持し、ダッシュボードの再表示・Widget再生成で設定値から初期化し直す。
-	// 形式: {severities: number[], ack: number[], count_mode: number}
+	// 形式: {severities, ack, count_mode, mode, sort, page}
 	#runtime = null;
+
+	// 自動ページ送りのタイマー（表示画面上の状態。設定値ではない）。
+	#auto_timer = null;
+	#auto_seconds = 0;
 
 	// Widget Source の参照（Tree Navigator / Event Navigator）。Selectionが未受信でも更新を止めず、
 	// サーバーへ空の Selection として渡して「対象が選択されていません」を表示させる（全Host・全Eventへは広げない）。
@@ -21,6 +25,12 @@ class CWidgetEventTimeline extends CWidget {
 	// 発生イベント数 / 継続イベント加算（WidgetForm::COUNT_* と同じ値）。
 	static COUNT_OCCURRENCE = 0;
 	static COUNT_CONTINUOUS = 1;
+
+	// 表示モード（WidgetForm::MODE_* と同じ値）。
+	static MODE_TIMELINE = 0;
+	static MODE_HOST = 1;
+	static MODE_GROUP = 2;
+	static MODE_EVENT = 3;
 
 	// Tooltip詳細の並びの初期値（Resetの戻り先）。
 	static TIP_MODE_DEFAULT = 'host';
@@ -54,12 +64,16 @@ class CWidgetEventTimeline extends CWidget {
 			fields.rt_severities = this.#runtime.severities;
 			fields.rt_ack = this.#runtime.ack;
 			fields.rt_count_mode = this.#runtime.count_mode;
+			fields.rt_mode = this.#runtime.mode;
+			fields.rt_sort = this.#runtime.sort;
+			fields.rt_page = this.#runtime.page;
 		}
 
 		return fields;
 	}
 
 	onStop() {
+		this.#stopAutoPage();
 		this.#disposeChart();
 	}
 
@@ -98,9 +112,19 @@ class CWidgetEventTimeline extends CWidget {
 			this.#runtime = {
 				severities: [...this.#data.configured.severities],
 				ack: [...this.#data.configured.ack],
-				count_mode: this.#data.configured.count_mode
+				count_mode: this.#data.configured.count_mode,
+				mode: this.#data.configured.mode,
+				sort: this.#data.configured.sort,
+				page: 1
 			};
 		}
+
+		// 現在のページが存在しなくなった場合（件数減少）は、サーバーが最終ページへ丸めた値に合わせる。
+		if (this.#data.category) {
+			this.#runtime.page = this.#data.category.pager.page;
+		}
+
+		this.#syncAutoPage();
 
 		requestAnimationFrame(() => this.#render());
 	}
@@ -140,13 +164,15 @@ class CWidgetEventTimeline extends CWidget {
 			this._body.appendChild(this.#buildTruncationWarning(data));
 		}
 
-		if (data.total === 0) {
+		if (data.empty_reason !== null) {
 			const empty = document.createElement('div');
 			empty.className = 'et-empty';
 
 			const title = document.createElement('div');
-			// 「対象が選択されていません」と「イベントはありません」は別の状態として表示する。
-			title.textContent = data.empty_reason === 'no_selection' ? t('No target selected') : t('No events');
+			// 「対象が選択されていません」と「イベントはありません」は別の状態として表示する。モードごとに空状態の文言を変える。
+			title.textContent = data.empty_reason === 'no_selection'
+				? t('No target selected')
+				: this.#emptyText(data.empty_reason);
 			empty.appendChild(title);
 
 			const reason = {
@@ -176,15 +202,112 @@ class CWidgetEventTimeline extends CWidget {
 
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
 		this.#data = data;
+
+		if (this.#isCategory()) {
+			this.#chart.setOption(this.#buildCategoryOption(data));
+			return;
+		}
+
 		this.#chart.setOption(this.#buildOption(data));
 		// 期間線はグリッド領域が確定してから描画する。
 		this.#chart.setOption({graphic: this.#periodGraphic(data)}, {replaceMerge: ['graphic']});
+	}
+
+	#isCategory() {
+		return this.#runtime.mode !== CWidgetEventTimeline.MODE_TIMELINE;
+	}
+
+	// 空状態の文言（モード別）。Timeline は従来どおり。
+	#emptyText(reason) {
+		if (this.#isCategory() && reason !== 'filtered') {
+			return {
+				[CWidgetEventTimeline.MODE_HOST]: t('No target hosts.'),
+				[CWidgetEventTimeline.MODE_GROUP]: t('No target host groups.')
+			}[this.#runtime.mode] ?? t('No events');
+		}
+
+		return t('No events');
+	}
+
+	// ─── Paging ───────────────────────────────────────────────────
+	// 自動ページ送り: 全ページを1→…→最終→1と巡回する。ページが1つ以下のときは何もしない。
+	// 手動のページ変更では無効化せずタイマーだけをリセットし、条件変更（ページ1へ戻る）でもリセットする。
+	#syncAutoPage() {
+		const pager = this.#data?.category?.pager;
+		const seconds = this.#data?.auto_page ?? 0;
+		const active = this.#isCategory() && pager && pager.pages > 1 && seconds > 0;
+
+		if (!active) {
+			this.#stopAutoPage();
+			return;
+		}
+
+		// 既に同じ間隔で動いていれば、更新（Refresh）のたびにタイマーをやり直さない。
+		if (this.#auto_timer === null || this.#auto_seconds !== seconds) {
+			this.#startAutoPage(seconds);
+		}
+	}
+
+	#startAutoPage(seconds) {
+		this.#stopAutoPage();
+
+		this.#auto_seconds = seconds;
+		this.#auto_timer = setInterval(() => {
+			const pager = this.#data?.category?.pager;
+
+			if (!pager || pager.pages <= 1) {
+				return;
+			}
+
+			this.#runtime.page = this.#runtime.page >= pager.pages ? 1 : this.#runtime.page + 1;
+			this._startUpdating();
+		}, seconds * 1000);
+	}
+
+	#stopAutoPage() {
+		if (this.#auto_timer !== null) {
+			clearInterval(this.#auto_timer);
+			this.#auto_timer = null;
+		}
+	}
+
+	#resetAutoPage() {
+		if (this.#auto_timer !== null) {
+			this.#startAutoPage(this.#auto_seconds);
+		}
+	}
+
+	#goPage(page) {
+		this.#runtime.page = page;
+		this.#resetAutoPage();
+		// ボタン状態は応答で更新される。ここでは再取得のみ。
+		this._startUpdating();
 	}
 
 	// グラフ下部（X軸の時刻・期間線より下）: 左に合計、右に間隔。
 	#buildFooter(data) {
 		const footer = document.createElement('div');
 		footer.className = 'et-footer';
+
+		if (this.#isCategory()) {
+			// 次元モード: 合計・間隔は出さず、対象件数とページ情報を出す。
+			const pager = data.category?.pager;
+			const info = document.createElement('span');
+			info.className = 'et-total';
+			info.textContent = sprintf(t('Targets: %1$s'), pager?.total ?? 0);
+
+			if (pager && pager.pages > 1) {
+				info.textContent += '   ' + pager.from + '\u2013' + pager.to;
+			}
+
+			footer.appendChild(info);
+
+			if (pager && pager.pages > 1) {
+				footer.appendChild(this.#buildPager(pager));
+			}
+
+			return footer;
+		}
 
 		const total = document.createElement('span');
 		total.className = 'et-total';
@@ -200,6 +323,33 @@ class CWidgetEventTimeline extends CWidget {
 		return footer;
 	}
 
+	// ページ送り: ‹ 2 / 7 ›（Top Nではなく、全件を1ページ分ずつ表示する）。
+	#buildPager(pager) {
+		const box = document.createElement('span');
+		box.className = 'et-pager';
+
+		const mk = (label, page, disabled) => {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'et-btn';
+			b.textContent = label;
+			b.disabled = disabled;
+			b.addEventListener('click', () => this.#goPage(page));
+
+			return b;
+		};
+
+		const text = document.createElement('span');
+		text.className = 'et-pager-text';
+		text.textContent = sprintf(t('Page %1$s / %2$s'), pager.page, pager.pages);
+
+		box.appendChild(mk('\u2039', pager.page - 1, pager.page <= 1));
+		box.appendChild(text);
+		box.appendChild(mk('\u203A', pager.page + 1, pager.page >= pager.pages));
+
+		return box;
+	}
+
 	// Runtime操作領域（2行構成）。
 	// 1行目: 集計 / 確認状態 / 詳細表示順 / 条件リセット（機能ごとのグループを横並び。操作専用）。
 	// 2行目: 深刻度（Severity Filter）専用行。
@@ -209,9 +359,17 @@ class CWidgetEventTimeline extends CWidget {
 
 		const row1 = document.createElement('div');
 		row1.className = 'et-controls';
+		row1.appendChild(this.#buildModeGroup());
 		row1.appendChild(this.#buildCountModeGroup());
 		row1.appendChild(this.#buildAckGroup());
-		row1.appendChild(this.#buildTipModeGroup());
+
+		if (this.#isCategory()) {
+			row1.appendChild(this.#buildSortGroup());
+		}
+		else {
+			row1.appendChild(this.#buildTipModeGroup());
+		}
+
 		row1.appendChild(this.#buildResetGroup(data));
 
 		bar.appendChild(row1);
@@ -221,7 +379,11 @@ class CWidgetEventTimeline extends CWidget {
 	}
 
 	// Runtime の変更を反映する。表示（ボタン状態）は即時に更新し、集計は再取得（Filter → Aggregation → Rendering）する。
+	// 条件（モード・集計・確認・深刻度・並び）が変わったときはページ1へ戻し、自動ページ送りのタイマーもやり直す。
 	#applyRuntimeChange() {
+		this.#runtime.page = 1;
+		this.#resetAutoPage();
+
 		if (this.#data) {
 			this.#render();
 		}
@@ -275,6 +437,39 @@ class CWidgetEventTimeline extends CWidget {
 		});
 
 		group.appendChild(button);
+	}
+
+	// 表示モード: 時系列 / ホスト / ホストグループ / イベント（排他。実行時の切替は設定値を変えない）。
+	#buildModeGroup() {
+		const group = this.#buildGroup(t('Display mode'));
+
+		for (const [mode, label] of [
+			[CWidgetEventTimeline.MODE_TIMELINE, t('Timeline')],
+			[CWidgetEventTimeline.MODE_HOST, t('Host')],
+			[CWidgetEventTimeline.MODE_GROUP, t('Host group')],
+			[CWidgetEventTimeline.MODE_EVENT, t('Event')]
+		]) {
+			this.#buildChoice(group, label, this.#runtime.mode === mode, '', () => {
+				this.#runtime.mode = mode;
+				this.#applyRuntimeChange();
+			});
+		}
+
+		return group;
+	}
+
+	// 並び順（次元モードのみ）: 件数順 / A→Z / Z→A。
+	#buildSortGroup() {
+		const group = this.#buildGroup(t('Sort order'));
+
+		for (const [sort, label] of [[0, t('By count')], [1, t('A to Z')], [2, t('Z to A')]]) {
+			this.#buildChoice(group, label, this.#runtime.sort === sort, '', () => {
+				this.#runtime.sort = sort;
+				this.#applyRuntimeChange();
+			});
+		}
+
+		return group;
 	}
 
 	// 集計: 発生数 / 継続数（Event Count Mode）。
@@ -333,6 +528,9 @@ class CWidgetEventTimeline extends CWidget {
 		const same = CWidgetEventTimeline.#sameSet(this.#runtime.severities, configured.severities)
 			&& CWidgetEventTimeline.#ackMode(this.#runtime.ack) === CWidgetEventTimeline.#ackMode(configured.ack)
 			&& this.#runtime.count_mode === configured.count_mode
+			&& this.#runtime.mode === configured.mode
+			&& this.#runtime.sort === configured.sort
+			&& this.#runtime.page === 1
 			&& this.#tip_mode === CWidgetEventTimeline.TIP_MODE_DEFAULT;
 
 		const group = document.createElement('div');
@@ -350,7 +548,10 @@ class CWidgetEventTimeline extends CWidget {
 			this.#runtime = {
 				severities: [...configured.severities],
 				ack: [...configured.ack],
-				count_mode: configured.count_mode
+				count_mode: configured.count_mode,
+				mode: configured.mode,
+				sort: configured.sort,
+				page: 1
 			};
 			this.#tip_mode = CWidgetEventTimeline.TIP_MODE_DEFAULT;
 			this.#applyRuntimeChange();
@@ -530,6 +731,100 @@ class CWidgetEventTimeline extends CWidget {
 			},
 			series
 		};
+	}
+
+	// 次元モード（By Host / By Host group / By Event）の棒グラフ。カテゴリは間引かず、長い名称は省略・回転する。
+	// 完全な名称は軸ラベルのHoverとTooltipで確認できる。
+	#buildCategoryOption(data) {
+		const colors = this.#resolveColors(data.style);
+		const rows = data.category.rows;
+		const by_event = this.#runtime.mode === CWidgetEventTimeline.MODE_EVENT;
+		const enabled = data.severities.filter(s => s.enabled);
+		const width = this.#chart.getWidth();
+		const band = Math.max(width - 48, 1) / Math.max(rows.length, 1);
+		const rotate = band < 90 ? 35 : 0;
+
+		const series = enabled.map(s => ({
+			name: s.name,
+			type: 'bar',
+			stack: 'severity',
+			barCategoryGap: '20%',
+			itemStyle: {color: s.color},
+			emphasis: {focus: 'none', itemStyle: {borderColor: colors.text, borderWidth: 2}},
+			data: rows.map(r => r.counts[s.id])
+		}));
+
+		const data_max = Math.max(0, ...rows.map(r => enabled.reduce((sum, s) => sum + r.counts[s.id], 0)));
+		const y_min_scale = data.style.y_axis_min;
+
+		return {
+			animation: false,
+			backgroundColor: 'transparent',
+			textStyle: {color: colors.text},
+			grid: {left: 8, right: 16, top: 28, bottom: 8, containLabel: true},
+			xAxis: {
+				type: 'category',
+				data: rows.map(r => r.label),
+				axisLine: {lineStyle: {color: colors.line}},
+				axisTick: {alignWithLabel: true, lineStyle: {color: colors.line}},
+				axisLabel: {
+					color: colors.text,
+					interval: 0,
+					hideOverlap: false,
+					rotate,
+					width: rotate ? 130 : Math.max(band - 6, 24),
+					overflow: 'truncate',
+					ellipsis: '\u2026'
+				},
+				triggerEvent: true,
+				tooltip: {show: true, formatter: p => CWidgetEventTimeline.#escape(p.value)}
+			},
+			yAxis: {
+				type: 'value',
+				name: by_event ? t('Affected hosts') : t('Event count'),
+				nameTextStyle: {color: colors.text, align: 'left'},
+				min: 0,
+				max: y_min_scale > 0 && data_max <= y_min_scale ? y_min_scale : undefined,
+				minInterval: 1,
+				axisLine: {show: true, lineStyle: {color: colors.line}},
+				axisTick: {show: true, lineStyle: {color: colors.line}},
+				axisLabel: {color: colors.text, formatter: v => String(Math.round(v))},
+				splitLine: {lineStyle: {color: colors.line, opacity: 0.6}}
+			},
+			tooltip: {
+				trigger: 'item',
+				confine: true,
+				backgroundColor: colors.background,
+				borderColor: colors.line,
+				textStyle: {color: colors.text},
+				formatter: params => this.#categoryTooltipHtml(data, params, enabled, by_event)
+			},
+			series
+		};
+	}
+
+	// カテゴリTooltip: 名称（省略なし）、合計、Hoverしている深刻度の件数。By Event の件数は影響ホスト数。
+	#categoryTooltipHtml(data, params, enabled, by_event) {
+		const p = Array.isArray(params) ? params[0] : params;
+
+		if (p?.componentType === 'xAxis') {
+			return `<div class="et-tip">${CWidgetEventTimeline.#escape(p.value)}</div>`;
+		}
+
+		const row = data.category.rows[p?.dataIndex];
+		const severity = enabled[p?.seriesIndex];
+
+		if (!row || !severity) {
+			return '';
+		}
+
+		const esc = CWidgetEventTimeline.#escape;
+		const total_label = by_event ? t('Affected hosts') : t('Event count');
+
+		return `<div class="et-tip"><div class="et-tip-range">${esc(row.label)}</div>` +
+			`<div class="et-tip-total"><b>${esc(total_label)}: ${row.total}</b></div>` +
+			`<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
+			`${esc(severity.name)}: ${row.counts[severity.id]}</div></div>`;
 	}
 
 	static ROW_HEIGHT = 18;

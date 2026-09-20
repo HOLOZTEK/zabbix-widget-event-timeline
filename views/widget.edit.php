@@ -33,6 +33,12 @@ use Modules\EventTimeline\Includes\{CWidgetFieldMultiSelectBroadcastSourceView, 
 	->addFieldset(
 		(new CWidgetFormFieldsetCollapsibleView(_et('Initial display state')))
 			->addField(
+				new CWidgetFieldSelectView($data['fields']['display_mode'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['sort_order'])
+			)
+			->addField(
 				new CWidgetFieldSelectView($data['fields']['count_mode'])
 			)
 			->addField(
@@ -40,6 +46,15 @@ use Modules\EventTimeline\Includes\{CWidgetFieldMultiSelectBroadcastSourceView, 
 			)
 			->addField(
 				new CWidgetFieldCheckBoxListView($data['fields']['ack_states'])
+			)
+	)
+	->addFieldset(
+		(new CWidgetFormFieldsetCollapsibleView(_et('Paging')))
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['page_size'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['auto_page'])
 			)
 	)
 	->addFieldset(
