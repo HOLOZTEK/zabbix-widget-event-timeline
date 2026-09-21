@@ -385,6 +385,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'y_axis_min' => max(0,
 					min(WidgetForm::Y_AXIS_MIN_MAX, (int) ($fields['y_axis_min'] ?? 0))
 				),
+				'x_label' => max(0, min(3, (int) ($fields['x_label'] ?? 0))),
 				'line_color' => self::color($fields['line_color'] ?? ''),
 				'text_color' => self::color($fields['text_color'] ?? '')
 			]

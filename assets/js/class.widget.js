@@ -294,11 +294,9 @@ class CWidgetEventTimeline extends CWidget {
 			const pager = data.category?.pager;
 			const info = document.createElement('span');
 			info.className = 'et-total';
-			info.textContent = sprintf(t('Targets: %1$s'), pager?.total ?? 0);
-
-			if (pager && pager.pages > 1) {
-				info.textContent += '   ' + pager.from + '\u2013' + pager.to;
-			}
+			info.textContent = sprintf(t('Targets: %1$s (showing %2$s–%3$s)'), pager?.total ?? 0, pager?.from ?? 0,
+				pager?.to ?? 0
+			);
 
 			footer.appendChild(info);
 
@@ -743,6 +741,29 @@ class CWidgetEventTimeline extends CWidget {
 
 	// 次元モード（By Host / By Host group / By Event）の棒グラフ。カテゴリは間引かず、長い名称は省略・回転する。
 	// 完全な名称は軸ラベルのHoverとTooltipで確認できる。
+	// X軸ラベルの向き。0=水平 / 45=斜め / 90=縦（0:自動 1:水平 2:斜め 3:縦）。
+	// 自動は、水平のまま各ラベルが帯幅に収まる（文字幅の概算）なら水平、収まらなければ斜め。縦へは自動で切り替えない。
+	#xLabelRotate(rows, band, mode) {
+		if (mode === 1) {
+			return 0;
+		}
+
+		if (mode === 2) {
+			return 45;
+		}
+
+		if (mode === 3) {
+			return 90;
+		}
+
+		const char_w = 7;
+		const longest = Math.max(0, ...rows.map(r => [...String(r.label)]
+			.reduce((w, c) => w + (c.charCodeAt(0) > 255 ? char_w * 2 : char_w), 0)));
+
+		// 水平表示は帯幅に収まらないラベルが省略されるため、1ラベル最大でも帯幅で切る前提で、半分以上切れるなら斜めにする。
+		return longest <= band - 6 || band >= longest * 0.6 + 6 ? 0 : 45;
+	}
+
 	#buildCategoryOption(data) {
 		const colors = this.#resolveColors(data.style);
 		const rows = data.category.rows;
@@ -750,7 +771,7 @@ class CWidgetEventTimeline extends CWidget {
 		const enabled = data.severities.filter(s => s.enabled);
 		const width = this.#chart.getWidth();
 		const band = Math.max(width - 48, 1) / Math.max(rows.length, 1);
-		const rotate = band < 90 ? 35 : 0;
+		const rotate = this.#xLabelRotate(rows, band, data.style.x_label);
 
 		const series = enabled.map(s => ({
 			name: s.name,
@@ -780,7 +801,7 @@ class CWidgetEventTimeline extends CWidget {
 					interval: 0,
 					hideOverlap: false,
 					rotate,
-					width: rotate ? 130 : Math.max(band - 6, 24),
+					width: rotate === 0 ? Math.max(band - 6, 24) : 130,
 					overflow: 'truncate',
 					ellipsis: '\u2026'
 				},

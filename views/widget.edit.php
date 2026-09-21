@@ -63,6 +63,9 @@ use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectTriggerView;
 				new CWidgetFieldIntegerBoxView($data['fields']['y_axis_min'])
 			)
 			->addField(
+				new CWidgetFieldSelectView($data['fields']['x_label'])
+			)
+			->addField(
 				new CWidgetFieldColorView($data['fields']['line_color'])
 			)
 			->addField(

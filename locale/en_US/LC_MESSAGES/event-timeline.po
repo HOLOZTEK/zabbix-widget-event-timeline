@@ -269,61 +269,73 @@ msgid "Data retrieval"
 msgstr "Data retrieval"
 
 msgid "Display mode"
-msgstr "表示モード"
+msgstr "Display mode"
 
 msgid "Timeline"
-msgstr "時系列"
+msgstr "Timeline"
 
 msgid "Host"
-msgstr "ホスト"
+msgstr "Host"
 
 msgid "Host group"
-msgstr "ホストグループ"
+msgstr "Host group"
 
 msgid "Event"
-msgstr "イベント"
+msgstr "Event"
 
 msgid "Sort order"
-msgstr "並び順"
+msgstr "Sort order"
 
 msgid "By count"
-msgstr "件数順"
+msgstr "By count"
 
 msgid "A to Z"
-msgstr "A→Z"
+msgstr "A to Z"
 
 msgid "Z to A"
-msgstr "Z→A"
+msgstr "Z to A"
 
 msgid "Affected hosts"
-msgstr "影響ホスト数"
+msgstr "Affected hosts"
 
 msgid "No target host groups."
-msgstr "対象ホストグループはありません"
+msgstr "No target host groups."
 
-msgid "Targets: %1$s"
-msgstr "対象: %1$s件"
+msgid "Targets: %1$s (showing %2$s–%3$s)"
+msgstr "Targets: %1$s (showing %2$s–%3$s)"
 
 msgid "Page %1$s / %2$s"
-msgstr "%1$s / %2$sページ"
+msgstr "Page %1$s / %2$s"
 
 msgid "Paging"
-msgstr "ページング"
+msgstr "Paging"
 
 msgid "Items per page"
-msgstr "1ページの表示件数"
+msgstr "Items per page"
 
 msgid "Auto paging"
-msgstr "自動ページ送り"
+msgstr "Auto paging"
 
 msgid "Off"
-msgstr "オフ"
+msgstr "Off"
 
 msgid "10 seconds"
-msgstr "10秒"
+msgstr "10 seconds"
 
 msgid "30 seconds"
-msgstr "30秒"
+msgstr "30 seconds"
 
 msgid "60 seconds"
-msgstr "60秒"
+msgstr "60 seconds"
+
+msgid "X-axis labels"
+msgstr "X-axis labels"
+
+msgid "Horizontal"
+msgstr "Horizontal"
+
+msgid "Angled"
+msgstr "Angled"
+
+msgid "Vertical"
+msgstr "Vertical"

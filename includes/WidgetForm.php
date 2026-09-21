@@ -27,6 +27,11 @@ class WidgetForm extends CWidgetForm {
 	public const GRAPH_HEIGHT_MIN     = 100;
 	public const GRAPH_HEIGHT_MAX     = 2000;
 	public const Y_AXIS_MIN_MAX = 1000000000;
+
+	public const XLABEL_AUTO = 0;
+	public const XLABEL_HORIZONTAL = 1;
+	public const XLABEL_ANGLED = 2;
+	public const XLABEL_VERTICAL = 3;
 	public const GRAPH_HEIGHT_DEFAULT = 300;
 
 	// Event Count Mode。
@@ -173,6 +178,15 @@ class WidgetForm extends CWidgetForm {
 			->addField(
 				(new CWidgetFieldIntegerBox('y_axis_min', _et('Y-axis minimum'), 0, self::Y_AXIS_MIN_MAX))
 					->setDefault(0)
+			)
+			// Host / Host group / Event のX軸カテゴリラベルの向き。Timeline には影響しない。
+			->addField(
+				(new CWidgetFieldSelect('x_label', _et('X-axis labels'), [
+					self::XLABEL_AUTO => _et('Auto'),
+					self::XLABEL_HORIZONTAL => _et('Horizontal'),
+					self::XLABEL_ANGLED => _et('Angled'),
+					self::XLABEL_VERTICAL => _et('Vertical')
+				]))->setDefault(self::XLABEL_AUTO)
 			)
 			// 空 = 使用中のZabbixテーマに追従（固定の黒・白を使わない）。
 			->addField(

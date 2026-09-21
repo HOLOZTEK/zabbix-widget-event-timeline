@@ -37,8 +37,8 @@ class Widget extends CWidget {
 					=> _et('Affected hosts'),
 				'No target host groups.'
 					=> _et('No target host groups.'),
-				'Targets: %1$s'
-					=> _et('Targets: %1$s'),
+				'Targets: %1$s (showing %2$s–%3$s)'
+					=> _et('Targets: %1$s (showing %2$s–%3$s)'),
 				'Page %1$s / %2$s'
 					=> _et('Page %1$s / %2$s'),
 				'No target selected'
