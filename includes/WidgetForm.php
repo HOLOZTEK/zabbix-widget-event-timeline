@@ -19,6 +19,7 @@ use Zabbix\Widgets\Fields\{
 	CWidgetFieldMultiSelectHost,
 	CWidgetFieldSelect,
 	CWidgetFieldTextArea,
+	CWidgetFieldTextBox,
 	CWidgetFieldTimePeriod
 };
 
@@ -27,6 +28,10 @@ class WidgetForm extends CWidgetForm {
 	public const GRAPH_HEIGHT_MIN     = 100;
 	public const GRAPH_HEIGHT_MAX     = 2000;
 	public const Y_AXIS_MIN_MAX = 1000000000;
+
+	// Drilldown（詳細一覧）の対象。dd_severity の DETAIL_SEVERITY_ALL は「Severityを限定しない」。
+	public const DETAIL_SEVERITY_ALL = 6;
+	public const DETAIL_KEY_MAX_LENGTH = 2048;
 
 	public const XLABEL_AUTO = 0;
 	public const XLABEL_HORIZONTAL = 1;
@@ -150,6 +155,14 @@ class WidgetForm extends CWidgetForm {
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			->addField((new CWidgetFieldIntegerBox('rt_page', '', 1, 1000000))->setDefault(1))
+			// Drilldown要求（詳細一覧を返させる一時的な値。設定画面には表示せず、保存もされない）。
+			->addField((new CWidgetFieldCheckBox('dd_active'))->setDefault(0))
+			->addField((new CWidgetFieldIntegerBox('dd_start', '', 0, 2147483647))->setDefault(0))
+			->addField((new CWidgetFieldIntegerBox('dd_end', '', 0, 2147483647))->setDefault(0))
+			->addField((new CWidgetFieldIntegerBox('dd_severity', '', 0, self::DETAIL_SEVERITY_ALL))
+				->setDefault(self::DETAIL_SEVERITY_ALL)
+			)
+			->addField((new CWidgetFieldTextBox('dd_key', ''))->setMaxLength(self::DETAIL_KEY_MAX_LENGTH))
 			->addField(
 				(new CWidgetFieldCheckBoxList('rt_severities', '', $severities))->setDefault([])
 			)

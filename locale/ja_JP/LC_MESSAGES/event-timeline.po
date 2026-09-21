@@ -29,7 +29,7 @@ msgid "Failed to retrieve events."
 msgstr "イベントの取得に失敗しました。"
 
 msgid "Time"
-msgstr "時間"
+msgstr "発生時刻"
 
 msgid "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
 msgstr "不完全なデータ: イベント取得上限（%1$s件）に達しました。%2$s より前のイベントはこのグラフに集計されていません。"
@@ -339,3 +339,45 @@ msgstr "斜め"
 
 msgid "Vertical"
 msgstr "縦"
+
+msgid "Event details"
+msgstr "イベント詳細"
+
+msgid "Period"
+msgstr "期間"
+
+msgid "Severity"
+msgstr "深刻度"
+
+msgid "Recovery time"
+msgstr "復旧時刻"
+
+msgid "Duration"
+msgstr "継続時間"
+
+msgid "Status"
+msgstr "状態"
+
+msgid "Resolved"
+msgstr "復旧済み"
+
+msgid "Number of events"
+msgstr "該当イベント数"
+
+msgid "Matching events: %1$s"
+msgstr "該当イベント: %1$s件"
+
+msgid "Affected hosts: %1$s"
+msgstr "影響ホスト: %1$s台"
+
+msgid "This list is based on data that reached the event retrieval limit."
+msgstr "この一覧はイベント取得上限に達したデータを基にしています。"
+
+msgid "Only the newest %1$s of %2$s events are listed."
+msgstr "%2$s件のうち新しい%1$s件のみ表示しています。"
+
+msgid "No matching data."
+msgstr "対象データはありません。"
+
+msgid "Close"
+msgstr "閉じる"

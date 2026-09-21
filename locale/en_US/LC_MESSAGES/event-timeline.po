@@ -339,3 +339,45 @@ msgstr "Angled"
 
 msgid "Vertical"
 msgstr "Vertical"
+
+msgid "Event details"
+msgstr "Event details"
+
+msgid "Period"
+msgstr "Period"
+
+msgid "Severity"
+msgstr "Severity"
+
+msgid "Recovery time"
+msgstr "Recovery time"
+
+msgid "Duration"
+msgstr "Duration"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Resolved"
+msgstr "Resolved"
+
+msgid "Number of events"
+msgstr "Events"
+
+msgid "Matching events: %1$s"
+msgstr "Matching events: %1$s"
+
+msgid "Affected hosts: %1$s"
+msgstr "Affected hosts: %1$s"
+
+msgid "This list is based on data that reached the event retrieval limit."
+msgstr "This list is based on data that reached the event retrieval limit."
+
+msgid "Only the newest %1$s of %2$s events are listed."
+msgstr "Only the newest %1$s of %2$s events are listed."
+
+msgid "No matching data."
+msgstr "No matching data."
+
+msgid "Close"
+msgstr "Close"

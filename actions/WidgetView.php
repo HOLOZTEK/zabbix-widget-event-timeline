@@ -9,6 +9,7 @@ use DateTimeZone;
 
 use Modules\EventTimeline\Includes\{
 	Aggregator,
+	DetailSelector,
 	DimensionAggregator,
 	BucketPlanner,
 	EventFetcher,
@@ -25,6 +26,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 	// Tooltipの詳細一覧に載せる最大Event数（Bucket × Severity あたり）。
 	private const DETAIL_LIMIT = 10;
+
+	// Drilldown（詳細一覧）で返す最大行数。超えた場合は新しい順に切り、切り詰めを明示する。
+	private const DRILLDOWN_MAX_ROWS = 5000;
 
 	protected function doAction(): void {
 		$fields = $this->fields_values;
@@ -70,6 +74,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			: 0;
 		$page = !empty($fields['rt_active']) ? max(1, (int) ($fields['rt_page'] ?? 1)) : 1;
 		$category = null;
+		$detail = null;
 
 		// Bucket境界・軸ラベル・Tooltipはすべてログインユーザーの有効タイムゾーンで統一する
 		// （Zabbix フロントエンドは "System default" 選択時もここへ有効値を設定済み）。
@@ -133,7 +138,29 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 			$events = Aggregator::filterBySeverity($events, $runtime['severities']);
 
-			if ($runtime['mode'] !== WidgetForm::MODE_TIMELINE) {
+			if (!empty($fields['dd_active'])) {
+				// Drilldown: 集計と同じFilter済みEventから、クリックされた棒（Severity Stack）の構成要素だけを返す。
+				$detail = $this->buildDetail($events, $target['hostids'], $runtime, $fields, $plan, $tz, $continuous,
+					$now, $from, $to
+				);
+
+				if ($detail === null) {
+					$this->setResponse(new CControllerResponseData([
+						'name' => $this->getInput('name', $this->widget->getDefaultName()),
+						'error' => _et('Failed to retrieve events.'),
+						'user' => ['debug_mode' => $this->getDebugMode()]
+					]));
+
+					return;
+				}
+
+				$detail['source_truncated'] = $truncated;
+				$detail['covered_from'] = $covered_from !== null
+					? (new \DateTimeImmutable('@'.$covered_from))->setTimezone($tz)->format('Y/m/d H:i')
+					: null;
+			}
+
+			if ($detail === null && $runtime['mode'] !== WidgetForm::MODE_TIMELINE) {
 				// 次元集計: 表示期間に数えられるEventだけを、Event名・関連Host・Host groupと突き合わせて集計する。
 				$events = array_values(array_filter($events, fn(array $e): bool => self::overlapsPeriod($e,
 					$plan['bounds'], $continuous, $now
@@ -151,6 +178,18 @@ class WidgetView extends CControllerDashboardWidgetView {
 					return;
 				}
 			}
+		}
+
+		if (!empty($fields['dd_active'])) {
+			// 対象未選択・0件などの場合も、エラーにせず空の詳細を返す。
+			$this->setResponse(new CControllerResponseData([
+				'name' => $this->getInput('name', $this->widget->getDefaultName()),
+				'detail' => $detail ?? ['kind' => 'events', 'rows' => [], 'total' => 0, 'rows_truncated' => false,
+					'period' => null, 'source_truncated' => $truncated, 'covered_from' => null],
+				'user' => ['debug_mode' => $this->getDebugMode()]
+			]));
+
+			return;
 		}
 
 		// 4. Event Count Mode → Bucket aggregation（Timeline のみ。次元モードは buildCategory で集計済み）
@@ -239,6 +278,112 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$pager = DimensionAggregator::paginate(DimensionAggregator::sort($rows, $runtime['sort']), $page_size, $page);
 
 		return ['rows' => $pager['rows'], 'pager' => array_diff_key($pager, ['rows' => 1])];
+	}
+
+	/**
+	 * Drilldown: クリックされた棒（Severity Stack）を構成するEvent（またはEventモードでは影響Host）の一覧。
+	 * 対象の選定は DetailSelector（集計と同じ規則）。Event名・Host・復旧時刻は選ばれたEventだけをAPIで補う。
+	 *
+	 * @return array|null  失敗時は null
+	 */
+	private function buildDetail(array $events, array $hostids, array $runtime, array $fields, array $plan,
+			DateTimeZone $tz, bool $continuous, int $now, int $from, int $to): ?array {
+		$fmt = static fn(int $ts): string => (new \DateTimeImmutable('@'.$ts))->setTimezone($tz)->format('Y/m/d H:i:s');
+		$severity = (int) ($fields['dd_severity'] ?? WidgetForm::DETAIL_SEVERITY_ALL);
+		$severity = $severity === WidgetForm::DETAIL_SEVERITY_ALL ? null : $severity;
+		$key = (string) ($fields['dd_key'] ?? '');
+		$mode = $runtime['mode'];
+		$period = (new \DateTimeImmutable('@'.$from))->setTimezone($tz)->format('Y/m/d H:i').' - '
+			.(new \DateTimeImmutable('@'.$to))->setTimezone($tz)->format('Y/m/d H:i');
+
+		if ($mode === WidgetForm::MODE_TIMELINE) {
+			$picked = DetailSelector::timeline($events, (int) ($fields['dd_start'] ?? 0),
+				(int) ($fields['dd_end'] ?? 0), $continuous, $now, $severity
+			);
+			$info = null;
+		}
+		else {
+			// 次元モードの母集団は、グラフと同じく表示期間に数えられるEvent。
+			$events = array_values(array_filter($events, fn(array $e): bool => self::overlapsPeriod($e,
+				$plan['bounds'], $continuous, $now
+			)));
+			$info = $events
+				? EventFetcher::fetchDimensionInfo(array_column($events, 'eventid'), $hostids)
+				: ['names' => [], 'hosts' => [], 'host_names' => []];
+
+			if ($info === null) {
+				return null;
+			}
+
+			if ($mode === WidgetForm::MODE_EVENT) {
+				$hosts = DetailSelector::byEvent($events, $info['hosts'], $info['names'], $key, $severity);
+				$rows = [];
+
+				foreach ($hosts as $h) {
+					$rows[] = [
+						'id' => $h['hostid'],
+						'name' => (string) ($info['host_names'][$h['hostid']] ?? $h['hostid']),
+						'severity' => $h['severity'],
+						'count' => $h['count']
+					];
+				}
+
+				usort($rows, static fn(array $a, array $b): int => $b['count'] <=> $a['count']
+					?: strnatcasecmp($a['name'], $b['name']));
+
+				return ['kind' => 'hosts', 'rows' => $rows, 'total' => count($rows), 'rows_truncated' => false,
+					'period' => $period];
+			}
+
+			if ($mode === WidgetForm::MODE_GROUP) {
+				$groups = $events ? EventFetcher::fetchHostGroups(array_keys($info['host_names'])) : [];
+
+				if ($groups === null) {
+					return null;
+				}
+
+				$picked = DetailSelector::byHostGroup($events, $info['hosts'], $groups, $key, $severity);
+			}
+			else {
+				$picked = DetailSelector::byHost($events, $info['hosts'], $key, $severity);
+			}
+		}
+
+		usort($picked, static fn(array $a, array $b): int => [(int) $b['clock'], (int) $b['eventid']]
+			<=> [(int) $a['clock'], (int) $a['eventid']]);
+
+		$total = count($picked);
+		$shown = array_slice($picked, 0, self::DRILLDOWN_MAX_ROWS);
+		$extra = $shown
+			? EventFetcher::fetchRows(array_column($shown, 'eventid'), $mode === WidgetForm::MODE_TIMELINE ? null : $hostids)
+			: [];
+
+		if ($extra === null) {
+			return null;
+		}
+
+		$rows = [];
+
+		foreach ($shown as $e) {
+			$x = $extra[$e['eventid']] ?? ['name' => '', 'triggerid' => '0', 'hosts' => [], 'end' => null];
+			$clock = (int) $e['clock'];
+
+			$rows[] = [
+				'eventid' => (string) $e['eventid'],
+				'triggerid' => $x['triggerid'],
+				'clock' => $fmt($clock),
+				'end' => $x['end'] !== null ? $fmt((int) $x['end']) : null,
+				'duration' => max(0, ($x['end'] ?? $now) - $clock),
+				'name' => $x['name'],
+				'hosts' => $x['hosts'],
+				'severity' => (int) $e['severity'],
+				'acknowledged' => (int) $e['acknowledged'] === 1,
+				'ongoing' => $x['end'] === null
+			];
+		}
+
+		return ['kind' => 'events', 'rows' => $rows, 'total' => $total, 'rows_truncated' => $total > count($rows),
+			'period' => $mode === WidgetForm::MODE_TIMELINE ? null : $period];
 	}
 
 	private static function mode($value): int {

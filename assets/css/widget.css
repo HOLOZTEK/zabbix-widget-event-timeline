@@ -285,3 +285,84 @@
 	opacity: .4;
 	cursor: default;
 }
+
+/* ─── Drilldown（詳細一覧）: Zabbixのオーバーレイ内。色はZabbixテーマ（list-table等）に従い、固定色を使わない ─── */
+.et-detail-popup .overlay-dialogue-body {
+	max-width: 96vw;
+}
+
+.et-detail {
+	min-width: min(720px, 86vw);
+	max-width: 100%;
+}
+
+.et-detail-head {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	gap: 2px 12px;
+	margin: 0 0 10px;
+}
+
+.et-detail-head dt {
+	opacity: 0.75;
+}
+
+.et-detail-head dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.et-detail-dot {
+	display: inline-block;
+	width: 9px;
+	height: 9px;
+	margin-right: 6px;
+	border-radius: 50%;
+}
+
+.et-detail-count {
+	margin: 6px 0;
+	font-weight: bold;
+}
+
+.et-detail-message {
+	padding: 16px 0;
+	text-align: center;
+	opacity: 0.8;
+}
+
+.et-detail-loading {
+	height: 68px;
+}
+
+.et-detail-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.et-detail-table {
+	width: 100%;
+}
+
+.et-detail-nowrap {
+	white-space: nowrap;
+}
+
+.et-detail-wrap {
+	min-width: 120px;
+	max-width: 420px;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.et-detail-num {
+	text-align: right;
+}
+
+.et-detail-pager {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 8px;
+}

@@ -9,12 +9,14 @@ require_once __DIR__.'/../includes/BucketPlanner.php';
 require_once __DIR__.'/../includes/Aggregator.php';
 require_once __DIR__.'/../includes/TimeFormatter.php';
 require_once __DIR__.'/../includes/DimensionAggregator.php';
+require_once __DIR__.'/../includes/DetailSelector.php';
 require_once __DIR__.'/../includes/SourceResolver.php';
 
 require_once __DIR__.'/stubs.php';
 
 use Modules\EventTimeline\Includes\Aggregator;
 use Modules\EventTimeline\Includes\BucketPlanner;
+use Modules\EventTimeline\Includes\DetailSelector as DS;
 use Modules\EventTimeline\Includes\DimensionAggregator as D;
 use Modules\EventTimeline\Includes\SourceResolver;
 use Modules\EventTimeline\Includes\TimeFormatter;
@@ -337,6 +339,64 @@ $p = D::paginate([], 20, 3);
 check('page empty', [$p['page'], $p['pages'], $p['from'], $p['to']], [1, 1, 0, 0]);
 $p = D::paginate(array_slice($many, 0, 20), 20, 1);
 check('page single', $p['pages'], 1);
+
+// Drilldown（DetailSelector）: 詳細の件数が集計値（棒）と一致すること
+$dev = static fn(string $id, int $clock, ?int $end, int $sev): array => ['eventid' => $id, 'clock' => $clock,
+	'end' => $end, 'severity' => $sev, 'acknowledged' => 0];
+$bounds = [100, 200, 300];
+$devs = [$dev('1', 100, 150, 3), $dev('2', 199, null, 3), $dev('3', 200, 250, 4), $dev('4', 50, 120, 3),
+	$dev('5', 300, null, 3)];
+
+$sel = static fn(array $r): array => array_column($r, 'eventid');
+check('detail timeline occurrence', $sel(DS::timeline($devs, 100, 200, false, 400, null)), ['1', '2']);
+check('detail timeline occurrence severity', $sel(DS::timeline($devs, 100, 200, false, 400, 4)), []);
+check('detail timeline continuous overlap', $sel(DS::timeline($devs, 100, 200, true, 400, null)), ['1', '2', '4']);
+check('detail timeline continuous ongoing', $sel(DS::timeline($devs, 200, 300, true, 400, 3)), ['2']);
+
+// 棒の値と一致（Aggregator::aggregate の各Bucket × Severity）
+foreach ([false, true] as $cont) {
+	$agg = Aggregator::aggregate($devs, $bounds, $cont, 400);
+
+	foreach ($agg as $i => $row) {
+		foreach (Aggregator::SEVERITY_KEYS as $sv => $key) {
+			check("detail = bar (cont=".(int) $cont.", bucket $i, sev $sv)",
+				count(DS::timeline($devs, $bounds[$i], $bounds[$i + 1], $cont, 400, $sv)), $row[$key]);
+		}
+	}
+}
+
+$eh = ['1' => ['10'], '2' => ['10', '11'], '3' => ['11'], '4' => ['10']];
+$hg = ['10' => ['g1' => 'G1', 'g2' => 'G2'], '11' => ['g1' => 'G1']];
+$devs2 = [$dev('1', 1, null, 3), $dev('2', 2, null, 3), $dev('3', 3, null, 4), $dev('4', 4, null, 3)];
+$hn = ['10' => 'A', '11' => 'B'];
+$agg_host = D::byHost($devs2, $eh, $hn);
+foreach ($agg_host as $row) {
+	foreach ([3, 4] as $sv) {
+		check("detail host = bar {$row['id']} sev $sv", count(DS::byHost($devs2, $eh, $row['id'], $sv)), $row['counts'][$sv]);
+	}
+}
+check('detail host event ids', $sel(DS::byHost($devs2, $eh, '11', null)), ['2', '3']);
+
+foreach (D::byHostGroup($devs2, $eh, $hg) as $row) {
+	foreach ([3, 4] as $sv) {
+		check("detail group = bar {$row['id']} sev $sv", count(DS::byHostGroup($devs2, $eh, $hg, $row['id'], $sv)),
+			$row['counts'][$sv]);
+	}
+}
+check('detail group unique eventid', $sel(DS::byHostGroup($devs2, $eh, $hg, 'g1', null)), ['1', '2', '3', '4']);
+
+$en = ['1' => 'CPU', '2' => 'CPU', '3' => 'CPU', '4' => 'Disk'];
+foreach (D::byEvent($devs2, $eh, $en) as $row) {
+	foreach ([3, 4] as $sv) {
+		check("detail event = bar {$row['id']} sev $sv", count(DS::byEvent($devs2, $eh, $en, $row['id'], $sv)),
+			$row['counts'][$sv]);
+	}
+}
+$r = DS::byEvent($devs2, $eh, $en, 'CPU', null);
+check('detail event hosts', array_map(static fn(array $h): array => [$h['hostid'], $h['severity'], $h['count']], $r),
+	[['10', 3, 2], ['11', 4, 2]]);
+check('detail event severity filter', array_column(DS::byEvent($devs2, $eh, $en, 'CPU', 4), 'hostid'), ['11']);
+check('detail event unknown', DS::byEvent($devs2, $eh, $en, 'none', null), []);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

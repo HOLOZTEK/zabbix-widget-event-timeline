@@ -18,6 +18,9 @@ class CWidgetEventTimeline extends CWidget {
 	#auto_timer = null;
 	#auto_seconds = 0;
 
+	// Drilldown要求の通番（古い応答が新しいダイアログを上書きしないため）。
+	#detail_seq = 0;
+
 	// Widget Source の参照（Tree Navigator / Event Navigator）。Selectionが未受信でも更新を止めず、
 	// サーバーへ空の Selection として渡して「対象が選択されていません」を表示させる（全Host・全Eventへは広げない）。
 	static SELECTION_PATHS = ['hostids', 'groupids', 'triggerids'];
@@ -202,6 +205,7 @@ class CWidgetEventTimeline extends CWidget {
 
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
 		this.#data = data;
+		this.#chart.on('click', params => this.#onChartClick(params));
 
 		if (this.#isCategory()) {
 			this.#chart.setOption(this.#buildCategoryOption(data));
@@ -227,6 +231,332 @@ class CWidgetEventTimeline extends CWidget {
 		}
 
 		return t('No events');
+	}
+
+	// ─── Drilldown（詳細一覧） ──────────────────────────────────────
+	// 棒（Severity Stack）のクリックで、その集計値を構成するEvent（Eventモードでは影響Host）の一覧を出す。
+	// 詳細はクリック時点のSnapshotで、元Widgetの Runtime状態（モード・Sort・Page・Filter）は変更しない。
+	static DETAIL_PAGE_SIZE = 20;
+	static DETAIL_DIALOGUE_ID = 'event-timeline-detail';
+
+	#onChartClick(params) {
+		if (params?.componentType !== 'series' || !this.#data || this.#runtime === null) {
+			return;
+		}
+
+		const data = this.#data;
+		const severity = data.severities.filter(s => s.enabled)[params.seriesIndex];
+
+		if (!severity) {
+			return;
+		}
+
+		const ctx = {mode: this.#runtime.mode, severity: severity.id, severities: data.severities};
+
+		if (this.#isCategory()) {
+			const row = data.category?.rows?.[params.dataIndex];
+
+			if (!row) {
+				return;
+			}
+
+			ctx.key = row.id;
+			ctx.label = row.label;
+			ctx.start = 0;
+			ctx.end = 0;
+		}
+		else {
+			const bucket = data.buckets?.[params.dataIndex];
+
+			if (!bucket) {
+				return;
+			}
+
+			ctx.key = '';
+			ctx.label = bucket.range;
+			ctx.start = bucket.start;
+			ctx.end = bucket.end;
+		}
+
+		this.#openDetail(ctx);
+	}
+
+	#openDetail(ctx) {
+		const box = document.createElement('div');
+		box.className = 'et-detail';
+
+		const state = {ctx, page: 1, detail: null, error: null, loading: true};
+		const seq = ++this.#detail_seq;
+
+		overlayDialogue({
+			title: ctx.mode === CWidgetEventTimeline.MODE_EVENT ? t('Affected hosts') : t('Event details'),
+			class: 'modal-popup et-detail-popup',
+			content: box,
+			buttons: [{title: t('Close'), cancel: true, action: () => {}}],
+			dialogueid: CWidgetEventTimeline.DETAIL_DIALOGUE_ID
+		});
+
+		this.#renderDetail(box, state);
+
+		this.#fetchDetail(ctx)
+			.then(detail => {
+				if (seq === this.#detail_seq) {
+					state.detail = detail;
+				}
+			})
+			.catch(error => {
+				if (seq === this.#detail_seq) {
+					state.error = typeof error === 'string' && error !== '' ? error : t('Failed to retrieve events.');
+				}
+			})
+			.finally(() => {
+				if (seq === this.#detail_seq) {
+					state.loading = false;
+					this.#renderDetail(box, state);
+				}
+			});
+	}
+
+	#fetchDetail(ctx) {
+		const curl = new Curl('zabbix.php');
+		curl.setArgument('action', `widget.${this._type}.view`);
+
+		const body = this.getUpdateRequestData();
+
+		body.fields = {
+			...(body.fields ?? {}),
+			dd_active: 1,
+			dd_start: ctx.start,
+			dd_end: ctx.end,
+			dd_severity: ctx.severity,
+			dd_key: ctx.key
+		};
+
+		return fetch(curl.getUrl(), {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json'},
+			body: JSON.stringify(body)
+		})
+			.then(response => response.json())
+			.then(response => {
+				if ('error' in response) {
+					throw typeof response.error === 'string' ? response.error : '';
+				}
+
+				if (!response.detail) {
+					throw '';
+				}
+
+				return response.detail;
+			});
+	}
+
+	static #duration(seconds) {
+		const units = [[86400, 'd'], [3600, 'h'], [60, 'm'], [1, 's']];
+		const parts = [];
+		let rest = Math.max(0, Math.floor(seconds));
+
+		for (const [size, label] of units) {
+			const value = Math.floor(rest / size);
+
+			if (value > 0 || (label === 's' && parts.length === 0)) {
+				parts.push(value + label);
+			}
+
+			rest -= value * size;
+
+			if (parts.length === 2) {
+				break;
+			}
+		}
+
+		return parts.join(' ');
+	}
+
+	#renderDetail(box, state) {
+		const {ctx, detail} = state;
+		const by_event = ctx.mode === CWidgetEventTimeline.MODE_EVENT;
+		const sev = ctx.severities.find(s => s.id === ctx.severity);
+
+		box.innerHTML = '';
+
+		const el = (tag, class_name, text) => {
+			const node = document.createElement(tag);
+
+			if (class_name) {
+				node.className = class_name;
+			}
+
+			if (text !== undefined) {
+				node.textContent = text;
+			}
+
+			return node;
+		};
+
+		const severityCell = (severity_id, parent) => {
+			const def = ctx.severities.find(s => s.id === severity_id);
+			const dot = el('span', 'et-detail-dot');
+
+			dot.style.background = def?.color ?? '#97AAB3';
+			parent.appendChild(dot);
+			parent.appendChild(document.createTextNode(def?.name ?? String(severity_id)));
+		};
+
+		// Header: 何をDrilldownしたか。
+		const head = el('dl', 'et-detail-head');
+		const addHead = (label, value, severity_id) => {
+			head.appendChild(el('dt', null, label));
+
+			const dd = el('dd');
+
+			if (severity_id !== undefined) {
+				severityCell(severity_id, dd);
+			}
+			else {
+				dd.textContent = value;
+			}
+
+			head.appendChild(dd);
+		};
+
+		if (ctx.mode === CWidgetEventTimeline.MODE_TIMELINE) {
+			addHead(t('Period'), ctx.label);
+		}
+		else {
+			addHead({
+				[CWidgetEventTimeline.MODE_HOST]: t('Host'),
+				[CWidgetEventTimeline.MODE_GROUP]: t('Host group'),
+				[CWidgetEventTimeline.MODE_EVENT]: t('Event')
+			}[ctx.mode], ctx.label);
+
+			if (detail?.period) {
+				addHead(t('Period'), detail.period);
+			}
+		}
+
+		if (sev) {
+			addHead(t('Severity'), '', sev.id);
+		}
+
+		box.appendChild(head);
+
+		if (state.loading) {
+			box.appendChild(el('div', 'is-loading et-detail-loading'));
+			return;
+		}
+
+		if (state.error !== null) {
+			box.appendChild(el('div', 'et-detail-message et-error', state.error));
+			return;
+		}
+
+		box.appendChild(el('div', 'et-detail-count', sprintf(
+			by_event ? t('Affected hosts: %1$s') : t('Matching events: %1$s'), detail.total
+		)));
+
+		// 元のEvent取得が上限に達している場合、一覧も不完全であることを明示する。
+		if (detail.source_truncated) {
+			box.appendChild(el('div', 'et-warning', t('This list is based on data that reached the event retrieval limit.')));
+		}
+
+		if (detail.rows_truncated) {
+			box.appendChild(el('div', 'et-warning', sprintf(
+				t('Only the newest %1$s of %2$s events are listed.'), detail.rows.length, detail.total
+			)));
+		}
+
+		if (detail.rows.length === 0) {
+			box.appendChild(el('div', 'et-detail-message', t('No matching data.')));
+			return;
+		}
+
+		const size = CWidgetEventTimeline.DETAIL_PAGE_SIZE;
+		const pages = Math.max(1, Math.ceil(detail.rows.length / size));
+		state.page = Math.max(1, Math.min(pages, state.page));
+
+		const rows = detail.rows.slice((state.page - 1) * size, state.page * size);
+		const table = el('table', 'list-table et-detail-table');
+		const thead = el('thead');
+		const tr_head = el('tr');
+
+		const columns = detail.kind === 'hosts'
+			? [t('Host'), t('Severity'), t('Number of events')]
+			: [t('Time'), t('Recovery time'), t('Duration'), t('Host'), t('Event'), t('Severity'),
+				t('Acknowledgement'), t('Status')];
+
+		for (const c of columns) {
+			tr_head.appendChild(el('th', null, c));
+		}
+
+		thead.appendChild(tr_head);
+		table.appendChild(thead);
+
+		const tbody = el('tbody');
+
+		for (const r of rows) {
+			const tr = el('tr');
+
+			if (detail.kind === 'hosts') {
+				tr.appendChild(el('td', 'et-detail-wrap', r.name));
+				severityCell(r.severity, tr.appendChild(el('td')));
+				tr.appendChild(el('td', 'et-detail-num', String(r.count)));
+			}
+			else {
+				tr.appendChild(el('td', 'et-detail-nowrap', r.clock));
+				tr.appendChild(el('td', 'et-detail-nowrap', r.end ?? '-'));
+				tr.appendChild(el('td', 'et-detail-nowrap', CWidgetEventTimeline.#duration(r.duration)));
+				tr.appendChild(el('td', 'et-detail-wrap', r.hosts.map(h => h.name).join(', ')));
+
+				const name = el('td', 'et-detail-wrap');
+
+				if (r.triggerid !== '0') {
+					const a = el('a', null, r.name);
+
+					a.href = `tr_events.php?triggerid=${encodeURIComponent(r.triggerid)}&eventid=${encodeURIComponent(r.eventid)}`;
+					a.target = '_blank';
+					a.rel = 'noopener';
+					name.appendChild(a);
+				}
+				else {
+					name.textContent = r.name;
+				}
+
+				tr.appendChild(name);
+				severityCell(r.severity, tr.appendChild(el('td', 'et-detail-nowrap')));
+				tr.appendChild(el('td', 'et-detail-nowrap', r.acknowledged ? t('Acknowledged') : t('Unacknowledged')));
+				tr.appendChild(el('td', 'et-detail-nowrap', r.ongoing ? t('Ongoing') : t('Resolved')));
+			}
+
+			tbody.appendChild(tr);
+		}
+
+		table.appendChild(tbody);
+
+		const scroller = el('div', 'et-detail-scroll');
+		scroller.appendChild(table);
+		box.appendChild(scroller);
+
+		if (pages > 1) {
+			const pager = el('div', 'et-detail-pager');
+			const mk = (label, page, disabled) => {
+				const b = el('button', 'btn-alt', label);
+
+				b.type = 'button';
+				b.disabled = disabled;
+				b.addEventListener('click', () => {
+					state.page = page;
+					this.#renderDetail(box, state);
+				});
+
+				return b;
+			};
+
+			pager.appendChild(mk('‹', state.page - 1, state.page <= 1));
+			pager.appendChild(el('span', 'et-detail-pager-text', sprintf(t('Page %1$s / %2$s'), state.page, pages)));
+			pager.appendChild(mk('›', state.page + 1, state.page >= pages));
+			box.appendChild(pager);
+		}
 	}
 
 	// ─── Paging ───────────────────────────────────────────────────

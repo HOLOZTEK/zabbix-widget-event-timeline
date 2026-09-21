@@ -15,6 +15,38 @@ class Widget extends CWidget {
 	public function getTranslationStrings(): array {
 		return [
 			'class.widget.js' => [
+				'Event details'
+					=> _et('Event details'),
+				'Period'
+					=> _et('Period'),
+				'Severity'
+					=> _et('Severity'),
+				'Time'
+					=> _et('Time'),
+				'Recovery time'
+					=> _et('Recovery time'),
+				'Duration'
+					=> _et('Duration'),
+				'Acknowledgement'
+					=> _et('Acknowledgement'),
+				'Status'
+					=> _et('Status'),
+				'Resolved'
+					=> _et('Resolved'),
+				'Number of events'
+					=> _et('Number of events'),
+				'Matching events: %1$s'
+					=> _et('Matching events: %1$s'),
+				'Affected hosts: %1$s'
+					=> _et('Affected hosts: %1$s'),
+				'This list is based on data that reached the event retrieval limit.'
+					=> _et('This list is based on data that reached the event retrieval limit.'),
+				'Only the newest %1$s of %2$s events are listed.'
+					=> _et('Only the newest %1$s of %2$s events are listed.'),
+				'No matching data.'
+					=> _et('No matching data.'),
+				'Close'
+					=> _et('Close'),
 				'Display mode'
 					=> _et('Display mode'),
 				'Timeline'

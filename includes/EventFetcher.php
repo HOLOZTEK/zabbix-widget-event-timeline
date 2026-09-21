@@ -276,6 +276,66 @@ class EventFetcher {
 	}
 
 	/**
+	 * Drilldown用の行情報。指定eventidだけを対象に、Event名・関連Host・Trigger ID・復旧時刻を取得する。
+	 * $target_hostids が null のときは関連Hostをすべて返し、指定時は対象Host集合との交差だけを返す。
+	 *
+	 * @param string[]      $eventids
+	 * @param int[]|null    $target_hostids
+	 *
+	 * @return array<string, array{name: string, triggerid: string, hosts: array<int, array{id: string, name: string}>,
+	 *         end: ?int}>|null  失敗時は null
+	 */
+	public static function fetchRows(array $eventids, ?array $target_hostids): ?array {
+		$target = $target_hostids === null ? null : array_flip(array_map('strval', $target_hostids));
+		$rows = [];
+		$r_eventids = [];
+
+		foreach (array_chunk(array_values(array_unique($eventids)), 500) as $chunk) {
+			$result = API::Event()->get([
+				'output' => ['eventid', 'name', 'objectid', 'r_eventid'],
+				'selectHosts' => ['hostid', 'name'],
+				'eventids' => $chunk,
+				'source' => EVENT_SOURCE_TRIGGERS,
+				'object' => EVENT_OBJECT_TRIGGER
+			]);
+
+			if (!is_array($result)) {
+				return null;
+			}
+
+			foreach ($result as $row) {
+				$hosts = [];
+
+				foreach ($row['hosts'] ?? [] as $h) {
+					if ($target === null || isset($target[(string) $h['hostid']])) {
+						$hosts[] = ['id' => (string) $h['hostid'], 'name' => (string) $h['name']];
+					}
+				}
+
+				$rows[(string) $row['eventid']] = [
+					'name' => (string) $row['name'],
+					'triggerid' => (string) ($row['objectid'] ?? '0'),
+					'hosts' => $hosts,
+					'end' => null
+				];
+				$r_eventids[(string) $row['eventid']] = (string) ($row['r_eventid'] ?? '0');
+			}
+		}
+
+		$recovered = self::recoveryClocks(array_values($r_eventids));
+
+		if ($recovered === null) {
+			return null;
+		}
+
+		foreach ($r_eventids as $eventid => $r_eventid) {
+			$rows[$eventid]['end'] = $recovered[$r_eventid] ?? null;
+		}
+
+		return $rows;
+	}
+
+	/**
 	 * 次元集計（By Host / By Host group / By Event）用に、Event名と関連Host（ID・名前）を取得する。
 	 * 関連Hostは対象Host集合（$target_hostids）との交差だけを返す。
 	 *
