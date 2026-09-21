@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.1.1
+Version:        0.1.2
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -36,6 +36,7 @@ install -D -m 644 ${SRCDIR}/assets/js/class.widget.js ${STAGEDIR}/assets/js/clas
 install -D -m 644 ${SRCDIR}/assets/js/echarts.min.js ${STAGEDIR}/assets/js/echarts.min.js
 install -D -m 644 ${SRCDIR}/includes/Aggregator.php ${STAGEDIR}/includes/Aggregator.php
 install -D -m 644 ${SRCDIR}/includes/BucketPlanner.php ${STAGEDIR}/includes/BucketPlanner.php
+install -D -m 644 ${SRCDIR}/includes/DimensionAggregator.php ${STAGEDIR}/includes/DimensionAggregator.php
 install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectTrigger.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectTrigger.php
 install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectTriggerView.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectTriggerView.php
 install -D -m 644 ${SRCDIR}/includes/EventFetcher.php ${STAGEDIR}/includes/EventFetcher.php
@@ -85,6 +86,12 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Mon Sep 21 2026 claude <noreply> - 0.1.2-0
+- 表示モード（時間軸 / ホスト / ホストグループ / イベント）、並び順（件数順・A→Z・Z→A）、ページング、自動ページ送りを追加
+- 入力Sourceをホスト・ホストグループ・トリガーの各フィールド（固定またはウィジェット参照）に変更
+- 外観に「X軸ラベル」（自動/水平/斜め/縦）を追加。長い名称は省略表示しホバー・Tooltipで全文表示
+- 日本語/英語UIの表記を整理（ja_JPに英語が残っていた不具合を修正）
+
 * Sun Sep 20 2026 claude <noreply> - 0.1.1-0
 - Monitoring target / イベントを Fixed または Widget（Tree Navigator / Event Navigator）から選択可能に
 - イベントの指定をトリガー選択方式に変更（未指定時は対象ホストの全イベント）

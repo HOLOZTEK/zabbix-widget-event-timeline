@@ -1,3 +1,15 @@
+zabbix-widget-event-timeline (0.1.2) unstable; urgency=medium
+
+  * Display modes (Timeline / Host / Host group / Event), sort order, paging
+    and auto paging.
+  * Source is now specified by host, host group and trigger fields, each fixed
+    or taken from a widget.
+  * New "X-axis labels" setting (Auto / Horizontal / Angled / Vertical); long
+    names are truncated with full text on hover and in the tooltip.
+  * Fixed untranslated strings in the Japanese UI.
+
+ -- claude <noreply@example.com>  Mon, 21 Sep 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.1.1) unstable; urgency=medium
 
   * Monitoring target and events can be taken from fixed settings or from

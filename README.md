@@ -2,7 +2,7 @@
 
 固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
 
-> **v0.1.1**: Monitoring target / Event を Fixed または Widget（Tree Navigator / Event Navigator 連携）から選択でき、表示画面上で Severity・確認状態・イベントカウント方式を動的に切り替えられます。By Host / By Event 表示、Sort、Paging は対象外です。
+> **v0.1.2**: 表示モード（時間軸 / ホスト / ホストグループ / イベント）、並び順、ページング、自動ページ送り、X軸ラベルの向き設定を追加しました。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Event Navigator 連携）で指定できます。
 
 ## 機能
 
