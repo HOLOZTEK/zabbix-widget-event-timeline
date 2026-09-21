@@ -14,20 +14,14 @@ use API;
 class SourceResolver {
 
 	/**
-	 * Monitoring target の解決。
+	 * Monitoring target の解決。固定指定でもWidget参照でも、解決済みの hostids / groupids だけを見る（Source種別は持ち込まない）。
 	 *
 	 * @return array{selected: bool, hostids: int[]}
 	 *   selected: Selection（Fixed設定 / Widget Selection）が存在するか。false のとき hostids は空。
 	 */
 	public static function resolveTarget(array $fields): array {
-		if ((int) ($fields['host_source'] ?? WidgetForm::SOURCE_FIXED) === WidgetForm::SOURCE_WIDGET) {
-			$hostids = self::normalize((array) ($fields['tn_hostids'] ?? []));
-			$groupids = self::normalize((array) ($fields['tn_groupids'] ?? []));
-		}
-		else {
-			$hostids = self::normalize((array) ($fields['hostids'] ?? []));
-			$groupids = self::normalize((array) ($fields['groupids'] ?? []));
-		}
+		$hostids = self::normalize((array) ($fields['hostids'] ?? []));
+		$groupids = self::normalize((array) ($fields['groupids'] ?? []));
 
 		if (!$hostids && !$groupids) {
 			return ['selected' => false, 'hostids' => []];
@@ -37,18 +31,15 @@ class SourceResolver {
 	}
 
 	/**
-	 * Event Selection の解決。イベント＝Trigger として、Fixed は選択したTrigger、Widget は Event Navigator が
-	 * 送る Trigger ID を使う。未指定（空）のときは絞り込みなしとし、対象Hostの期間内の全Eventを扱う
+	 * Event Selection の解決。イベント＝Trigger として、固定指定でも Event Navigator 参照でも、
+	 * 解決済みの Trigger ID（triggerids）だけを見る。未指定（空）のときは絞り込みなしとし、対象Hostの期間内の全Eventを扱う
 	 * （対象Host自体が未選択の場合の扱いは resolveTarget 側）。
 	 *
 	 * @return array{selected: bool, selectors: array[]}
 	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。
 	 */
 	public static function resolveEventSelection(array $fields): array {
-		$name = (int) ($fields['event_source'] ?? WidgetForm::SOURCE_FIXED) === WidgetForm::SOURCE_WIDGET
-			? 'en_triggerids'
-			: 'triggerids';
-		$triggerids = array_values(array_unique(self::normalize((array) ($fields[$name] ?? []))));
+		$triggerids = array_values(array_unique(self::normalize((array) ($fields['triggerids'] ?? []))));
 
 		return ['selected' => true, 'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : [[]]];
 	}

@@ -290,9 +290,6 @@ check('bucketRange none', Aggregator::bucketRange($bounds, $T0 + 6 * $h, $T0 + 7
 check('event fixed', SourceResolver::resolveEventSelection(['triggerids' => ['5', '5', '7']]),
 	['selected' => true, 'selectors' => [['objectids' => ['5', '7']]]]);
 check('event fixed empty', SourceResolver::resolveEventSelection([]), ['selected' => true, 'selectors' => [[]]]);
-check('event widget', SourceResolver::resolveEventSelection(['event_source' => 1, 'en_triggerids' => [9], 'triggerids' => [1]]),
-	['selected' => true, 'selectors' => [['objectids' => ['9']]]]);
-check('event widget empty', SourceResolver::resolveEventSelection(['event_source' => 1, 'triggerids' => [1]]), ['selected' => true, 'selectors' => [[]]]);
 
 // --- 第3フェーズ: 次元集計 / Sort / Paging ---
 $ev = static fn(string $id, int $sev): array => ['eventid' => $id, 'clock' => 0, 'end' => null, 'severity' => $sev];

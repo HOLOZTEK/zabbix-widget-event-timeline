@@ -5,30 +5,18 @@
  * @var array $data
  */
 
-use Modules\EventTimeline\Includes\{CWidgetFieldMultiSelectBroadcastSourceView, CWidgetFieldMultiSelectTriggerView};
+use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectTriggerView;
 
 (new CWidgetFormView($data))
 	// 対象は必須の設定なので、折りたたみにせず常に表示する。
 	->addField(
-		new CWidgetFieldSelectView($data['fields']['host_source'])
+		new CWidgetFieldMultiSelectHostView($data['fields']['hostids'])
 	)
 	->addField(
-		(new CWidgetFieldMultiSelectHostView($data['fields']['hostids']))->addRowClass('js-row-host-fixed')
+		new CWidgetFieldMultiSelectGroupView($data['fields']['groupids'])
 	)
 	->addField(
-		(new CWidgetFieldMultiSelectGroupView($data['fields']['groupids']))->addRowClass('js-row-host-fixed')
-	)
-	->addField(
-		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['tn_hostids']))->addRowClass('js-row-host-widget')
-	)
-	->addField(
-		new CWidgetFieldSelectView($data['fields']['event_source'])
-	)
-	->addField(
-		(new CWidgetFieldMultiSelectTriggerView($data['fields']['triggerids']))->addRowClass('js-row-event-fixed')
-	)
-	->addField(
-		(new CWidgetFieldMultiSelectBroadcastSourceView($data['fields']['en_triggerids']))->addRowClass('js-row-event-widget')
+		new CWidgetFieldMultiSelectTriggerView($data['fields']['triggerids'])
 	)
 	->addFieldset(
 		(new CWidgetFormFieldsetCollapsibleView(_et('Initial display state')))

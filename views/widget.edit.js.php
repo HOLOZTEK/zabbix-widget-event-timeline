@@ -11,28 +11,6 @@ window.widget_event_timeline_form = new class {
 	init() {
 		this._form = document.getElementById('widget-dialogue-form');
 
-		// Source（Fixed / Widget）に合わせて入力欄を切り替える。Widget のときは固定指定の入力を隠す。
-		for (const [select_id, fixed, widget] of [
-			['host_source', '.js-row-host-fixed', '.js-row-host-widget'],
-			['event_source', '.js-row-event-fixed', '.js-row-event-widget']
-		]) {
-			const select = document.getElementById(select_id);
-			const update = () => {
-				const is_widget = select.value == <?= (int) \Modules\EventTimeline\Includes\WidgetForm::SOURCE_WIDGET ?>;
-
-				for (const el of this._form.querySelectorAll(fixed)) {
-					el.style.display = is_widget ? 'none' : '';
-				}
-
-				for (const el of this._form.querySelectorAll(widget)) {
-					el.style.display = is_widget ? '' : 'none';
-				}
-			};
-
-			select.addEventListener('change', update);
-			update();
-		}
-
 		// CWidgetFieldColorView は Color Picker の初期化を行わないため、ここで初期化する。
 		// 保存値は「RRGGBB」または空（空 = 自動 = Zabbixテーマに追従）。
 		// 「自動」チェック・Hex入力・Resetは表示用の部品で、保存されるのは隠し入力の値のみ。

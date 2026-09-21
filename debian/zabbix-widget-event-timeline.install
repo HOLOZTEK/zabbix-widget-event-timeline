@@ -4,8 +4,6 @@ assets/js/class.widget.js usr/share/zabbix-widget-event-timeline/assets/js/
 assets/js/echarts.min.js usr/share/zabbix-widget-event-timeline/assets/js/
 includes/Aggregator.php usr/share/zabbix-widget-event-timeline/includes/
 includes/BucketPlanner.php usr/share/zabbix-widget-event-timeline/includes/
-includes/CWidgetFieldMultiSelectBroadcastSource.php usr/share/zabbix-widget-event-timeline/includes/
-includes/CWidgetFieldMultiSelectBroadcastSourceView.php usr/share/zabbix-widget-event-timeline/includes/
 includes/CWidgetFieldMultiSelectTrigger.php usr/share/zabbix-widget-event-timeline/includes/
 includes/CWidgetFieldMultiSelectTriggerView.php usr/share/zabbix-widget-event-timeline/includes/
 includes/EventFetcher.php usr/share/zabbix-widget-event-timeline/includes/

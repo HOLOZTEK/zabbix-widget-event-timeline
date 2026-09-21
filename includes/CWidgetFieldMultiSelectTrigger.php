@@ -67,6 +67,9 @@ class CWidgetFieldMultiSelectTrigger extends CWidgetFieldMultiSelect {
 	}
 
 	protected function getValidationRules(bool $strict = false): array {
-		return ['type' => API_IDS];
+		// Widget参照（{_reference: ...}）のときは標準の検証、固定指定のときはID配列。
+		return array_key_exists(self::FOREIGN_REFERENCE_KEY, $this->getValue())
+			? parent::getValidationRules($strict)
+			: ['type' => API_IDS];
 	}
 }

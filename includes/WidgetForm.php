@@ -29,10 +29,6 @@ class WidgetForm extends CWidgetForm {
 	public const Y_AXIS_MIN_MAX = 1000000000;
 	public const GRAPH_HEIGHT_DEFAULT = 300;
 
-	// Source（Monitoring target / Event 共通）。
-	public const SOURCE_FIXED  = 0;
-	public const SOURCE_WIDGET = 1;
-
 	// Event Count Mode。
 	public const COUNT_OCCURRENCE = 0;
 	public const COUNT_CONTINUOUS = 1;
@@ -69,15 +65,8 @@ class WidgetForm extends CWidgetForm {
 		}
 
 		return $this
-			// Monitoring target の Source。Fixed は hostids / groupids、Widget は Tree Navigator の
-			// Host / Host group Selection（tn_hostids は参照フィールド、tn_groupids は同じ送信元の
-			// _hostgroupids で normalizeValues() が自動生成する）。
-			->addField(
-				(new CWidgetFieldSelect('host_source', _et('Monitoring target source'), [
-					self::SOURCE_FIXED => _et('Fixed'),
-					self::SOURCE_WIDGET => _et('Widget')
-				]))->setDefault(self::SOURCE_FIXED)
-			)
+			// 対象の指定。Host / Host group / Event（Trigger）の各フィールド自身が「固定指定」または
+			// 「他ウィジェット（Tree Navigator / Event Navigator）の参照」のどちらかを持つ（manifest.json の "in"）。
 			->addField(
 				(new CWidgetFieldMultiSelectHost('hostids', _('Hosts')))
 					->setMultiple(true)
@@ -87,31 +76,8 @@ class WidgetForm extends CWidgetForm {
 					->setMultiple(true)
 			)
 			->addField(
-				new CWidgetFieldMultiSelectBroadcastSource('tn_hostids', _et('Tree Navigator'),
-					self::TYPE_HOST_IDS, _et('Tree Navigator widget'), _et('Tree Navigator widgets')
-				)
-			)
-			->addField(
-				new CWidgetFieldMultiSelectBroadcastSource('tn_groupids', _et('Tree Navigator'),
-					self::TYPE_HOST_GROUP_IDS, _et('Tree Navigator widget'), _et('Tree Navigator widgets')
-				)
-			)
-			// Event の Source。イベント＝トリガーとして、Fixed は Trigger の選択（ホスト等と同じ方式）、
-			// Widget は Event Navigator の Trigger Selection（en_triggerids は参照フィールド）。
-			->addField(
-				(new CWidgetFieldSelect('event_source', _et('Event source'), [
-					self::SOURCE_FIXED => _et('Fixed'),
-					self::SOURCE_WIDGET => _et('Widget')
-				]))->setDefault(self::SOURCE_FIXED)
-			)
-			->addField(
 				(new CWidgetFieldMultiSelectTrigger('triggerids', _et('Events')))
 					->setMultiple(true)
-			)
-			->addField(
-				new CWidgetFieldMultiSelectBroadcastSource('en_triggerids', _et('Event Navigator'),
-					self::TYPE_TRIGGER_IDS, _et('Event Navigator widget'), _et('Event Navigator widgets')
-				)
 			)
 			// Severity: configured_filter（表示画面の runtime_filter の初期値）。
 			->addField(
@@ -225,60 +191,5 @@ class WidgetForm extends CWidgetForm {
 					->setDefaultPeriod(['from' => 'now-24h', 'to' => 'now'])
 					->setFlags(CWidgetField::FLAG_NOT_EMPTY | CWidgetField::FLAG_LABEL_ASTERISK)
 			);
-	}
-
-	/**
-	 * Widget Source の参照は、選んだ1つの送信元ウィジェットから2種類の型（Host+Host group）を
-	 * 受け取る必要がある。設定画面には片方の参照フィールドだけを表示するので、もう一方の参照は同じ送信元から作る。
-	 * Fixed のときは参照を残さない（未使用の参照でダッシュボードが送信元を待たないようにする）。
-	 */
-	protected function normalizeValues(array $values): array {
-		$pairs = [
-			['host_source', 'tn_hostids', self::TYPE_HOST_IDS, 'tn_groupids', self::TYPE_HOST_GROUP_IDS]
-		];
-		$key = CWidgetField::FOREIGN_REFERENCE_KEY;
-
-		foreach ($pairs as [$source_name, $main, $main_type, $derived, $derived_type]) {
-			if ((int) ($values[$source_name] ?? self::SOURCE_FIXED) !== self::SOURCE_WIDGET) {
-				unset($values[$main], $values[$derived]);
-
-				continue;
-			}
-
-			$ref = $values[$main][$key] ?? null;
-
-			if (is_string($ref) && $ref !== '') {
-				$reference = explode('.', $ref, 2)[0];
-				$values[$main] = [$key => $reference.'.'.$main_type];
-				$values[$derived] = [$key => $reference.'.'.$derived_type];
-			}
-		}
-
-		// Event の Widget Source は参照フィールド（en_triggerids）1つだけ。Fixed のときは参照を残さない。
-		if ((int) ($values['event_source'] ?? self::SOURCE_FIXED) !== self::SOURCE_WIDGET) {
-			unset($values['en_triggerids']);
-		}
-
-		return $values;
-	}
-
-	public function validate(bool $strict = false): array {
-		$errors = parent::validate($strict);
-
-		if ($strict) {
-			$key = CWidgetField::FOREIGN_REFERENCE_KEY;
-
-			if ((int) $this->getFieldValue('host_source') === self::SOURCE_WIDGET
-					&& empty($this->getFieldValue('tn_hostids')[$key])) {
-				$errors[] = _s('Invalid parameter "%1$s": %2$s.', _et('Tree Navigator'), _et('widget is required'));
-			}
-
-			if ((int) $this->getFieldValue('event_source') === self::SOURCE_WIDGET
-					&& empty($this->getFieldValue('en_triggerids')[$key])) {
-				$errors[] = _s('Invalid parameter "%1$s": %2$s.', _et('Event Navigator'), _et('widget is required'));
-			}
-		}
-
-		return $errors;
 	}
 }

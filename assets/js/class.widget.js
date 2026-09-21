@@ -20,7 +20,7 @@ class CWidgetEventTimeline extends CWidget {
 
 	// Widget Source の参照（Tree Navigator / Event Navigator）。Selectionが未受信でも更新を止めず、
 	// サーバーへ空の Selection として渡して「対象が選択されていません」を表示させる（全Host・全Eventへは広げない）。
-	static SELECTION_PATHS = ['tn_hostids', 'tn_groupids', 'en_triggerids'];
+	static SELECTION_PATHS = ['hostids', 'groupids', 'triggerids'];
 
 	// 発生イベント数 / 継続イベント加算（WidgetForm::COUNT_* と同じ値）。
 	static COUNT_OCCURRENCE = 0;

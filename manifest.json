@@ -10,9 +10,9 @@
 		"js_class": "CWidgetEventTimeline",
 		"in": {
 			"time_period": {"type": "_timeperiod"},
-			"tn_hostids": {"type": "_hostids", "prevent_default": true},
-			"tn_groupids": {"type": "_hostgroupids", "prevent_default": true},
-			"en_triggerids": {"type": "_triggerids", "prevent_default": true}
+			"hostids": {"type": "_hostids"},
+			"groupids": {"type": "_hostgroupids"},
+			"triggerids": {"type": "_triggerids"}
 		}
 	},
 	"actions": {
