@@ -384,11 +384,19 @@ class CWidgetEventTimeline extends CWidget {
 		this.#runtime.page = 1;
 		this.#resetAutoPage();
 
-		if (this.#data) {
-			this.#render();
-		}
+		// 表示中のデータの形（Timeline: buckets / 次元モード: category）が新しいモードと合わないときは、
+		// 即時再描画せず再取得だけを行う（合わないデータで描画すると例外になり、再取得も止まる）。
+		const shape_ok = this.#data
+			&& (this.#runtime.mode === CWidgetEventTimeline.MODE_TIMELINE) === (this.#data.category === null);
 
-		this._startUpdating();
+		try {
+			if (shape_ok) {
+				this.#render();
+			}
+		}
+		finally {
+			this._startUpdating();
+		}
 	}
 
 	static #sameSet(a, b) {
