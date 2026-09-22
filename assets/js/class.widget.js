@@ -899,7 +899,8 @@ class CWidgetEventTimeline extends CWidget {
 			&& this.#tip_mode === CWidgetEventTimeline.TIP_MODE_DEFAULT;
 
 		const group = document.createElement('div');
-		group.className = 'et-group';
+		// et-group-end: 折り返し時に単独で行の先頭へ取り残されて見えないよう、常に行の右端へ寄せる（§4）。
+		group.className = 'et-group et-group-end';
 
 		const button = document.createElement('button');
 
@@ -1123,6 +1124,42 @@ class CWidgetEventTimeline extends CWidget {
 		return longest <= band - 6 || band >= longest * 0.6 + 6 ? 0 : 45;
 	}
 
+	// ラベル文字列の概算ピクセル幅（全角は2倍）。表示上のラベル箱（width_box）で頭打ちにする。
+	static #labelPixelWidth(label, width_box) {
+		const char_w = 7;
+		const raw = [...String(label ?? '')].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? char_w * 2 : char_w), 0);
+
+		return Math.min(raw, width_box);
+	}
+
+	// 斜め・縦表示で、先頭・末尾カテゴリのラベルがband幅の半分（boundaryGapによる余白）を超えてはみ出す分だけ、
+	// grid外側へ追加の余白を確保する（§2）。水平表示・カテゴリ数が十分に少ない（bandが広い）場合は追加なし。
+	static #edgeLabelMargin(label, width_box, band, rotate) {
+		if (rotate === 0 || !label) {
+			return 0;
+		}
+
+		const overhang = CWidgetEventTimeline.#labelPixelWidth(label, width_box) * Math.abs(Math.cos(rotate * Math.PI / 180));
+
+		return Math.min(Math.max(0, Math.ceil(overhang - band / 2)), 90);
+	}
+
+	// 斜め・縦表示のときだけ、ラベルの高さ分の下部余白を確保する（水平表示・短いラベルは既存の最小値のまま。§3）。
+	// グラフ本体を過度に縮小しないよう、グラフ高さに応じた上限も設ける。
+	static #categoryBottomMargin(rows, width_box, rotate, graph_height) {
+		if (rotate === 0) {
+			return 8;
+		}
+
+		const longest = Math.max(0, ...rows.map(r => CWidgetEventTimeline.#labelPixelWidth(r.label, width_box)));
+		// 90度: 縦書きの見かけの高さ ≈ 文字列のピクセル長。45度: 対角線の高さ成分 + 行の高さ分。
+		const needed = rotate === 90 ? longest : longest * Math.sin(rotate * Math.PI / 180) + 14;
+		const min_plot = 20;
+		const max_bottom = Math.max(8, (graph_height || 0) - 28 - min_plot);
+
+		return Math.min(Math.ceil(needed) + 12, max_bottom, 80);
+	}
+
 	#buildCategoryOption(data) {
 		const colors = this.#resolveColors(data.style);
 		const rows = data.category.rows;
@@ -1131,6 +1168,12 @@ class CWidgetEventTimeline extends CWidget {
 		const width = this.#chart.getWidth();
 		const band = Math.max(width - 48, 1) / Math.max(rows.length, 1);
 		const rotate = this.#xLabelRotate(rows, band, data.style.x_label);
+		const width_box = rotate === 0 ? Math.max(band - 6, 24) : 130;
+		const edge_left = CWidgetEventTimeline.#edgeLabelMargin(rows[0]?.label, width_box, band, rotate);
+		const edge_right = rows.length > 1
+			? CWidgetEventTimeline.#edgeLabelMargin(rows[rows.length - 1]?.label, width_box, band, rotate)
+			: edge_left;
+		const bottom = CWidgetEventTimeline.#categoryBottomMargin(rows, width_box, rotate, data.style.graph_height);
 
 		const series = enabled.map(s => ({
 			name: s.name,
@@ -1149,7 +1192,7 @@ class CWidgetEventTimeline extends CWidget {
 			animation: false,
 			backgroundColor: 'transparent',
 			textStyle: {color: colors.text},
-			grid: {left: 8, right: 16, top: 28, bottom: 8, containLabel: true},
+			grid: {left: 8 + edge_left, right: 16 + edge_right, top: 28, bottom, containLabel: true},
 			xAxis: {
 				type: 'category',
 				data: rows.map(r => r.label),
@@ -1160,7 +1203,7 @@ class CWidgetEventTimeline extends CWidget {
 					interval: 0,
 					hideOverlap: false,
 					rotate,
-					width: rotate === 0 ? Math.max(band - 6, 24) : 130,
+					width: width_box,
 					overflow: 'truncate',
 					ellipsis: '\u2026'
 				},

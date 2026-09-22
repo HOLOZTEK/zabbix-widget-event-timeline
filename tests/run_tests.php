@@ -476,5 +476,48 @@ check('hostNameList truncates to limit and sorts A-Z',
 	$list['hosts'], ['host01', 'host02', 'host03', 'host04', 'host05']);
 check('hostNameList overflow count', $list['hosts_more'], 7);
 
+// --- 第5フェーズ: Severity集計の追加試験（指示書§6）---
+// 同一カテゴリに Host A（Warning・High）/ Host B（Warning）のイベント計3件が存在する場合を検証する。
+// Host Aは表示対象イベントのうち最高SeverityであるHighへ1回だけ計上し、
+// WarningとHighへ二重計上してはならない（§6.2〜§6.4）。
+const SEV_WARNING = 2;
+const SEV_HIGH = 4;
+
+$sev_events = [
+	$ev('1', SEV_WARNING), // Host A / Event 1
+	$ev('2', SEV_HIGH),    // Host A / Event 2
+	$ev('3', SEV_WARNING)  // Host B / Event 3
+];
+$sev_hosts = ['1' => ['A'], '2' => ['A'], '3' => ['B']];
+$sev_names = ['1' => 'Event X', '2' => 'Event X', '3' => 'Event X'];
+
+// 全Severity: 影響ホスト数2・該当イベント数3・Warning1台/High1台（Host Aの二重計上なし）。
+$r = D::byEvent($sev_events, $sev_hosts, $sev_names);
+check('§6.2 all severities: affected host count', $r[0]['total'], 2);
+check('§6.2 all severities: severity breakdown (Host A→High only)', $r[0]['counts'], [0, 0, 1, 0, 1, 0]);
+check('§6.2 all severities: matching event count', count($sev_events), 3);
+
+// Warningのみ: Highイベントが対象外となり、Host AはWarningへ計上される。
+$f = Aggregator::filterBySeverity($sev_events, [SEV_WARNING]);
+$r = D::byEvent($f, $sev_hosts, $sev_names);
+check('§6.3 warning only: affected host count', $r[0]['total'], 2);
+check('§6.3 warning only: severity breakdown', $r[0]['counts'], [0, 0, 2, 0, 0, 0]);
+check('§6.3 warning only: matching event count', count($f), 2);
+
+// Highのみ: Host Bのイベントが対象外となり、影響ホストはHost Aのみ。
+$f = Aggregator::filterBySeverity($sev_events, [SEV_HIGH]);
+$r = D::byEvent($f, $sev_hosts, $sev_names);
+check('§6.3 high only: affected host count', $r[0]['total'], 1);
+check('§6.3 high only: severity breakdown', $r[0]['counts'], [0, 0, 0, 0, 1, 0]);
+check('§6.3 high only: matching event count', count($f), 1);
+
+// Prototype groupでも同じ原則（Hostのユニーク化・最高Severityの割当）が成立することを確認する（§6.5）。
+$proto_ids6 = ['1' => 'P1', '2' => 'P1', '3' => 'P1'];
+$proto_names6 = ['P1' => 'Prototype X'];
+$r = D::byEventGroup($sev_events, $sev_hosts, $sev_names, $proto_ids6, $proto_names6);
+check('§6.5 prototype group: affected host count', $r[0]['total'], 2);
+check('§6.5 prototype group: severity breakdown (Host A→High only)', $r[0]['counts'], [0, 0, 1, 0, 1, 0]);
+check('§6.5 prototype group: matching event count (event_count)', $r[0]['event_count'], 3);
+
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);
