@@ -111,7 +111,8 @@ class DimensionAggregator {
 		$rows = [];
 
 		foreach ($best as $name => $hosts) {
-			$row = ['id' => (string) $name, 'label' => (string) $name, 'counts' => self::emptyCounts(), 'total' => 0];
+			$row = ['id' => (string) $name, 'label' => (string) $name, 'counts' => self::emptyCounts(), 'total' => 0,
+				'hostids' => array_keys($hosts)];
 
 			foreach ($hosts as $severity) {
 				$row['counts'][$severity]++;
@@ -122,6 +123,110 @@ class DimensionAggregator {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * By Event（プロトタイプグループ）のGroup key。Trigger prototype由来（Discovery）であれば
+	 * 'p:'+生成元Trigger prototype ID、そうでない（通常Trigger、またはPrototype情報が解決できない）場合は
+	 * 'n:'+Event名にFallbackする。文字列の類推（正規表現・ポート番号除去・桁無視・類似度等）は一切行わず、
+	 * Zabbixの実際の生成関係（$event_proto。EventFetcher::resolvePrototypes() の結果）だけを根拠にする。
+	 * 集計（byEventGroup）とDrilldown選定（DetailSelector::byEventGroup）が同じ規則で選ぶよう、共通で使う。
+	 *
+	 * @param array<string, ?string> $event_proto  eventid => 生成元Trigger prototype ID（解決できなければ null）
+	 * @param array<string, string>  $event_names  eventid => Event名
+	 * @param array<string, string>  $proto_names  Trigger prototype ID => 表示名（解決できたものだけ）
+	 */
+	public static function eventGroupKey(string $eventid, array $event_proto, array $event_names,
+			array $proto_names): string {
+		$proto = $event_proto[$eventid] ?? null;
+
+		return $proto !== null && isset($proto_names[$proto])
+			? 'p:'.$proto
+			: 'n:'.(string) ($event_names[$eventid] ?? '');
+	}
+
+	private static function eventGroupLabel(string $key, array $proto_names): string {
+		if (strncmp($key, 'p:', 2) === 0) {
+			$id = substr($key, 2);
+
+			return $proto_names[$id] ?? $id;
+		}
+
+		return substr($key, 2);
+	}
+
+	/**
+	 * By Event（プロトタイプグループ）: Trigger prototype由来のEventを生成元Prototype単位でGroup化し、
+	 * 影響Host数（Measure。Prototype × Host のユニーク数。byEvent と同じ考え方）と、そのGroupに属する
+	 * 該当Event数（event_count）を集計する。Prototype情報が無い/解決できないEventは、Event名単位の
+	 * Group（byEventと同じ粒度）へ個別にFallbackする（§37〜39: 特別な警告表示はせず、通常のEventとして扱う）。
+	 * Severityは byEvent と同じく、Host×Groupにつき現在のFilterを通ったEventのうち最も高いものを1回だけ割り当てる
+	 * （Stack合計 = 影響Host数を常に保証する）。
+	 *
+	 * @param array<string, ?string> $event_proto  eventid => 生成元Trigger prototype ID（解決できなければ null）
+	 * @param array<string, string>  $proto_names  Trigger prototype ID => 表示名
+	 *
+	 * @return array<int, array{id: string, label: string, is_prototype: bool, counts: int[], total: int,
+	 *         event_count: int, hostids: string[]}>
+	 */
+	public static function byEventGroup(array $events, array $event_hosts, array $event_names, array $event_proto,
+			array $proto_names): array {
+		$best = [];
+		$seen_events = [];
+		$labels = [];
+
+		foreach ($events as $e) {
+			$eventid = $e['eventid'];
+			$key = self::eventGroupKey($eventid, $event_proto, $event_names, $proto_names);
+			$labels[$key] ??= self::eventGroupLabel($key, $proto_names);
+			$seen_events[$key][$eventid] = true;
+			$severity = (int) $e['severity'];
+
+			foreach (array_unique($event_hosts[$eventid] ?? []) as $hostid) {
+				if (!isset($best[$key][$hostid]) || $best[$key][$hostid] < $severity) {
+					$best[$key][$hostid] = $severity;
+				}
+			}
+		}
+
+		$rows = [];
+
+		foreach ($best as $key => $hosts) {
+			$row = ['id' => $key, 'label' => $labels[$key], 'is_prototype' => strncmp($key, 'p:', 2) === 0,
+				'counts' => self::emptyCounts(), 'total' => 0, 'event_count' => count($seen_events[$key] ?? []),
+				'hostids' => array_keys($hosts)];
+
+			foreach ($hosts as $severity) {
+				$row['counts'][$severity]++;
+				$row['total']++;
+			}
+
+			$rows[] = $row;
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Popup（Hover Tooltip）用のHost名一覧。Host ID集合をA→Z（自然順・大文字小文字を区別しない）で並べ、
+	 * 上限（$limit）を超えた分は件数だけ返す（§21〜24）。Event mode（個別イベント／プロトタイプグループ共通）
+	 * のカテゴリ行に対して、Rendering直前に呼ぶ。
+	 *
+	 * @param string[]              $hostids
+	 * @param array<string, string> $host_names  hostid => 表示名
+	 *
+	 * @return array{hosts: string[], hosts_more: int}
+	 */
+	public static function hostNameList(array $hostids, array $host_names, int $limit): array {
+		$names = [];
+
+		foreach ($hostids as $hostid) {
+			$names[] = (string) ($host_names[$hostid] ?? $hostid);
+		}
+
+		sort($names, SORT_NATURAL | SORT_FLAG_CASE);
+
+		return ['hosts' => array_slice($names, 0, $limit), 'hosts_more' => max(0, count($names) - $limit)];
 	}
 
 	/**

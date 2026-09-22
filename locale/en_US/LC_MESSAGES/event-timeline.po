@@ -94,6 +94,9 @@ msgstr ""
 msgid "Unknown host"
 msgstr ""
 
+msgid "%1$s more hosts"
+msgstr "%1$s more hosts"
+
 msgid "Y-axis minimum"
 msgstr ""
 
@@ -283,6 +286,15 @@ msgstr "Host group"
 msgid "Event"
 msgstr "Event"
 
+msgid "Event grouping"
+msgstr "Event grouping"
+
+msgid "Prototype group"
+msgstr "Prototype group"
+
+msgid "Individual events"
+msgstr "Individual events"
+
 msgid "Sort order"
 msgstr "Sort order"
 
@@ -315,6 +327,9 @@ msgstr "Items per page"
 
 msgid "Auto paging"
 msgstr "Auto paging"
+
+msgid "Detail view"
+msgstr "Detail view"
 
 msgid "Off"
 msgstr "Off"

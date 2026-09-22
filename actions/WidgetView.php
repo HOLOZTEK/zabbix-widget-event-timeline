@@ -72,6 +72,10 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$auto_page = in_array((int) ($fields['auto_page'] ?? 0), WidgetForm::AUTO_PAGE_INTERVALS, true)
 			? (int) $fields['auto_page']
 			: 0;
+		// 詳細表示（Drilldownダイアログ）のページング。グラフのページング（page_size）とは別設定（§29〜34）。
+		$detail_page_size = in_array((int) ($fields['detail_page_size'] ?? 0), WidgetForm::DETAIL_PAGE_SIZES, true)
+			? (int) $fields['detail_page_size']
+			: WidgetForm::DETAIL_PAGE_SIZE_DEFAULT;
 		$page = !empty($fields['rt_active']) ? max(1, (int) ($fields['rt_page'] ?? 1)) : 1;
 		$category = null;
 		$detail = null;
@@ -166,7 +170,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 					$plan['bounds'], $continuous, $now
 				)));
 
-				$category = $this->buildCategory($events, $target['hostids'], $runtime, $page_size, $page);
+				$category = $this->buildCategory($events, $target['hostids'], $runtime, $fields, $page_size, $page);
 
 				if ($category === null) {
 					$this->setResponse(new CControllerResponseData([
@@ -235,6 +239,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'category' => $category,
 				'page_size' => $page_size,
 				'auto_page' => $auto_page,
+				'detail_page_size' => $detail_page_size,
 				'empty_reason' => $shown > 0 ? null
 					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events'))
 			]),
@@ -247,14 +252,17 @@ class WidgetView extends CControllerDashboardWidgetView {
 	 *
 	 * @return array|null  失敗時は null
 	 */
-	private function buildCategory(array $events, array $hostids, array $runtime, int $page_size, int $page): ?array {
+	private function buildCategory(array $events, array $hostids, array $runtime, array $fields, int $page_size,
+			int $page): ?array {
 		$info = $events
 			? EventFetcher::fetchDimensionInfo(array_column($events, 'eventid'), $hostids)
-			: ['names' => [], 'hosts' => [], 'host_names' => []];
+			: ['names' => [], 'hosts' => [], 'host_names' => [], 'triggers' => []];
 
 		if ($info === null) {
 			return null;
 		}
+
+		$event_display = null;
 
 		switch ($runtime['mode']) {
 			case WidgetForm::MODE_HOST:
@@ -272,12 +280,75 @@ class WidgetView extends CControllerDashboardWidgetView {
 				break;
 
 			default:
-				$rows = DimensionAggregator::byEvent($events, $info['hosts'], $info['names']);
+				$event_display = self::eventDisplay($fields);
+
+				if ($event_display === WidgetForm::EVENT_DISPLAY_INDIVIDUAL) {
+					$rows = DimensionAggregator::byEvent($events, $info['hosts'], $info['names']);
+				}
+				else {
+					$event_proto = self::resolveEventPrototypes($events, $info['triggers']);
+					$rows = DimensionAggregator::byEventGroup($events, $info['hosts'], $info['names'],
+						$event_proto['map'], $event_proto['names']
+					);
+				}
+
+				// Popup（Hover Tooltip）用のHost名一覧。Timeline / Host / Host group は対象外（§35）。
+				foreach ($rows as &$row) {
+					$list = DimensionAggregator::hostNameList($row['hostids'] ?? [], $info['host_names'],
+						WidgetForm::POPUP_HOST_LIMIT
+					);
+					$row['hosts'] = $list['hosts'];
+					$row['hosts_more'] = $list['hosts_more'];
+					unset($row['hostids']);
+				}
+
+				unset($row);
 		}
 
 		$pager = DimensionAggregator::paginate(DimensionAggregator::sort($rows, $runtime['sort']), $page_size, $page);
 
-		return ['rows' => $pager['rows'], 'pager' => array_diff_key($pager, ['rows' => 1])];
+		return [
+			'rows' => $pager['rows'],
+			'pager' => array_diff_key($pager, ['rows' => 1]),
+			'event_display' => $event_display === null ? null
+				: ($event_display === WidgetForm::EVENT_DISPLAY_INDIVIDUAL ? 'individual' : 'prototype')
+		];
+	}
+
+	/**
+	 * 設定「イベント表示」（event_display）の値を検証する。Event modeのみで使う、設定専用の値
+	 * （Runtimeの切替UI・条件リセットの対象外。§1/§44）。
+	 */
+	private static function eventDisplay(array $fields): int {
+		$value = (int) ($fields['event_display'] ?? WidgetForm::EVENT_DISPLAY_PROTOTYPE);
+
+		return $value === WidgetForm::EVENT_DISPLAY_INDIVIDUAL
+			? WidgetForm::EVENT_DISPLAY_INDIVIDUAL
+			: WidgetForm::EVENT_DISPLAY_PROTOTYPE;
+	}
+
+	/**
+	 * プロトタイプグループ表示のための、Event単位のTrigger prototype解決。$triggers（eventid => triggerid）を
+	 * まとめて resolvePrototypes() へ渡すことで、Event件数分のAPI呼び出しにはならない（1回のRenderにつき1回）。
+	 *
+	 * @param array<string, string> $triggers  eventid => triggerid（EventFetcher::fetchDimensionInfo() の結果）
+	 *
+	 * @return array{map: array<string, ?string>, names: array<string, string>}
+	 *   map: eventid => 生成元Trigger prototype ID（解決できなければ null）。names: Trigger prototype ID => 表示名。
+	 */
+	private static function resolveEventPrototypes(array $events, array $triggers): array {
+		if (!$events) {
+			return ['map' => [], 'names' => []];
+		}
+
+		$proto = EventFetcher::resolvePrototypes(array_values($triggers));
+		$map = [];
+
+		foreach ($triggers as $eventid => $triggerid) {
+			$map[$eventid] = $proto['parent'][$triggerid] ?? null;
+		}
+
+		return ['map' => $map, 'names' => $proto['names']];
 	}
 
 	/**
@@ -296,6 +367,8 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$period = (new \DateTimeImmutable('@'.$from))->setTimezone($tz)->format('Y/m/d H:i').' - '
 			.(new \DateTimeImmutable('@'.$to))->setTimezone($tz)->format('Y/m/d H:i');
 
+		$host_count = null;
+
 		if ($mode === WidgetForm::MODE_TIMELINE) {
 			$picked = DetailSelector::timeline($events, (int) ($fields['dd_start'] ?? 0),
 				(int) ($fields['dd_end'] ?? 0), $continuous, $now, $severity
@@ -309,13 +382,13 @@ class WidgetView extends CControllerDashboardWidgetView {
 			)));
 			$info = $events
 				? EventFetcher::fetchDimensionInfo(array_column($events, 'eventid'), $hostids)
-				: ['names' => [], 'hosts' => [], 'host_names' => []];
+				: ['names' => [], 'hosts' => [], 'host_names' => [], 'triggers' => []];
 
 			if ($info === null) {
 				return null;
 			}
 
-			if ($mode === WidgetForm::MODE_EVENT) {
+			if ($mode === WidgetForm::MODE_EVENT && self::eventDisplay($fields) === WidgetForm::EVENT_DISPLAY_INDIVIDUAL) {
 				$hosts = DetailSelector::byEvent($events, $info['hosts'], $info['names'], $key, $severity);
 				$rows = [];
 
@@ -335,7 +408,30 @@ class WidgetView extends CControllerDashboardWidgetView {
 					'period' => $period];
 			}
 
-			if ($mode === WidgetForm::MODE_GROUP) {
+			if ($mode === WidgetForm::MODE_EVENT) {
+				// プロトタイプグループ: Group（Prototype、またはFallback先のEvent名）に属する実Eventの一覧を返す
+				// （個別イベント表示のHost一覧とは異なり、Host単位に集約しない。§25〜27）。
+				$event_proto = self::resolveEventPrototypes($events, $info['triggers']);
+
+				// 影響Host数（該当Severityの棒の値と一致させる。§41）は、集計と同じ byEventGroup() から
+				// 該当Group行を引いて求める（Drilldown選定 DetailSelector::byEventGroup とは独立した経路だが、
+				// どちらも同じ DimensionAggregator::eventGroupKey() を使うため、選定対象は必ず一致する）。
+				$group_rows = DimensionAggregator::byEventGroup($events, $info['hosts'], $info['names'],
+					$event_proto['map'], $event_proto['names']
+				);
+
+				foreach ($group_rows as $row) {
+					if ($row['id'] === $key) {
+						$host_count = $severity === null ? $row['total'] : $row['counts'][$severity];
+						break;
+					}
+				}
+
+				$picked = DetailSelector::byEventGroup($events, $event_proto['map'], $info['names'],
+					$event_proto['names'], $key, $severity
+				);
+			}
+			elseif ($mode === WidgetForm::MODE_GROUP) {
 				$groups = $events ? EventFetcher::fetchHostGroups(array_keys($info['host_names'])) : [];
 
 				if ($groups === null) {
@@ -382,8 +478,15 @@ class WidgetView extends CControllerDashboardWidgetView {
 			];
 		}
 
-		return ['kind' => 'events', 'rows' => $rows, 'total' => $total, 'rows_truncated' => $total > count($rows),
+		$result = ['kind' => 'events', 'rows' => $rows, 'total' => $total, 'rows_truncated' => $total > count($rows),
 			'period' => $mode === WidgetForm::MODE_TIMELINE ? null : $period];
+
+		if ($host_count !== null) {
+			// プロトタイプグループのみ: 影響ホスト数（総Event数=$total とは別に、Popup/棒と同じ規則で数えたHost数）。
+			$result['host_count'] = $host_count;
+		}
+
+		return $result;
 	}
 
 	private static function mode($value): int {
@@ -517,6 +620,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'category' => $meta['category'],
 			'page_size' => $meta['page_size'],
 			'auto_page' => $meta['auto_page'],
+			'detail_page_size' => $meta['detail_page_size'],
 			'total' => $meta['total'],
 			'severity_counts' => $meta['severity_counts'],
 			'empty_reason' => $meta['empty_reason'],

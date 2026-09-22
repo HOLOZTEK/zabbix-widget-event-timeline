@@ -398,5 +398,83 @@ check('detail event hosts', array_map(static fn(array $h): array => [$h['hostid'
 check('detail event severity filter', array_column(DS::byEvent($devs2, $eh, $en, 'CPU', 4), 'hostid'), ['11']);
 check('detail event unknown', DS::byEvent($devs2, $eh, $en, 'none', null), []);
 
+// --- 第4フェーズ追加修正: プロトタイプグループ（Event mode）---
+
+// eventGroupKey: Trigger prototype由来なら 'p:'+Prototype ID、そうでなければ 'n:'+Event名にFallback
+// （Prototypeが解決できない場合も、$event_proto[eventid]がnullの場合も同じくFallback。§5〜9/§37）。
+$proto_names = ['100' => 'CPU load on {#FSNAME}'];
+check('eventGroupKey resolved prototype', D::eventGroupKey('1', ['1' => '100'], ['1' => 'CPU load /'], $proto_names),
+	'p:100');
+check('eventGroupKey unresolved prototype falls back to name',
+	D::eventGroupKey('2', ['2' => '999'], ['2' => 'Disk full'], $proto_names), 'n:Disk full');
+check('eventGroupKey no prototype falls back to name',
+	D::eventGroupKey('3', ['3' => null], ['3' => 'Disk full'], $proto_names), 'n:Disk full');
+
+// byEventGroup: 同一Prototype起点の複数Trigger（=別eventid・別Host）は1つのGroupへ収束する（§5〜9）。
+$eh100 = ['1' => ['10'], '2' => ['11']];
+$names100 = ['1' => 'CPU load on /', '2' => 'CPU load on /var'];
+$r = D::byEventGroup([$ev('1', 3), $ev('2', 4)], $eh100, $names100, ['1' => '100', '2' => '100'], $proto_names);
+check('byEventGroup same prototype collapses to one group', count($r), 1);
+check('byEventGroup same prototype label', $r[0]['label'], $proto_names['100']);
+check('byEventGroup same prototype host total', $r[0]['total'], 2);
+check('byEventGroup same prototype is_prototype flag', $r[0]['is_prototype'], true);
+check('byEventGroup same prototype event_count', $r[0]['event_count'], 2);
+
+// 異なるPrototypeは別Groupのまま（文字列が似ていてもマージしない）。
+$proto_names2 = ['100' => 'CPU load', '200' => 'Memory usage'];
+$r = D::byEventGroup([$ev('1', 3), $ev('2', 3)], $eh100, $names100, ['1' => '100', '2' => '200'], $proto_names2);
+check('byEventGroup different prototypes stay separate', count($r), 2);
+check('byEventGroup different prototypes labels', array_column($r, 'label'), ['CPU load', 'Memory usage']);
+
+// Prototypeを解決できない（通常Trigger）Eventは、Event名単位（byEventと同じ粒度）へ個別にFallbackする。
+// 特別な警告フラグ等は持たない = is_prototype: false になるだけ（§37）。
+$names3 = ['1' => 'Zabbix agent is not available', '2' => 'Zabbix agent is not available'];
+$r = D::byEventGroup([$ev('1', 3), $ev('2', 3)], ['1' => ['10'], '2' => ['11']], $names3,
+	['1' => null, '2' => null], []);
+check('byEventGroup fallback groups by event name', count($r), 1);
+check('byEventGroup fallback label', $r[0]['label'], 'Zabbix agent is not available');
+check('byEventGroup fallback is_prototype false', $r[0]['is_prototype'], false);
+
+// 同一Host・同一Prototypeの繰り返しEventは、影響Host数としては1（byEventと同じ考え方）。
+// event_count（該当イベント数）はHost単位に集約せず、実Event数のまま個別に数える。
+$eh4 = ['1' => ['10'], '2' => ['10'], '3' => ['10']];
+$r = D::byEventGroup([$ev('1', 3), $ev('2', 3), $ev('3', 4)], $eh4, [],
+	['1' => '100', '2' => '100', '3' => '100'], ['100' => 'CPU load']);
+check('byEventGroup same host repeated: host counted once', $r[0]['total'], 1);
+// severity 3,3,4 → 同一Hostへの割り当ては最も高いもの（4）が1回だけ（byEvent等と同じ考え方）。
+check('byEventGroup same host repeated: highest severity kept', $r[0]['counts'], [0, 0, 0, 0, 1, 0]);
+check('byEventGroup same host repeated: event_count keeps all events', $r[0]['event_count'], 3);
+
+check('byEventGroup empty', D::byEventGroup([], [], [], [], []), []);
+
+// Drilldown（プロトタイプグループ）: 実Eventの一覧（Host単位に集約しない）。
+// 影響Host数（row['counts']。Host単位の最高Severityで数える）とは異なり、
+// Drilldownの一覧は実Event単位のSeverityで絞り込む（§25〜27で採用した設計。両者の値は一致しない場合がある。
+// 一致させるのは影響Host数（host_count）の方で、集計と同じbyEventGroup()から直接読むことで保証する）。
+$evg5 = ['1' => '100', '2' => '100', '3' => '100', '4' => null];
+$proto_names5 = ['100' => 'CPU load'];
+
+check('detail event-group prototype eventids', $sel(DS::byEventGroup($devs2, $evg5, $en, $proto_names5, 'p:100', null)),
+	['1', '2', '3']);
+check('detail event-group fallback eventids', $sel(DS::byEventGroup($devs2, $evg5, $en, $proto_names5, 'n:Disk', null)),
+	['4']);
+check('detail event-group severity filter',
+	array_column(DS::byEventGroup($devs2, $evg5, $en, $proto_names5, 'p:100', 4), 'eventid'), ['3']);
+check('detail event-group unknown key', DS::byEventGroup($devs2, $evg5, $en, $proto_names5, 'none', null), []);
+
+// Popup（Hover Tooltip）用Host名一覧: 上限内はそのまま、超過分は件数のみ（A→Zソート。§21〜24）。
+$hn3 = ['1' => 'web01', '2' => 'web02', '3' => 'web03'];
+check('hostNameList within limit', D::hostNameList(['3', '1', '2'], $hn3, 5),
+	['hosts' => ['web01', 'web02', 'web03'], 'hosts_more' => 0]);
+
+$hn12 = [];
+foreach (range(1, 12) as $i) {
+	$hn12[(string) $i] = sprintf('host%02d', $i);
+}
+$list = D::hostNameList(array_reverse(array_keys($hn12)), $hn12, 5);
+check('hostNameList truncates to limit and sorts A-Z',
+	$list['hosts'], ['host01', 'host02', 'host03', 'host04', 'host05']);
+check('hostNameList overflow count', $list['hosts_more'], 7);
+
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

@@ -57,6 +57,8 @@ class Widget extends CWidget {
 					=> _et('Host group'),
 				'Event'
 					=> _et('Event'),
+				'Prototype group'
+					=> _et('Prototype group'),
 				'Sort order'
 					=> _et('Sort order'),
 				'By count'
@@ -149,6 +151,8 @@ class Widget extends CWidget {
 					=> _et('And %1$s more events'),
 				'Unknown host'
 					=> _et('Unknown host'),
+				'%1$s more hosts'
+					=> _et('%1$s more hosts'),
 				'Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph.'
 					=> _et('Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph.')
 			]

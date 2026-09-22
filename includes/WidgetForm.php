@@ -58,10 +58,21 @@ class WidgetForm extends CWidgetForm {
 	public const MODE_GROUP    = 2;
 	public const MODE_EVENT    = 3;
 
-	// ページング。
+	// Event表示方式（Event modeのみ）。設定画面でのみ切り替える（Runtimeに切替UIは追加しない。§1/§44）。
+	public const EVENT_DISPLAY_PROTOTYPE   = 0;
+	public const EVENT_DISPLAY_INDIVIDUAL  = 1;
+
+	// Popup（Hover Tooltip）に列挙するHost名の上限。超えた分は「ほか N台」（§21）。設定項目ではない。
+	public const POPUP_HOST_LIMIT = 5;
+
+	// ページング（グラフ）。
 	public const PAGE_SIZES         = [10, 20, 50];
 	public const PAGE_SIZE_DEFAULT  = 20;
 	public const AUTO_PAGE_INTERVALS = [0, 10, 30, 60];
+
+	// ページング（詳細表示ダイアログ）。グラフのページングとは別設定（§29〜34）。
+	public const DETAIL_PAGE_SIZES        = [10, 20, 50];
+	public const DETAIL_PAGE_SIZE_DEFAULT = 20;
 
 	public const MAX_EVENTS_MIN     = 1000;
 	public const MAX_EVENTS_MAX     = 1000000;
@@ -120,6 +131,15 @@ class WidgetForm extends CWidgetForm {
 					self::MODE_EVENT => _et('Event')
 				]))->setDefault(self::MODE_TIMELINE)
 			)
+			// Event modeでのGroup化方式（設定のみで切り替え。Runtimeの条件リセットの対象外。§1/§44）。
+			// 既定はプロトタイプグループ（Trigger prototype起点。Zabbixの生成関係のみを根拠にし、
+			// 文字列の類推は行わない。§5〜9/§40）。個別イベント表示は従来どおりの挙動を維持する。
+			->addField(
+				(new CWidgetFieldSelect('event_display', _et('Event grouping'), [
+					self::EVENT_DISPLAY_PROTOTYPE => _et('Prototype group'),
+					self::EVENT_DISPLAY_INDIVIDUAL => _et('Individual events')
+				]))->setDefault(self::EVENT_DISPLAY_PROTOTYPE)
+			)
 			->addField(
 				(new CWidgetFieldSelect('sort_order', _et('Sort order'), [
 					DimensionAggregator::SORT_COUNT => _et('By count'),
@@ -140,6 +160,12 @@ class WidgetForm extends CWidgetForm {
 					30 => _et('30 seconds'),
 					60 => _et('60 seconds')
 				]))->setDefault(0)
+			)
+			// 詳細表示（Drilldownダイアログ）のページング。グラフのページング（page_size）とは別設定（§29〜34）。
+			->addField(
+				(new CWidgetFieldSelect('detail_page_size', _et('Items per page'), array_combine(
+					self::DETAIL_PAGE_SIZES, array_map('strval', self::DETAIL_PAGE_SIZES)
+				)))->setDefault(self::DETAIL_PAGE_SIZE_DEFAULT)
 			)
 			// Runtime状態（表示画面から送られる一時的な値）。設定画面には表示せず、保存もされない。
 			->addField((new CWidgetFieldCheckBox('rt_active'))->setDefault(0))

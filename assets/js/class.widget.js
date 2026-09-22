@@ -5,6 +5,10 @@ class CWidgetEventTimeline extends CWidget {
 	#chart = null;
 	#data = null;
 
+	// 詳細表示（Drilldownダイアログ）の1ページ表示件数。設定値（グラフのページングとは別）。
+	// グラフのRuntime/Page状態には影響しない（ダイアログを閉じれば元の状態のまま）。
+	#detail_page_size = CWidgetEventTimeline.DETAIL_PAGE_SIZE;
+
 	// Runtime状態（設定値ではない）。Tooltip詳細の並び: 'host'=Host単位（既定）/ 'time'=時系列。
 	// 再描画（自動更新）をまたいで維持するため、インスタンスに保持する。
 	#tip_mode = 'host';
@@ -109,6 +113,7 @@ class CWidgetEventTimeline extends CWidget {
 		}
 
 		this.#data = response.chart_data;
+		this.#detail_page_size = this.#data.detail_page_size || CWidgetEventTimeline.DETAIL_PAGE_SIZE;
 
 		if (this.#runtime === null) {
 			// 初回のみ設定値（configured_filter / 初期モード）から runtime を作る。
@@ -264,6 +269,11 @@ class CWidgetEventTimeline extends CWidget {
 			ctx.label = row.label;
 			ctx.start = 0;
 			ctx.end = 0;
+			// Event mode: 設定「イベント表示」（プロトタイプグループ／個別イベント）と、そのGroupが実際に
+			// Trigger prototype由来か（Fallbackされた個別Eventか）。Drilldownのタイトル・ヘッダー・
+			// 応答内容（kind）の分岐に使う（サーバー側 event_display と対応、Runtime切替はない。§1/§44）。
+			ctx.eventDisplay = data.category?.event_display ?? null;
+			ctx.isPrototype = !!row.is_prototype;
 		}
 		else {
 			const bucket = data.buckets?.[params.dataIndex];
@@ -289,7 +299,11 @@ class CWidgetEventTimeline extends CWidget {
 		const seq = ++this.#detail_seq;
 
 		overlayDialogue({
-			title: ctx.mode === CWidgetEventTimeline.MODE_EVENT ? t('Affected hosts') : t('Event details'),
+			// プロトタイプグループ表示（settings: event_display）では実Eventの一覧を返すため、
+			// 個別イベント表示（Affected hosts = Host一覧）と表題を分ける。
+			title: ctx.mode === CWidgetEventTimeline.MODE_EVENT && ctx.eventDisplay === 'individual'
+				? t('Affected hosts')
+				: t('Event details'),
 			class: 'modal-popup et-detail-popup',
 			content: box,
 			buttons: [{title: t('Close'), cancel: true, action: () => {}}],
@@ -375,7 +389,6 @@ class CWidgetEventTimeline extends CWidget {
 
 	#renderDetail(box, state) {
 		const {ctx, detail} = state;
-		const by_event = ctx.mode === CWidgetEventTimeline.MODE_EVENT;
 		const sev = ctx.severities.find(s => s.id === ctx.severity);
 
 		box.innerHTML = '';
@@ -424,11 +437,17 @@ class CWidgetEventTimeline extends CWidget {
 			addHead(t('Period'), ctx.label);
 		}
 		else {
-			addHead({
-				[CWidgetEventTimeline.MODE_HOST]: t('Host'),
-				[CWidgetEventTimeline.MODE_GROUP]: t('Host group'),
-				[CWidgetEventTimeline.MODE_EVENT]: t('Event')
-			}[ctx.mode], ctx.label);
+			// プロトタイプグループのGroup（Trigger prototype由来）だけ、ラベルを「プロトタイプグループ」にする。
+			// Fallbackされた個別Event（is_prototype=false）は、プロトタイプグループ設定下でも通常のEventとして扱う（§37）。
+			const dim_label = ctx.mode === CWidgetEventTimeline.MODE_EVENT && ctx.isPrototype
+				? t('Prototype group')
+				: {
+					[CWidgetEventTimeline.MODE_HOST]: t('Host'),
+					[CWidgetEventTimeline.MODE_GROUP]: t('Host group'),
+					[CWidgetEventTimeline.MODE_EVENT]: t('Event')
+				}[ctx.mode];
+
+			addHead(dim_label, ctx.label);
 
 			if (detail?.period) {
 				addHead(t('Period'), detail.period);
@@ -451,9 +470,19 @@ class CWidgetEventTimeline extends CWidget {
 			return;
 		}
 
-		box.appendChild(el('div', 'et-detail-count', sprintf(
-			by_event ? t('Affected hosts: %1$s') : t('Matching events: %1$s'), detail.total
-		)));
+		if (detail.kind === 'hosts') {
+			// 個別イベント表示（従来どおり）: 影響ホスト数のみ。
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Affected hosts: %1$s'), detail.total)));
+		}
+		else if (typeof detail.host_count === 'number') {
+			// プロトタイプグループ: 影響ホスト数（棒・Popupと同じ規則で数えたHost数）と該当イベント数の両方（§25〜27, §41）。
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Affected hosts: %1$s'), detail.host_count)));
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Matching events: %1$s'), detail.total)));
+		}
+		else {
+			// Timeline / Host / Host group（従来どおり）: 該当イベント数のみ。
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Matching events: %1$s'), detail.total)));
+		}
 
 		// 元のEvent取得が上限に達している場合、一覧も不完全であることを明示する。
 		if (detail.source_truncated) {
@@ -471,7 +500,7 @@ class CWidgetEventTimeline extends CWidget {
 			return;
 		}
 
-		const size = CWidgetEventTimeline.DETAIL_PAGE_SIZE;
+		const size = this.#detail_page_size;
 		const pages = Math.max(1, Math.ceil(detail.rows.length / size));
 		state.page = Math.max(1, Math.min(pages, state.page));
 
@@ -1163,6 +1192,8 @@ class CWidgetEventTimeline extends CWidget {
 	}
 
 	// カテゴリTooltip: 名称（省略なし）、合計、Hoverしている深刻度の件数。By Event の件数は影響ホスト数。
+	// Event mode（個別イベント／プロトタイプグループ共通）では、影響Host名の一覧（上限超過は「ほかN台」）を追加する。
+	// プロトタイプグループのGroupでは、さらに該当イベント数（Filter後の実Event数）も示す（§20〜24）。
 	#categoryTooltipHtml(data, params, enabled, by_event) {
 		const p = Array.isArray(params) ? params[0] : params;
 
@@ -1180,10 +1211,27 @@ class CWidgetEventTimeline extends CWidget {
 		const esc = CWidgetEventTimeline.#escape;
 		const total_label = by_event ? t('Affected hosts') : t('Event count');
 
-		return `<div class="et-tip"><div class="et-tip-range">${esc(row.label)}</div>` +
-			`<div class="et-tip-total"><b>${esc(total_label)}: ${row.total}</b></div>` +
-			`<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
-			`${esc(severity.name)}: ${row.counts[severity.id]}</div></div>`;
+		let html = `<div class="et-tip"><div class="et-tip-range">${esc(row.label)}</div>` +
+			`<div class="et-tip-total"><b>${esc(total_label)}: ${row.total}</b></div>`;
+
+		if (typeof row.event_count === 'number') {
+			html += `<div class="et-tip-total"><b>${esc(t('Number of events'))}: ${row.event_count}</b></div>`;
+		}
+
+		html += `<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
+			`${esc(severity.name)}: ${row.counts[severity.id]}</div>`;
+
+		if (Array.isArray(row.hosts)) {
+			for (const host of row.hosts) {
+				html += `<div class="et-tip-host">${esc(host)}</div>`;
+			}
+
+			if (row.hosts_more > 0) {
+				html += `<div class="et-tip-more">${esc(sprintf(t('%1$s more hosts'), row.hosts_more))}</div>`;
+			}
+		}
+
+		return html + '</div>';
 	}
 
 	static ROW_HEIGHT = 18;

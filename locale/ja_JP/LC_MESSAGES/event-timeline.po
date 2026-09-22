@@ -94,6 +94,9 @@ msgstr "ほか %1$s イベント"
 msgid "Unknown host"
 msgstr "不明なホスト"
 
+msgid "%1$s more hosts"
+msgstr "ほか %1$s台"
+
 msgid "Y-axis minimum"
 msgstr "Y軸最小値"
 
@@ -283,6 +286,15 @@ msgstr "ホストグループ"
 msgid "Event"
 msgstr "イベント"
 
+msgid "Event grouping"
+msgstr "イベント表示"
+
+msgid "Prototype group"
+msgstr "プロトタイプグループ"
+
+msgid "Individual events"
+msgstr "個別イベント"
+
 msgid "Sort order"
 msgstr "並び順"
 
@@ -315,6 +327,9 @@ msgstr "1ページ表示件数"
 
 msgid "Auto paging"
 msgstr "自動ページ送り"
+
+msgid "Detail view"
+msgstr "詳細表示"
 
 msgid "Off"
 msgstr "無効"

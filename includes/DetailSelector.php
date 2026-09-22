@@ -107,6 +107,29 @@ class DetailSelector {
 		return array_values($hosts);
 	}
 
+	/**
+	 * By Event（プロトタイプグループ）: 指定Group（$key。DimensionAggregator::eventGroupKey() と同じ規則で
+	 * 判定する生成元Trigger prototype、またはFallback先のEvent名）に属する実Eventの一覧。
+	 * By Event（個別表示）のDrilldownと異なり、Hostへ集約せず実Eventをそのまま返す（§26〜27）。
+	 * $severity 指定時は、そのSeverityのEventだけ（byEventGroup集計のcounts[$severity]と対応する）。
+	 *
+	 * @param array<string, ?string> $event_proto  eventid => 生成元Trigger prototype ID（解決できなければ null）
+	 * @param array<string, string>  $event_names  eventid => Event名
+	 * @param array<string, string>  $proto_names  Trigger prototype ID => 表示名
+	 */
+	public static function byEventGroup(array $events, array $event_proto, array $event_names, array $proto_names,
+			string $key, ?int $severity): array {
+		return array_values(array_filter($events, static function (array $e) use ($event_proto, $event_names,
+				$proto_names, $key, $severity): bool {
+			if (!self::matchSeverity($e, $severity)) {
+				return false;
+			}
+
+			return DimensionAggregator::eventGroupKey($e['eventid'], $event_proto, $event_names, $proto_names)
+				=== $key;
+		}));
+	}
+
 	private static function matchSeverity(array $e, ?int $severity): bool {
 		return $severity === null || (int) $e['severity'] === $severity;
 	}

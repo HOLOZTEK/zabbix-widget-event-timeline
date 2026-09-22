@@ -338,21 +338,25 @@ class EventFetcher {
 	/**
 	 * 次元集計（By Host / By Host group / By Event）用に、Event名と関連Host（ID・名前）を取得する。
 	 * 関連Hostは対象Host集合（$target_hostids）との交差だけを返す。
+	 * triggers（eventid => triggerid）は、プロトタイプグループ表示（resolvePrototypes()）の入力にする
+	 * ためのもので、追加のAPI呼び出しは発生しない（event.get の output に objectid を足すだけ）。
 	 *
 	 * @param string[] $eventids
 	 * @param int[]    $target_hostids
 	 *
-	 * @return array{names: array<string, string>, hosts: array<string, string[]>, host_names: array<string, string>}|null
+	 * @return array{names: array<string, string>, hosts: array<string, string[]>, host_names: array<string, string>,
+	 *         triggers: array<string, string>}|null
 	 */
 	public static function fetchDimensionInfo(array $eventids, array $target_hostids): ?array {
 		$target = array_flip(array_map('strval', $target_hostids));
 		$names = [];
 		$hosts = [];
 		$host_names = [];
+		$triggers = [];
 
 		foreach (array_chunk(array_values(array_unique($eventids)), 500) as $chunk) {
 			$rows = API::Event()->get([
-				'output' => ['eventid', 'name'],
+				'output' => ['eventid', 'name', 'objectid'],
 				'selectHosts' => ['hostid', 'name'],
 				'eventids' => $chunk,
 				'source' => EVENT_SOURCE_TRIGGERS,
@@ -366,6 +370,7 @@ class EventFetcher {
 			foreach ($rows as $row) {
 				$eventid = (string) $row['eventid'];
 				$names[$eventid] = (string) $row['name'];
+				$triggers[$eventid] = (string) ($row['objectid'] ?? '0');
 				$hosts[$eventid] = [];
 
 				foreach ($row['hosts'] ?? [] as $h) {
@@ -377,7 +382,72 @@ class EventFetcher {
 			}
 		}
 
-		return ['names' => $names, 'hosts' => $hosts, 'host_names' => $host_names];
+		return ['names' => $names, 'hosts' => $hosts, 'host_names' => $host_names, 'triggers' => $triggers];
+	}
+
+	/**
+	 * Trigger prototype 解決（プロトタイプグループ表示用）: 指定Trigger群のうちLLD（Discovery）由来のものについて、
+	 * 生成元のTrigger prototype ID と、その表示名（description。{#MACRO} 等は未解決のまま）を返す。
+	 * 通常Trigger（Prototype由来でない）は parent に現れない。
+	 *
+	 * Event件数分のAPI呼び出しにはならないよう、triggerid をまとめて trigger.get / triggerprototype.get する
+	 * （呼び出し側で同一Renderingにつき1回だけ呼び、eventid => triggerid の解決結果はここでキャッシュしない
+	 * － 呼び出し元がRender単位で1回だけ呼ぶことでキャッシュに相当する）。
+	 * API失敗時も他のメソッドと異なりnullを返さない: プロトタイプ情報が無くてもWidget全体をエラーにはせず、
+	 * 解決できなかった分は呼び出し側で個別Event表示へFallbackする（仕様上、Prototype解決失敗は握りつぶしてよい）。
+	 *
+	 * @param string[] $triggerids
+	 *
+	 * @return array{parent: array<string, string>, names: array<string, string>}
+	 *   parent: Discovery由来のtriggerid => 生成元Trigger prototype ID。names: Trigger prototype ID => 表示名。
+	 */
+	public static function resolvePrototypes(array $triggerids): array {
+		$ids = array_values(array_unique(array_filter(array_map('strval', $triggerids),
+			static fn(string $id): bool => $id !== '0'
+		)));
+		$parent = [];
+
+		foreach (array_chunk($ids, 500) as $chunk) {
+			$rows = API::Trigger()->get([
+				'output' => ['triggerid'],
+				'selectTriggerDiscovery' => ['parent_triggerid'],
+				'triggerids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				// 失敗しても個別Event表示へFallbackするだけなので、Widget全体は止めない。
+				continue;
+			}
+
+			foreach ($rows as $row) {
+				$discovery = $row['triggerDiscovery'] ?? null;
+
+				if (is_array($discovery) && isset($discovery['parent_triggerid'])) {
+					$parent[(string) $row['triggerid']] = (string) $discovery['parent_triggerid'];
+				}
+			}
+		}
+
+		$proto_ids = array_values(array_unique(array_values($parent)));
+		$names = [];
+
+		foreach (array_chunk($proto_ids, 500) as $chunk) {
+			if (!$chunk) {
+				continue;
+			}
+
+			$rows = API::TriggerPrototype()->get(['output' => ['triggerid', 'description'], 'triggerids' => $chunk]);
+
+			if (!is_array($rows)) {
+				continue;
+			}
+
+			foreach ($rows as $row) {
+				$names[(string) $row['triggerid']] = (string) $row['description'];
+			}
+		}
+
+		return ['parent' => $parent, 'names' => $names];
 	}
 
 	/**
