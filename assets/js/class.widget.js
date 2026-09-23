@@ -5,6 +5,13 @@ class CWidgetEventTimeline extends CWidget {
 	#chart = null;
 	#data = null;
 
+	// echarts.init() 時点のコンテナサイズを基準にキャンバス解像度が固定されるため、その後コンテナの実サイズが
+	// 変わっても明示的に resize() を呼ばない限りHover判定が古いサイズのままズレる（見た目は正常なままTooltipだけ
+	// 反応しなくなる）。ダッシュボードの表示期間（グローバルタイムセレクター）変更時は連動する複数Widgetが同時に
+	// 再描画されるため、この種のサイズ変動がonResize()（Widget自体のリサイズ操作）を経由せずに起こり得る。
+	// ResizeObserverでコンテナの実サイズ変化を継続的に監視し、その都度キャンバス解像度を合わせ直す。
+	#chart_observer = null;
+
 	// 詳細表示（Drilldownダイアログ）の1ページ表示件数。設定値（グラフのページングとは別）。
 	// グラフのRuntime/Page状態には影響しない（ダイアログを閉じれば元の状態のまま）。
 	#detail_page_size = CWidgetEventTimeline.DETAIL_PAGE_SIZE;
@@ -138,6 +145,11 @@ class CWidgetEventTimeline extends CWidget {
 	}
 
 	#disposeChart() {
+		if (this.#chart_observer) {
+			this.#chart_observer.disconnect();
+			this.#chart_observer = null;
+		}
+
 		if (this.#chart) {
 			this.#chart.dispose();
 			this.#chart = null;
@@ -211,6 +223,10 @@ class CWidgetEventTimeline extends CWidget {
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
 		this.#data = data;
 		this.#chart.on('click', params => this.#onChartClick(params));
+
+		// コンテナの実サイズがecharts初期化後に変わった場合に備え、キャンバス解像度を追従させる（上記フィールド参照）。
+		this.#chart_observer = new ResizeObserver(() => this.#chart?.resize());
+		this.#chart_observer.observe(holder);
 
 		if (this.#isCategory()) {
 			this.#chart.setOption(this.#buildCategoryOption(data));
