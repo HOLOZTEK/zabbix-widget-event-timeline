@@ -322,11 +322,14 @@ msgstr "Page %1$s / %2$s"
 msgid "Paging"
 msgstr "Paging"
 
-msgid "Items per page"
-msgstr "Items per page"
+msgid "Chart items per page"
+msgstr "Chart items per page"
 
 msgid "Auto paging"
 msgstr "Auto paging"
+
+msgid "Detail items per page"
+msgstr "Detail items per page"
 
 msgid "Detail view"
 msgstr "Detail view"

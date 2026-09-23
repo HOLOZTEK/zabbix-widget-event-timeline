@@ -322,14 +322,17 @@ msgstr "%1$s / %2$sページ"
 msgid "Paging"
 msgstr "ページング"
 
-msgid "Items per page"
-msgstr "1ページ表示件数"
+msgid "Chart items per page"
+msgstr "グラフの1ページ表示件数"
 
 msgid "Auto paging"
 msgstr "自動ページ送り"
 
 msgid "Detail view"
 msgstr "詳細表示"
+
+msgid "Detail items per page"
+msgstr "詳細一覧の1ページ表示件数"
 
 msgid "Off"
 msgstr "無効"

@@ -149,7 +149,7 @@ class WidgetForm extends CWidgetForm {
 			)
 			// ページング（Host / Host group / Event の各モードで使う）。
 			->addField(
-				(new CWidgetFieldSelect('page_size', _et('Items per page'), array_combine(self::PAGE_SIZES,
+				(new CWidgetFieldSelect('page_size', _et('Chart items per page'), array_combine(self::PAGE_SIZES,
 					array_map('strval', self::PAGE_SIZES)
 				)))->setDefault(self::PAGE_SIZE_DEFAULT)
 			)
@@ -163,7 +163,7 @@ class WidgetForm extends CWidgetForm {
 			)
 			// 詳細表示（Drilldownダイアログ）のページング。グラフのページング（page_size）とは別設定（§29〜34）。
 			->addField(
-				(new CWidgetFieldSelect('detail_page_size', _et('Items per page'), array_combine(
+				(new CWidgetFieldSelect('detail_page_size', _et('Detail items per page'), array_combine(
 					self::DETAIL_PAGE_SIZES, array_map('strval', self::DETAIL_PAGE_SIZES)
 				)))->setDefault(self::DETAIL_PAGE_SIZE_DEFAULT)
 			)
