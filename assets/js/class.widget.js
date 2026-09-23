@@ -96,9 +96,20 @@ class CWidgetEventTimeline extends CWidget {
 			requestAnimationFrame(() => {
 				if (this.#chart) {
 					this.#chart.resize();
-					// 表示されるTickと期間線の位置は幅で変わるため、やり直す。
-					this.#chart.setOption({xAxis: {axisLabel: this.#axisLabelOption(this.#data)}});
-					this.#chart.setOption({graphic: this.#periodGraphic(this.#data)}, {replaceMerge: ['graphic']});
+
+					// #axisLabelOption/#periodGraphic は時間軸モード（Bucket＝X軸カテゴリ）専用。
+					// ホスト/ホストグループ/イベント表示（#isCategory()）ではX軸カテゴリ数はBucket数と無関係
+					// （this.#data.buckets はFilter集計用の時間Bucketのままで、表示中のカテゴリ数と一致しない）
+					// なので、そのまま呼ぶとindexがbuckets.lengthを超えてundefinedを参照し例外になる。
+					// この例外はecharts内部のresize/update処理中に発生するため、チャートの内部状態が
+					// 壊れたまま残り、以降のHoverで毎回Tooltip側の例外（Popupが出ない）を引き起こしていた
+					// （グローバルタイムセレクター変更でダッシュボードのレイアウトが再計算され、
+					// Widget自体のサイズが変わらなくてもonResize()が呼ばれることがあるため表面化した）。
+					if (!this.#isCategory()) {
+						// 表示されるTickと期間線の位置は幅で変わるため、やり直す。
+						this.#chart.setOption({xAxis: {axisLabel: this.#axisLabelOption(this.#data)}});
+						this.#chart.setOption({graphic: this.#periodGraphic(this.#data)}, {replaceMerge: ['graphic']});
+					}
 				}
 			});
 		}
