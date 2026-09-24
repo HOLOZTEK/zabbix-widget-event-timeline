@@ -331,9 +331,6 @@ msgstr "Auto paging"
 msgid "Detail items per page"
 msgstr "Detail items per page"
 
-msgid "Detail view"
-msgstr "Detail view"
-
 msgid "Off"
 msgstr "Off"
 

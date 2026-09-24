@@ -47,9 +47,6 @@ use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectTriggerView;
 			->addField(
 				new CWidgetFieldSelectView($data['fields']['auto_page'])
 			)
-	)
-	->addFieldset(
-		(new CWidgetFormFieldsetCollapsibleView(_et('Detail view')))
 			->addField(
 				new CWidgetFieldSelectView($data['fields']['detail_page_size'])
 			)

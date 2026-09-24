@@ -328,9 +328,6 @@ msgstr "グラフの1ページ表示件数"
 msgid "Auto paging"
 msgstr "自動ページ送り"
 
-msgid "Detail view"
-msgstr "詳細表示"
-
 msgid "Detail items per page"
 msgstr "詳細一覧の1ページ表示件数"
 
