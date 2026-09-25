@@ -599,6 +599,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'interval' => [
 				'key' => $plan['interval']['key'],
 				'unit' => $plan['interval']['unit'],
+				'count' => $plan['interval']['count'],
 				'label' => self::intervalLabel($plan['interval']['key'])
 			],
 			'timezone' => $tz->getName(),

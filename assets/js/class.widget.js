@@ -1307,11 +1307,26 @@ class CWidgetEventTimeline extends CWidget {
 	static ROW_HEIGHT = 18;
 
 	/**
+	 * 長期間表示（12時間以上のBucket幅）では、X軸主表示を時刻ではなく日付にする。
+	 * 時刻の繰り返し表示（00:00 等）よりも日付の把握を優先するため（Tooltipで時刻詳細は維持）。
+	 */
+	#isDatePrimary(data) {
+		return data.interval.unit === 'hour' && data.interval.count >= 12;
+	}
+
+	/**
 	 * X軸ラベル。ラベルを表示するTickは幅から求めた一定間隔（step）で決め、ECharts任せの間引きは使わない。
 	 * Tickには最小の単位（分・時Bucketは時刻、日・週・月Bucketは日付/月）だけを出し、
 	 * それより上位の階層（月日・年）は下部の期間線（#periodGraphic）で示す。
+	 *
+	 * 日付主表示（#isDatePrimary）のときは、この行自体を表示しない。時刻の繰り返し表示をなくし、
+	 * 日付は#periodGraphicの行（Bucketペアをまたいで中央寄せ）だけで示すため。
 	 */
 	#axisLabelOption(data) {
+		if (this.#isDatePrimary(data)) {
+			return {show: false};
+		}
+
 		const buckets = data.buckets;
 		const colors = this.#resolveColors(data.style);
 		const width = this.#chart ? this.#chart.getWidth() : 0;
@@ -1334,18 +1349,77 @@ class CWidgetEventTimeline extends CWidget {
 	/**
 	 * X軸下部に並べる期間線の行。上から、時刻Bucketでは 月日 → 年、日・週・月Bucketでは 年。
 	 * 長期間表示向けに月などの階層を足せるよう、行は配列で表す。
+	 *
+	 * 日付主表示（12時間以上のBucket、#isDatePrimary）では、この日付行がX軸の主表示を兼ねるため、
+	 * 間引き（thin: true）で「表示期間の先頭・末尾」「月の切替日」「間隔を空けた中間の日付」を
+	 * 優先して残す（#periodGraphicで判定）。時刻だけの独立行は設けない。
 	 */
 	#periodRows(data) {
 		const sub_day = data.interval.unit === 'minute' || data.interval.unit === 'hour';
+		const date_primary = this.#isDatePrimary(data);
 		const rows = [];
 
 		if (sub_day) {
-			rows.push({key: b => b.axis.key, text: b => b.axis.date});
+			rows.push({key: b => b.axis.key, text: b => b.axis.date, thin: date_primary});
 		}
 
 		rows.push({key: b => b.axis.year, text: b => b.axis.year});
 
 		return rows;
+	}
+
+	/**
+	 * 間引き対象の行で、実際にラベルを表示するグループ添字を選ぶ。
+	 * 優先順位: 1) 先頭・末尾, 2) 月の切替（日付先頭2桁=月が変わる箇所）, 3) 幅に応じた均等間隔。
+	 * Bucketの統合や再集計は行わず、描画するラベルの取捨選択のみを行う。
+	 */
+	static #pickThinnedLabels(groups, avg_width, label_width) {
+		const n = groups.length;
+
+		if (n <= 1 || avg_width >= label_width) {
+			return new Set(groups.map((g, i) => i));
+		}
+
+		const month_of = g => g.text.slice(0, 2);
+
+		// 優先度順に候補を並べる：①期間の開始・終了 ②月替わりの日付 ③均等間隔の中間ラベル。
+		// 候補どうしが接近して両方は収まらない場合、後から見る低優先度の候補を捨てることで
+		// 高優先度の候補（特に月替わり）が間隔判定で共倒れにならないようにする。
+		const candidates = [0, n - 1];
+
+		for (let i = 1; i < n; i++) {
+			if (month_of(groups[i]) !== month_of(groups[i - 1])) {
+				candidates.push(i);
+			}
+		}
+
+		const step = Math.max(1, Math.ceil(label_width / avg_width));
+
+		for (let i = 0; i < n; i += step) {
+			candidates.push(i);
+		}
+
+		const seen = new Set();
+		const chosen = new Set();
+
+		for (const i of candidates) {
+			if (seen.has(i)) {
+				continue;
+			}
+
+			seen.add(i);
+
+			// 開始・終了は間隔に関わらず必ず採用する（描画側で端に寄せて表示する）。
+			const is_edge = (i === 0 || i === n - 1);
+			const pos = i * avg_width;
+			const conflict = !is_edge && [...chosen].some(j => Math.abs(pos - j * avg_width) < label_width);
+
+			if (!conflict) {
+				chosen.add(i);
+			}
+		}
+
+		return chosen;
 	}
 
 	/**
@@ -1364,6 +1438,9 @@ class CWidgetEventTimeline extends CWidget {
 
 		rows.forEach((row, r) => {
 			const y = top + r * H;
+
+			// 連続Bucketを同じ値でグループ化する（例: 12時間Bucket2本 → 同じ日付の1グループ）。
+			const groups = [];
 			let from = 0;
 
 			for (let i = 1; i <= n; i++) {
@@ -1371,9 +1448,29 @@ class CWidgetEventTimeline extends CWidget {
 					continue;
 				}
 
-				const x1 = rect.x + from * band;
-				const x2 = rect.x + i * band;
-				const label = String(row.text(data.buckets[from]));
+				groups.push({from, to: i, text: String(row.text(data.buckets[from]))});
+				from = i;
+			}
+
+			// 間引き対象の行は、幅から求めた平均グループ幅をもとに表示するラベルを選ぶ。
+			// それ以外の行は従来通り、各グループごとに個別に収まるかを判定する。
+			let chosen = null;
+			let chosen_list = null;
+
+			if (row.thin) {
+				const avg_width = (rect.width / groups.length) || 0;
+				const label_width = Math.max(...groups.map(g => g.text.length)) * 7 + 8;
+
+				chosen = CWidgetEventTimeline.#pickThinnedLabels(groups, avg_width, label_width);
+				chosen_list = [...chosen].sort((a, b) => a - b);
+			}
+
+			// グループ添字からラベル中心のX座標を求める（間引き行の隣接ラベル間隔判定に使う）。
+			const centerOf = gi => rect.x + (groups[gi].from + groups[gi].to) / 2 * band;
+
+			groups.forEach((g, idx) => {
+				const x1 = rect.x + g.from * band;
+				const x2 = rect.x + g.to * band;
 				const line = {stroke: colors.line, lineWidth: 1};
 
 				elements.push(
@@ -1383,20 +1480,50 @@ class CWidgetEventTimeline extends CWidget {
 					{type: 'line', silent: true, z: 100, shape: {x1: x2, y1: y + 2, x2, y2: y + 8}, style: line}
 				);
 
-				// 区間が狭くラベルが入りきらない場合は、ラベルだけ省略する（線は残す）。
-				if (x2 - x1 >= label.length * 7 + 8) {
-					elements.push({
-						type: 'text', silent: true, z: 100,
-						x: (x1 + x2) / 2, y: y + 5,
-						style: {
-							text: label, fill: colors.text, font: '12px sans-serif',
-							textAlign: 'center', textVerticalAlign: 'top'
-						}
-					});
+				// 間引き対象外のグループ、または間引きで選ばれなかったグループは描画しない。
+				if (chosen !== null && !chosen.has(idx)) {
+					return;
 				}
 
-				from = i;
-			}
+				const text_width = g.text.length * 7;
+				let text_x = (x1 + x2) / 2;
+				let align = 'center';
+
+				if (chosen !== null) {
+					// 間引き行: 自グループの幅ではなく、隣接する表示予定ラベルとの間隔で収まるかを判定する
+					// （日付主表示では1グループ＝半日程度で、そのままでは常に収まらないため）。
+					const pos = chosen_list.indexOf(idx);
+					const prev_center = pos > 0 ? centerOf(chosen_list[pos - 1]) : rect.x - text_width;
+					const next_center = pos < chosen_list.length - 1 ? centerOf(chosen_list[pos + 1]) : rect.x + rect.width + text_width;
+
+					if (Math.min(text_x - prev_center, next_center - text_x) < text_width / 2 + 4) {
+						return;
+					}
+
+					// 先頭・末尾のラベルがWidget外にはみ出さないよう、範囲内に寄せる。
+					if (text_x - text_width / 2 < rect.x) {
+						text_x = rect.x;
+						align = 'left';
+					}
+					else if (text_x + text_width / 2 > rect.x + rect.width) {
+						text_x = rect.x + rect.width;
+						align = 'right';
+					}
+				}
+				// 間引き対象外の行は従来通り、自グループの幅に収まる場合のみラベルを描画する。
+				else if (x2 - x1 < text_width + 8) {
+					return;
+				}
+
+				elements.push({
+					type: 'text', silent: true, z: 100,
+					x: text_x, y: y + 5,
+					style: {
+						text: g.text, fill: colors.text, font: '12px sans-serif',
+						textAlign: align, textVerticalAlign: 'top'
+					}
+				});
+			});
 		});
 
 		return {elements};
