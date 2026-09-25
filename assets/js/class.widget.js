@@ -1370,7 +1370,14 @@ class CWidgetEventTimeline extends CWidget {
 
 	/**
 	 * 間引き対象の行で、実際にラベルを表示するグループ添字を選ぶ。
-	 * 優先順位: 1) 先頭・末尾, 2) 月の切替（日付先頭2桁=月が変わる箇所）, 3) 幅に応じた均等間隔。
+	 *
+	 * 「何日おきに出すか（step）」を幅から決め、一つの等間隔の格子（0, step, 2*step, ...）を
+	 * 敷くことで表示間隔を均一にする。月初（月が変わる日）が範囲内にあれば、格子を
+	 * 「別候補として追加」するのではなく、格子の基準位相そのものを月初に合わせることで、
+	 * 月初を含めたまま格子全体が均等間隔になるようにする（月替わりの前後だけ間隔が
+	 * 詰まる/開くという不規則な見た目を避ける）。
+	 * 期間の開始・終了は常に表示し、最寄りの格子点を置き換える形で確保する（新規候補として
+	 * 追加すると、隣接する格子点と衝突してどちらも描画されない、という共倒れの原因になるため）。
 	 * Bucketの統合や再集計は行わず、描画するラベルの取捨選択のみを行う。
 	 */
 	static #pickThinnedLabels(groups, avg_width, label_width) {
@@ -1380,46 +1387,64 @@ class CWidgetEventTimeline extends CWidget {
 			return new Set(groups.map((g, i) => i));
 		}
 
-		const month_of = g => g.text.slice(0, 2);
+		if (n <= 2) {
+			return new Set([0, n - 1]);
+		}
 
-		// 優先度順に候補を並べる：①期間の開始・終了 ②月替わりの日付 ③均等間隔の中間ラベル。
-		// 候補どうしが接近して両方は収まらない場合、後から見る低優先度の候補を捨てることで
-		// 高優先度の候補（特に月替わり）が間隔判定で共倒れにならないようにする。
-		const candidates = [0, n - 1];
+		const month_of = g => g.text.slice(0, 2);
+		const step = Math.max(1, Math.ceil(label_width / avg_width));
+
+		// 月初の添字を探し、最初に見つかったものに格子の位相を合わせる（複数月にまたがる
+		// 場合も、先頭の月初を基準にすれば以降は同じ間隔で規則的に並ぶ）。
+		let phase = 0;
 
 		for (let i = 1; i < n; i++) {
 			if (month_of(groups[i]) !== month_of(groups[i - 1])) {
-				candidates.push(i);
+				phase = i % step;
+				break;
 			}
 		}
 
-		const step = Math.max(1, Math.ceil(label_width / avg_width));
+		const lattice = [];
 
-		for (let i = 0; i < n; i += step) {
-			candidates.push(i);
+		for (let i = phase; i < n; i += step) {
+			lattice.push(i);
 		}
 
-		const seen = new Set();
-		const chosen = new Set();
+		if (lattice.length === 0) {
+			lattice.push(0);
+		}
 
-		for (const i of candidates) {
-			if (seen.has(i)) {
-				continue;
+		// 指定した添字(edge)を、格子点を新規追加するのではなく最寄りの格子点を
+		// 置き換える形で確保する。
+		const snapEdge = edge => {
+			if (lattice.includes(edge)) {
+				return;
 			}
 
-			seen.add(i);
+			let nearest_pos = 0;
 
-			// 開始・終了は間隔に関わらず必ず採用する（描画側で端に寄せて表示する）。
-			const is_edge = (i === 0 || i === n - 1);
-			const pos = i * avg_width;
-			const conflict = !is_edge && [...chosen].some(j => Math.abs(pos - j * avg_width) < label_width);
+			for (let i = 1; i < lattice.length; i++) {
+				if (Math.abs(lattice[i] - edge) < Math.abs(lattice[nearest_pos] - edge)) {
+					nearest_pos = i;
+				}
+			}
 
-			if (!conflict) {
-				chosen.add(i);
+			lattice[nearest_pos] = edge;
+		};
+
+		snapEdge(0);
+
+		if (!lattice.includes(n - 1)) {
+			if (lattice.length === 1) {
+				lattice.push(n - 1);
+			}
+			else {
+				snapEdge(n - 1);
 			}
 		}
 
-		return chosen;
+		return new Set(lattice);
 	}
 
 	/**
