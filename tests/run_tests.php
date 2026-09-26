@@ -141,6 +141,78 @@ $b = BucketPlanner::generate(ts('2026-09-20 12:00:00', $jst), ts('2026-09-20 12:
 );
 check('sunday belongs to previous Monday week', gmdate('D m-d', $b[0] + 9 * 3600), 'Mon 09-14');
 
+// ---- 4b. 週の開始曜日（第3フェーズ: First day of week） ----
+// 2026-09-19（土）を含む期間を、7曜日すべてを開始曜日として境界生成し、
+// 最初の境界日が「その週開始曜日として直近（当日含む）の日付」になることを確認する。
+// 09-13=日, 09-14=月, 09-15=火, 09-16=水, 09-17=木, 09-18=金, 09-19=土。
+$week_start_expected_first = [
+	BucketPlanner::WEEKDAY_SUN => 'Sun 09-13',
+	BucketPlanner::WEEKDAY_MON => 'Mon 09-14',
+	BucketPlanner::WEEKDAY_TUE => 'Tue 09-15',
+	BucketPlanner::WEEKDAY_WED => 'Wed 09-16',
+	BucketPlanner::WEEKDAY_THU => 'Thu 09-17',
+	BucketPlanner::WEEKDAY_FRI => 'Fri 09-18',
+	BucketPlanner::WEEKDAY_SAT => 'Sat 09-19'
+];
+
+foreach ($week_start_expected_first as $ws => $expected) {
+	$b = BucketPlanner::generate(ts('2026-09-19 10:00:00', $jst), ts('2026-09-28 10:00:00', $jst),
+		BucketPlanner::UNIT_WEEK, 1, $jst, 1000, $ws
+	);
+	check("week_start=$ws first boundary", gmdate('D m-d', $b[0] + 9 * 3600), $expected);
+
+	// 境界間隔は常に7日（自然境界のずれ・重複計上なし）。
+	$spans_ok = true;
+	for ($i = 1; $i < count($b); $i++) {
+		$spans_ok = $spans_ok && intdiv($b[$i] - $b[$i - 1], 86400) === 7;
+	}
+	check("week_start=$ws all spans are 7 days", $spans_ok, true);
+}
+
+// 同一時刻でも開始曜日が異なれば、日曜開始と月曜開始とでBucket境界（延いては割当先週）が変わる
+// （start <= clock < end の判定はlocate()側で共通のため、ここではfloor()の境界そのものを比較する）。
+$sun_bounds = BucketPlanner::generate(ts('2026-09-19 10:00:00', $jst), ts('2026-09-19 10:00:00', $jst),
+	BucketPlanner::UNIT_WEEK, 1, $jst, 1000, BucketPlanner::WEEKDAY_SUN
+);
+$mon_bounds = BucketPlanner::generate(ts('2026-09-19 10:00:00', $jst), ts('2026-09-19 10:00:00', $jst),
+	BucketPlanner::UNIT_WEEK, 1, $jst, 1000, BucketPlanner::WEEKDAY_MON
+);
+check('week_start changes bucket boundary for same instant', $sun_bounds[0] !== $mon_bounds[0], true);
+
+// 週開始曜日を指定しない場合は既定（月曜、後方互換）のまま。
+$default_bounds = BucketPlanner::generate(ts('2026-09-19 10:00:00', $jst), ts('2026-09-19 10:00:00', $jst),
+	BucketPlanner::UNIT_WEEK, 1, $jst, 1000
+);
+check('week_start default equals explicit Monday', $default_bounds, $mon_bounds);
+
+// DSTをまたぐ週境界（America/New_York, 日曜開始）でも境界は単調増加し、2週分正しく生成される。
+$b = BucketPlanner::generate(ts('2026-10-25 12:00:00', $ny), ts('2026-11-08 12:00:00', $ny),
+	BucketPlanner::UNIT_WEEK, 1, $ny, 1000, BucketPlanner::WEEKDAY_SUN
+);
+check('NY week bounds across DST: 3 weekly buckets', count($b) - 1, 3);
+$mono = true;
+for ($i = 1; $i < count($b); $i++) {
+	$mono = $mono && $b[$i] > $b[$i - 1];
+}
+check('NY week bounds across DST monotonic', $mono, true);
+
+// UTC でも同様に週開始曜日どおりの境界になること（タイムゾーンによらないロジックの確認）。
+// 2026-09-19 00:00 UTC は土曜（既存コメントのJST日付と同じ暦日で確認）。
+$b = BucketPlanner::generate(ts('2026-09-19 10:00:00', $utc), ts('2026-09-19 10:00:00', $utc),
+	BucketPlanner::UNIT_WEEK, 1, $utc, 1000, BucketPlanner::WEEKDAY_SUN
+);
+check('UTC week_start=Sunday boundary', gmdate('D m-d', $b[0]), 'Sun 09-13');
+
+// plan() 経由でも week_start がBucket生成へ伝播すること（7日Bucketが選ばれる期間で確認。
+// 既存の候補選択テスト（365d → '7d'）と同じ期間長を使う）。
+$p = BucketPlanner::plan(ts('2026-09-19 15:07:30', $jst) - 365 * 86400, ts('2026-09-19 15:07:30', $jst), $jst,
+	BucketPlanner::WEEKDAY_SUN
+);
+check('plan() propagates week_start (7d bucket, Sunday start)', $p['interval']['key'], '7d');
+check('plan() week_start=Sunday first boundary is a Sunday',
+	(int) (new DateTimeImmutable('@'.$p['bounds'][0]))->setTimezone($jst)->format('N'), 7
+);
+
 // 月: 月初〜翌月月初（うるう年2月・31日月）
 $b = BucketPlanner::generate(ts('2028-01-15 00:00:00', $jst), ts('2028-03-10 00:00:00', $jst),
 	BucketPlanner::UNIT_MONTH, 1, $jst, 1000

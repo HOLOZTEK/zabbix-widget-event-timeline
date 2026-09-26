@@ -207,6 +207,16 @@ class WidgetForm extends CWidgetForm {
 					self::MAX_EVENTS_MIN, self::MAX_EVENTS_MAX
 				))->setDefault(self::MAX_EVENTS_DEFAULT)
 			)
+			// 週の開始曜日。7日Bucketの自然境界の基準になる（他のBucket幅では保持のみで集計に影響しない）。
+			// 既定値: 新規Widgetは日曜、既存Widget（本項目追加前に保存済みで week_start が未設定）は
+			// 従来どおり月曜（BucketPlanner::WEEK_START）。両者の区別は、このWidgetの保存済みフィールド値が
+			// まったく無い（$this->values が空 = 一度も保存されたことがない）かどうかで判定する。値は
+			// CWidgetFieldSelectAlwaysSaved により選択値に関わらず必ず明示的に保存されるため、一度でも
+			// 保存されたWidgetはこの判定に頼らず、保存済みの値がそのまま使われる。
+			->addField(
+				(new CWidgetFieldSelectAlwaysSaved('week_start', _et('First day of week'), self::weekStartOptions()))
+					->setDefault($this->values === [] ? BucketPlanner::WEEKDAY_SUN : BucketPlanner::WEEK_START)
+			)
 			// Appearance
 			->addField(
 				(new CWidgetFieldIntegerBox('graph_height', _et('Graph height'),
@@ -244,5 +254,18 @@ class WidgetForm extends CWidgetForm {
 					->setDefaultPeriod(['from' => 'now-24h', 'to' => 'now'])
 					->setFlags(CWidgetField::FLAG_NOT_EMPTY | CWidgetField::FLAG_LABEL_ASTERISK)
 			);
+	}
+
+	// 週の開始曜日の選択肢（日曜〜土曜の順。内部値はBucketPlannerのWEEKDAY_*定数と共通）。
+	private static function weekStartOptions(): array {
+		return [
+			BucketPlanner::WEEKDAY_SUN => _et('Sunday'),
+			BucketPlanner::WEEKDAY_MON => _et('Monday'),
+			BucketPlanner::WEEKDAY_TUE => _et('Tuesday'),
+			BucketPlanner::WEEKDAY_WED => _et('Wednesday'),
+			BucketPlanner::WEEKDAY_THU => _et('Thursday'),
+			BucketPlanner::WEEKDAY_FRI => _et('Friday'),
+			BucketPlanner::WEEKDAY_SAT => _et('Saturday')
+		];
 	}
 }

@@ -82,8 +82,26 @@ msgstr "12 hours"
 msgid "1 day"
 msgstr "1 day"
 
-msgid "7 days (weeks start on Monday)"
-msgstr "7 days (weeks start on Monday)"
+msgid "7 days (week starts Sunday)"
+msgstr "7 days (week starts Sunday)"
+
+msgid "7 days (week starts Monday)"
+msgstr "7 days (week starts Monday)"
+
+msgid "7 days (week starts Tuesday)"
+msgstr "7 days (week starts Tuesday)"
+
+msgid "7 days (week starts Wednesday)"
+msgstr "7 days (week starts Wednesday)"
+
+msgid "7 days (week starts Thursday)"
+msgstr "7 days (week starts Thursday)"
+
+msgid "7 days (week starts Friday)"
+msgstr "7 days (week starts Friday)"
+
+msgid "7 days (week starts Saturday)"
+msgstr "7 days (week starts Saturday)"
 
 msgid "1 month"
 msgstr "1 month"
@@ -396,3 +414,30 @@ msgstr "No matching data."
 
 msgid "Close"
 msgstr "Close"
+
+msgid "First day of week"
+msgstr "First day of week"
+
+msgid "Applies only when the 7-day bucket is used (automatically or by resizing the widget)."
+msgstr "Applies only when the 7-day bucket is used (automatically or by resizing the widget)."
+
+msgid "Sunday"
+msgstr "Sunday"
+
+msgid "Monday"
+msgstr "Monday"
+
+msgid "Tuesday"
+msgstr "Tuesday"
+
+msgid "Wednesday"
+msgstr "Wednesday"
+
+msgid "Thursday"
+msgstr "Thursday"
+
+msgid "Friday"
+msgstr "Friday"
+
+msgid "Saturday"
+msgstr "Saturday"

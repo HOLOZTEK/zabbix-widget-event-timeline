@@ -6,6 +6,7 @@
  */
 
 use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectTriggerView;
+use Modules\EventTimeline\Includes\CWidgetFieldWeekStartView;
 
 (new CWidgetFormView($data))
 	// 対象は必須の設定なので、折りたたみにせず常に表示する。
@@ -58,6 +59,9 @@ use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectTriggerView;
 			)
 			->addField(
 				new CWidgetFieldTimePeriodView($data['fields']['time_period'])
+			)
+			->addField(
+				new CWidgetFieldWeekStartView($data['fields']['week_start'])
 			)
 	)
 	->addFieldset(

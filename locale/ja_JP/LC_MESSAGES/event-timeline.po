@@ -82,8 +82,26 @@ msgstr "12時間"
 msgid "1 day"
 msgstr "1日"
 
-msgid "7 days (weeks start on Monday)"
+msgid "7 days (week starts Sunday)"
+msgstr "7日（週は日曜開始）"
+
+msgid "7 days (week starts Monday)"
 msgstr "7日（週は月曜開始）"
+
+msgid "7 days (week starts Tuesday)"
+msgstr "7日（週は火曜開始）"
+
+msgid "7 days (week starts Wednesday)"
+msgstr "7日（週は水曜開始）"
+
+msgid "7 days (week starts Thursday)"
+msgstr "7日（週は木曜開始）"
+
+msgid "7 days (week starts Friday)"
+msgstr "7日（週は金曜開始）"
+
+msgid "7 days (week starts Saturday)"
+msgstr "7日（週は土曜開始）"
 
 msgid "1 month"
 msgstr "1か月"
@@ -396,3 +414,30 @@ msgstr "対象データはありません。"
 
 msgid "Close"
 msgstr "閉じる"
+
+msgid "First day of week"
+msgstr "週の開始曜日"
+
+msgid "Applies only when the 7-day bucket is used (automatically or by resizing the widget)."
+msgstr "7日のBucketが使用されている場合にのみ適用されます（自動選択時・Widgetのリサイズ時のいずれも含む）。"
+
+msgid "Sunday"
+msgstr "日曜日"
+
+msgid "Monday"
+msgstr "月曜日"
+
+msgid "Tuesday"
+msgstr "火曜日"
+
+msgid "Wednesday"
+msgstr "水曜日"
+
+msgid "Thursday"
+msgstr "木曜日"
+
+msgid "Friday"
+msgstr "金曜日"
+
+msgid "Saturday"
+msgstr "土曜日"

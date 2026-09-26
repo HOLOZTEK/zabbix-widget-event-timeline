@@ -84,7 +84,13 @@ class WidgetView extends CControllerDashboardWidgetView {
 		// （Zabbix フロントエンドは "System default" 選択時もここへ有効値を設定済み）。
 		$tz = new DateTimeZone(date_default_timezone_get());
 
-		$plan = BucketPlanner::plan($from, $to, $tz);
+		// week_start が未設定（本項目追加前に保存された既存Widget）は、従来どおり月曜開始を維持する
+		// （BucketPlanner::WEEK_START）。
+		$week_start = array_key_exists($fields['week_start'] ?? '', BucketPlanner::WEEKDAY_ISO)
+			? $fields['week_start']
+			: BucketPlanner::WEEK_START;
+
+		$plan = BucketPlanner::plan($from, $to, $tz, $week_start);
 		$now = time();
 
 		// 1. Source config → Fixed/Widget Selection resolve → Host set resolve → Event Selection resolve
@@ -242,7 +248,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'detail_page_size' => $detail_page_size,
 				'empty_reason' => $shown > 0 ? null
 					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events'))
-			]),
+			], $week_start),
 			'user' => ['debug_mode' => $this->getDebugMode()]
 		]));
 	}
@@ -552,7 +558,8 @@ class WidgetView extends CControllerDashboardWidgetView {
 	 * 描画用データ。Event配列ではなくBucket集計行と表示文字列だけを含む。
 	 */
 	private function buildChartData(array $rows, array $plan, DateTimeZone $tz, array $runtime, array $configured,
-			array $fields, array $picked, array $event_details, bool $continuous, array $meta): array {
+			array $fields, array $picked, array $event_details, bool $continuous, array $meta,
+			string $week_start): array {
 		$severities = $runtime['severities'];
 		$unit = $plan['interval']['unit'];
 		$bounds = $plan['bounds'];
@@ -600,7 +607,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'key' => $plan['interval']['key'],
 				'unit' => $plan['interval']['unit'],
 				'count' => $plan['interval']['count'],
-				'label' => self::intervalLabel($plan['interval']['key'])
+				'label' => self::intervalLabel($plan['interval']['key'], $week_start)
 			],
 			'timezone' => $tz->getName(),
 			// Filter / Count Mode。configured は設定値（Resetの戻り先）、runtime は今回の集計に使った値。
@@ -652,7 +659,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		return preg_match('/^[0-9A-Fa-f]{6}$/', $value) === 1 ? '#'.$value : '';
 	}
 
-	private static function intervalLabel(string $key): string {
+	private static function intervalLabel(string $key, string $week_start = BucketPlanner::WEEK_START): string {
 		switch ($key) {
 			case '1m':  return _et('1 minute');
 			case '5m':  return _et('5 minutes');
@@ -665,10 +672,25 @@ class WidgetView extends CControllerDashboardWidgetView {
 			case '6h':  return _et('6 hours');
 			case '12h': return _et('12 hours');
 			case '1d':  return _et('1 day');
-			case '7d':  return _et('7 days (weeks start on Monday)');
+			case '7d':  return self::weekStartLabel($week_start);
 			case '1M':  return _et('1 month');
 		}
 
 		return $key;
+	}
+
+	// 7日Bucketの間隔説明を、設定された週の開始曜日に応じて出し分ける。
+	private static function weekStartLabel(string $week_start): string {
+		switch ($week_start) {
+			case BucketPlanner::WEEKDAY_SUN: return _et('7 days (week starts Sunday)');
+			case BucketPlanner::WEEKDAY_MON: return _et('7 days (week starts Monday)');
+			case BucketPlanner::WEEKDAY_TUE: return _et('7 days (week starts Tuesday)');
+			case BucketPlanner::WEEKDAY_WED: return _et('7 days (week starts Wednesday)');
+			case BucketPlanner::WEEKDAY_THU: return _et('7 days (week starts Thursday)');
+			case BucketPlanner::WEEKDAY_FRI: return _et('7 days (week starts Friday)');
+			case BucketPlanner::WEEKDAY_SAT: return _et('7 days (week starts Saturday)');
+		}
+
+		return _et('7 days (week starts Monday)');
 	}
 }
