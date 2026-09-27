@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.1.2
+Version:        0.1.3
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -86,6 +86,15 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sun Sep 27 2026 claude <noreply> - 0.1.3-0
+- Event bar / Stack クリックで詳細一覧を表示するDrilldownダイアログを追加（プロトタイプグループ単位/個別イベント単位の切り替え、Host名一覧表示）
+- 7日Bucketの週の開始曜日をWidgetごとに全7曜日から設定可能に（新規Widgetの既定は日曜、既存Widgetは月曜を維持）
+- 30日前後のX軸日付ラベルを等間隔の格子で選択するよう改善
+- X軸ラベルのはみ出し・下部余白・Runtime操作行の折り返しを調整
+- ダッシュボードの表示期間変更後にEvent barのTooltipが反応しなくなる不具合を修正
+- ページング設定の項目名をグラフ本体用/Drilldown用で明確に区別し、「詳細表示」設定を「ページング」セクションに統合
+- Bucket自動選択の候補幅（1分〜1か月）に2日幅を含めない仕様を確定（1日Bucketの次は7日Bucketへ切り替わる）
+
 * Mon Sep 21 2026 claude <noreply> - 0.1.2-0
 - 表示モード（時間軸 / ホスト / ホストグループ / イベント）、並び順（件数順・A→Z・Z→A）、ページング、自動ページ送りを追加
 - 入力Sourceをホスト・ホストグループ・トリガーの各フィールド（固定またはウィジェット参照）に変更
