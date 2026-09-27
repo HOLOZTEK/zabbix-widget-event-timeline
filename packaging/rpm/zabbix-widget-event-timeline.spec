@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.1.3
+Version:        0.1.4
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -39,6 +39,9 @@ install -D -m 644 ${SRCDIR}/includes/BucketPlanner.php ${STAGEDIR}/includes/Buck
 install -D -m 644 ${SRCDIR}/includes/DimensionAggregator.php ${STAGEDIR}/includes/DimensionAggregator.php
 install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectTrigger.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectTrigger.php
 install -D -m 644 ${SRCDIR}/includes/CWidgetFieldMultiSelectTriggerView.php ${STAGEDIR}/includes/CWidgetFieldMultiSelectTriggerView.php
+install -D -m 644 ${SRCDIR}/includes/CWidgetFieldSelectAlwaysSaved.php ${STAGEDIR}/includes/CWidgetFieldSelectAlwaysSaved.php
+install -D -m 644 ${SRCDIR}/includes/CWidgetFieldWeekStartView.php ${STAGEDIR}/includes/CWidgetFieldWeekStartView.php
+install -D -m 644 ${SRCDIR}/includes/DetailSelector.php ${STAGEDIR}/includes/DetailSelector.php
 install -D -m 644 ${SRCDIR}/includes/EventFetcher.php ${STAGEDIR}/includes/EventFetcher.php
 install -D -m 644 ${SRCDIR}/includes/helpers.php ${STAGEDIR}/includes/helpers.php
 install -D -m 644 ${SRCDIR}/includes/SourceResolver.php ${STAGEDIR}/includes/SourceResolver.php
@@ -86,6 +89,13 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Mon Sep 28 2026 claude <noreply> - 0.1.4-0
+- 【緊急修正】v0.1.3のRPM/DEBパッケージにincludes配下の新規クラス3ファイル
+  （CWidgetFieldSelectAlwaysSaved.php, CWidgetFieldWeekStartView.php,
+  DetailSelector.php）がパッケージング定義から漏れており、ダッシュボード
+  表示時にFatal Errorが発生する不具合を修正。コード自体の変更はなし
+  （パッケージ同梱ファイルの追加のみ）
+
 * Sun Sep 27 2026 claude <noreply> - 0.1.3-0
 - Event bar / Stack クリックで詳細一覧を表示するDrilldownダイアログを追加（プロトタイプグループ単位/個別イベント単位の切り替え、Host名一覧表示）
 - 7日Bucketの週の開始曜日をWidgetごとに全7曜日から設定可能に（新規Widgetの既定は日曜、既存Widgetは月曜を維持）

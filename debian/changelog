@@ -1,3 +1,13 @@
+zabbix-widget-event-timeline (0.1.4) unstable; urgency=high
+
+  * URGENT FIX: the 0.1.3 RPM/DEB packages omitted three newer includes/
+    class files (CWidgetFieldSelectAlwaysSaved.php, CWidgetFieldWeekStartView.php,
+    DetailSelector.php) from the packaging file lists, causing a PHP Fatal
+    error on every dashboard view/edit containing this widget. No functional
+    code was changed; this release only corrects the packaged file list.
+
+ -- claude <noreply@example.com>  Mon, 28 Sep 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.1.3) unstable; urgency=medium
 
   * Added a Drilldown dialog that shows the detailed event list when clicking
