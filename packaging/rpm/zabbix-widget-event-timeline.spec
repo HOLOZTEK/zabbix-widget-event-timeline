@@ -15,9 +15,13 @@ Features:
 - Host / Host group and trigger selection (fixed or from Tree Navigator / Event Navigator),
   runtime Severity / acknowledgement filters, dashboard Time period support
 - Automatic bucket width (at most 100 buckets, 1 minute to 1 month, calendar
-  aligned in the user's time zone, weeks start on Monday)
+  aligned in the user's time zone; the 7-day bucket's week-start day is
+  configurable per widget across all 7 weekdays, new widgets default to
+  Sunday and existing widgets keep Monday)
 - Stacked bars per Severity with hover emphasis; tooltip with per-severity
   event details (host / time / event name; host-grouped or chronological)
+- Drilldown dialog showing the detailed event list when clicking an event
+  bar / stack segment
 - X axis: smallest-unit tick labels plus date/year period lines below the axis
 - Y axis minimum scale setting, line/text colors (Auto follows the Zabbix theme,
   custom via color picker or hex input)

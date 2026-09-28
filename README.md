@@ -2,7 +2,7 @@
 
 固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
 
-> **v0.1.2**: 表示モード（時間軸 / ホスト / ホストグループ / イベント）、並び順、ページング、自動ページ送り、X軸ラベルの向き設定を追加しました。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Event Navigator 連携）で指定できます。
+> **v0.1.4**: Event bar / Stackクリックで詳細一覧を表示するDrilldown、7日Bucketの週開始曜日のWidgetごとの設定（新規Widgetは日曜、既存Widgetは月曜を維持）を追加しました。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Event Navigator 連携）で指定できます。
 
 ## 機能
 
@@ -11,7 +11,7 @@
 - **対象Event**: トリガー由来のProblem Event（1 eventid = 1件、抑制中のEventも含む）。Severity は `event.severity`（Event発生時点の値）
 - **Severityフィルタ**: Severityごとに集計対象をON/OFF（既定は全ON）。表示後の非表示ではなく集計段階で除外
 - **自動Bucket幅**: 候補 `1m, 5m, 10m, 15m, 30m, 1h, 2h, 3h, 6h, 12h, 1d, 7d, 1month` のうち、自然境界に揃えて生成したBucket数が100以下となる最小幅を採用
-  - 日・週・月は現地暦で扱う（DSTの日も1Bucket）。7dは月曜0:00開始、1monthは暦月
+  - 日・週・月は現地暦で扱う（DSTの日も1Bucket）。7dの週開始曜日はWidgetごとに全7曜日から設定可能（新規Widgetの既定は日曜、既存Widgetは月曜を維持）、1monthは暦月
   - Bucket境界とEvent所属は `start <= clock < end`
   - タイムゾーンはログインユーザーの実効TZ（Bucket境界・軸・Tooltipで共通）
 - **積み上げ棒グラフ**: Not classified → Disaster の順に下から積み上げ、Zabbix標準のSeverity色を使用
@@ -52,8 +52,13 @@
 ## インストール（開発中・手動）
 
 ```bash
+# /usr/share/zabbix/ui/modules が存在する環境（Zabbix 7.0以降の標準構成）はこちらを優先
+cp -r zabbix-widget-event-timeline /usr/share/zabbix/ui/modules/event-timeline
+# 上記が存在しない環境
 cp -r zabbix-widget-event-timeline /usr/share/zabbix/modules/event-timeline
 ```
+
+RPM/DEBパッケージのインストールスクリプトも同様に、`ui/modules`が存在すればそちらを優先し、なければ`modules`へ配置します。
 
 Zabbix 管理 → モジュール →「ディレクトリのスキャン」→ Event Timeline を有効化。
 
@@ -63,7 +68,7 @@ Zabbix 管理 → モジュール →「ディレクトリのスキャン」→ 
 php tests/run_tests.php
 ```
 
-Bucket選択・境界（09:59:59 / 10:00:00 / 10:59:59 / 11:00:00）・DST・月曜開始週・Severity集計などの純粋ロジックを検証します。
+Bucket選択・境界（09:59:59 / 10:00:00 / 10:59:59 / 11:00:00）・DST・週開始曜日（全7曜日）・Severity集計などの純粋ロジックを検証します。週境界・タイムゾーン・Bucket自動選択の追加試験は `php tests/run_final_tests.php` を参照。
 
 ## ライセンス
 
