@@ -8,7 +8,7 @@ zabbix-widget-event-timeline (0.1.5) unstable; urgency=medium
     documented behaviour in line with the 0.1.4 implementation (configurable
     week-start day, ui/modules-first install path, etc.).
 
- -- claude <noreply@example.com>  Tue, 29 Sep 2026 00:00:00 +0000
+ -- HOLOZTEK <ttake-55@users.noreply.github.com>  Tue, 29 Sep 2026 00:00:00 +0000
 
 zabbix-widget-event-timeline (0.1.4) unstable; urgency=high
 

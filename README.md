@@ -1,75 +1,158 @@
-# Event Timeline Widget for Zabbix
+# zabbix-widget-event-timeline
 
-固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
+English | [日本語](README.ja.md)
 
-> **v0.1.4**: Event bar / Stackクリックで詳細一覧を表示するDrilldown、7日Bucketの週開始曜日のWidgetごとの設定（新規Widgetは日曜、既存Widgetは月曜を維持）を追加しました。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Event Navigator 連携）で指定できます。
+## Overview
 
-## 機能
+Event Timeline is a Zabbix dashboard widget for exploring problem events as severity-stacked bar charts.
 
-- **対象指定**: Host と Host group（サブグループを含む）の和集合。重複Hostは1回だけ集計
-- **表示期間**: ダッシュボードの Time period に追従（ウィジェット個別の期間指定も可）
-- **対象Event**: トリガー由来のProblem Event（1 eventid = 1件、抑制中のEventも含む）。Severity は `event.severity`（Event発生時点の値）
-- **Severityフィルタ**: Severityごとに集計対象をON/OFF（既定は全ON）。表示後の非表示ではなく集計段階で除外
-- **自動Bucket幅**: 候補 `1m, 5m, 10m, 15m, 30m, 1h, 2h, 3h, 6h, 12h, 1d, 7d, 1month` のうち、自然境界に揃えて生成したBucket数が100以下となる最小幅を採用
-  - 日・週・月は現地暦で扱う（DSTの日も1Bucket）。7dの週開始曜日はWidgetごとに全7曜日から設定可能（新規Widgetの既定は日曜、既存Widgetは月曜を維持）、1monthは暦月
-  - Bucket境界とEvent所属は `start <= clock < end`
-  - タイムゾーンはログインユーザーの実効TZ（Bucket境界・軸・Tooltipで共通）
-- **積み上げ棒グラフ**: Not classified → Disaster の順に下から積み上げ、Zabbix標準のSeverity色を使用
-- **X軸ラベル**: 時間 → 月日 → 年の階層で、前回表示したTickから変化した要素のみ追加表示（先頭Tickは全要素。日・週Bucketは時間行を省略、月Bucketは月と年）
-- **Tooltip**: 時間範囲、Total、Hoverした Severity の件数と、そのSeverityのEvent詳細（Host単位にまとめ、発生時刻・Event名。詳細は Bucket×Severity あたり最大10件、超過分は「ほか N イベント」）。複数Hostに関連するEventは関連Hostすべての下に表示（件数は1回のみ）
-  - 詳細の並びは表示画面のツールバーのアイコンで「Host単位（既定）」/「時系列」を切替（実行時のみ・保存されない）。Hoverしたスタックは枠線で強調
-- **取得上限**: 設定画面で変更可能（既定100,000件）。上限に達した場合はグラフ上部に警告を表示し、集計対象外となる期間を明示
-- **外観設定**: グラフ高さ、Y軸最小値（軸の最大値の最低保証。0/空=自動、データがそれを超えれば自動拡張。軸下端は常に0）、線の色・文字色（「自動」= Zabbixテーマ追従。カスタムはカラーピッカーまたは #RRGGBB 入力。「デフォルトを使用」で自動へ戻す。Light/Dark対応）
-- **X軸**: 目盛りは最小単位のみ表示し、月日・年は軸下部の期間線（日付/年の切れ目で分割）で表示
-- **空状態 / エラー表示**: 「No events」・対象Hostなし・取得失敗
-- 日本語 / English ロケール対応
+It can show events over time or group them by host, host group, or event. Operators can change the aggregation method, acknowledgement filter, severity filter, grouping mode, and sort order directly from the dashboard without changing the saved widget configuration.
 
-## 第2フェーズの機能
+[Latest release](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/tag/v0.1.5) | [RPM](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v0.1.5/zabbix-widget-event-timeline-0.1.5.noarch.rpm) | [DEB](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v0.1.5/zabbix-widget-event-timeline_0.1.5_all.deb) | [Source](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v0.1.5/zabbix-widget-event-timeline-0.1.5.tar.gz)
 
-- **Source**: Monitoring target と Event は独立して Fixed / Widget を選択（4通りの組み合わせ）。条件は `Monitoring target AND Event Selection`
-  - Monitoring target = Widget: Tree Navigator の Host / Host group 選択（Groupはサブグループ含む・Hostは重複排除）
-  - Event（イベント＝トリガー）= Fixed: Trigger をホスト等と同じ選択UIで指定。Event = Widget: Event Navigator の Trigger 選択。トリガー未指定なら対象Hostの期間内の全Eventを表示（対象Hostが未選択のときは「対象が選択されていません」）
-  - Widget Source で選択が届いていない場合は全Host・全Eventへ広げず「対象が選択されていません」を表示し、選択の到着・変更で再取得
-- **Severity Filter / Acknowledged Filter**: 設定値が実行時の初期値。表示画面のツールバーでON/OFF（Severityチップは凡例を兼ねる）。OFFは集計から除外され、合計は現在のフィルター下で再計算。確認状態は取得時点の現在値（過去時点の再構成なし）
-- **Filter Reset**: 設定値へ戻す（全ONではない）。実行時状態が設定値と同じ間は無効
-- **Event Count Mode**: 発生イベント数（Eventのclockが属するBucketのみ）/ 継続イベント加算（継続期間と重なるすべてのBucketへ加算。`start < bucket_end AND end > bucket_start`。未復旧は現在時刻・期間終端まで、未来のBucketには加算しない）
-- 実行時の状態は設定を書き換えず、通常のRefreshでは保持され、ダッシュボード再表示・ウィジェット再作成で設定値に戻る
+## Why Event Timeline?
 
-## 制約事項
+Zabbix problem lists are effective for investigating individual events, but they do not always make event concentration and recurring patterns easy to see.
 
-- Event取得はページング（5,000件単位）で、上限件数に達すると古いEventから集計対象外になります（警告表示あり）。
-- 約8年を超える期間では1 monthでもBucket数が100を超える場合があります（Zabbixの Time period 上限は730日のため通常は発生しません）。
-- Host指定は監視有効/無効を区別しません。
-- 継続イベント加算モードの復旧時刻はEventの復旧Event（r_eventid）から取得します。取得上限は期間前に発生したEventの取得分も含みます。
+Event Timeline aggregates problem events into calendar-aligned time buckets and uses the standard Zabbix severity colors. The same data can also be viewed by host, host group, event prototype group, or individual event, allowing a dashboard to move from an overview to a more focused comparison.
 
-## 動作環境
+## Features
 
-| 項目 | 要件 |
-|------|------|
-| Zabbix | 7.0 以上（8.0beta1で動作確認） |
-| PHP | 8.1 以上（8.3 / 8.4で動作確認） |
+| Function | Description |
+| --- | --- |
+| Four display modes | Switch between Timeline, Host, Host group, and Event views. |
+| Flexible sources | Select hosts, host groups, and triggers directly or receive them from compatible dashboard widgets. |
+| Runtime filtering | Filter by severity and acknowledgement status without overwriting the saved widget settings. |
+| Two aggregation methods | Count events in the bucket where they occurred, or count continuing events in every bucket they overlap. |
+| Automatic time buckets | Selects a calendar-aligned bucket width from one minute to one month while normally keeping the chart at 100 buckets or fewer. |
+| Configurable week boundary | Select any weekday as the first day of the week for seven-day buckets. |
+| Category sorting and paging | Sort category views by count, A to Z, or Z to A, with manual or automatic paging. |
+| Tooltips and drilldown | Inspect event details in a tooltip and open a detailed list by clicking a bar segment. |
+| Event grouping | Group discovered events by trigger prototype or display individual events. |
+| Theme-aware appearance | Follow the active Zabbix theme or set custom line and text colors. |
+| Localized interface | Includes English and Japanese locale files. |
 
-## インストール（開発中・手動）
+## Dashboard Controls
 
-```bash
-# /usr/share/zabbix/ui/modules が存在する環境（Zabbix 7.0以降の標準構成）はこちらを優先
-cp -r zabbix-widget-event-timeline /usr/share/zabbix/ui/modules/event-timeline
-# 上記が存在しない環境
-cp -r zabbix-widget-event-timeline /usr/share/zabbix/modules/event-timeline
-```
+The widget toolbar provides runtime controls for:
 
-RPM/DEBパッケージのインストールスクリプトも同様に、`ui/modules`が存在すればそちらを優先し、なければ`modules`へ配置します。
+- display mode: Timeline, Host, Host group, or Event
+- aggregation: Occurred or Continuing
+- acknowledgement status: All, Unacknowledged, or Acknowledged
+- sort order in category modes: By count, A to Z, or Z to A
+- tooltip order in Timeline mode: By host or Chronological
+- severity filtering using the six Zabbix severity levels
+- resetting runtime conditions to the configured initial values
 
-Zabbix 管理 → モジュール →「ディレクトリのスキャン」→ Event Timeline を有効化。
+Runtime changes are kept while the widget refreshes, but they do not overwrite its saved configuration.
 
-## テスト
+## Settings
 
-```bash
-php tests/run_tests.php
-```
+| Setting | Description |
+| --- | --- |
+| Hosts | Select one or more hosts directly or receive host IDs from another widget. |
+| Host groups | Select one or more host groups directly or receive host group IDs from another widget. Descendant groups are included. |
+| Events | Select one or more triggers directly or receive trigger IDs from another widget. An empty fixed selection includes all events for the target hosts. |
+| Display mode | Sets the initial Timeline, Host, Host group, or Event view. |
+| Event grouping | Groups discovered events by prototype or shows individual events. |
+| Sort order | Sets the initial category sort order. |
+| Aggregation method | Sets Occurred events or Continuing events as the initial count mode. |
+| Severity | Sets the initial enabled severity levels. |
+| Acknowledgement | Sets the initial acknowledged and unacknowledged filter state. |
+| Chart items per page | Sets the category count per page to 10, 20, or 50. |
+| Auto paging | Disables automatic paging or advances every 10, 30, or 60 seconds. |
+| Detail items per page | Sets the drilldown row count per page to 10, 20, or 50. |
+| Maximum events to retrieve | Sets the event retrieval limit from 1,000 to 1,000,000. |
+| Time period | Uses the dashboard period by default or accepts a widget-specific period. |
+| First day of week | Sets the boundary used by seven-day buckets. |
+| Graph height | Sets the chart height from 100 to 2,000 pixels. |
+| Y-axis minimum | Sets the minimum guaranteed upper scale; zero uses automatic scaling. |
+| X-axis labels | Sets Auto, Horizontal, Angled, or Vertical category labels. |
+| Line color / Text color | Uses the active theme automatically or accepts a custom hexadecimal color. |
 
-Bucket選択・境界（09:59:59 / 10:00:00 / 10:59:59 / 11:00:00）・DST・週開始曜日（全7曜日）・Severity集計などの純粋ロジックを検証します。週境界・タイムゾーン・Bucket自動選択の追加試験は `php tests/run_final_tests.php` を参照。
+## Linked Widget Inputs
 
-## ライセンス
+Event Timeline accepts the following Zabbix dashboard data types:
 
-Proprietary（`LICENSE` 参照）。同梱の Apache ECharts は Apache License 2.0（`NOTICE` / `THIRD_PARTY_NOTICES.md` 参照）。
+- time period (_timeperiod)
+- host IDs (_hostids)
+- host group IDs (_hostgroupids)
+- trigger IDs (_triggerids)
+
+Hosts and host groups can be linked from Tree Navigator or another compatible widget. Triggers can be linked from Event Navigator or another compatible widget. When a field is configured to use a widget source but no selection has arrived, Event Timeline shows a no-target state instead of widening the query to all hosts or events.
+
+## Requirements
+
+- Zabbix 7.0 or later
+- PHP 8.1 or later
+- A browser supported by the Zabbix frontend
+
+## Installation
+
+### RPM package
+
+~~~bash
+rpm -Uvh zabbix-widget-event-timeline-0.1.5.noarch.rpm
+~~~
+
+### DEB package
+
+~~~bash
+apt install ./zabbix-widget-event-timeline_0.1.5_all.deb
+~~~
+
+The packages place the widget in the active Zabbix frontend module directory. After installation, rescan and enable Event Timeline from Administration -> Modules.
+
+### From source
+
+RPM or DEB installation is recommended. For a source installation:
+
+~~~bash
+curl -L -o zabbix-widget-event-timeline-0.1.5.tar.gz \
+  https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v0.1.5/zabbix-widget-event-timeline-0.1.5.tar.gz
+tar -xzf zabbix-widget-event-timeline-0.1.5.tar.gz
+install -d /usr/share/zabbix/ui/modules/event-timeline
+cd zabbix-widget-event-timeline-0.1.5
+cp -a manifest.json Module.php Widget.php actions assets includes locale views \
+  /usr/share/zabbix/ui/modules/event-timeline/
+~~~
+
+Use /usr/share/zabbix/modules/event-timeline instead when the Zabbix installation uses the legacy module path. Rescan and enable the module from Administration -> Modules after copying the files.
+
+## Operational Notes
+
+- Event retrieval is paged in blocks of 5,000. If the configured retrieval limit is reached, older events are excluded and the widget displays a warning.
+- Continuing-event mode obtains the recovery time from the recovery event. Unresolved events continue to the current time or the end of the selected period.
+- A problem event related to multiple hosts is counted once in the total while its details may appear under each related host.
+- The event acknowledgement filter uses the current acknowledgement state; it does not reconstruct the historical state at the event time.
+- Host selection does not distinguish between monitored and unmonitored hosts.
+
+## Documentation
+
+- [Changelog](docs/CHANGELOG.md)
+- [Version consistency check](scripts/check-version-consistency.sh)
+- [Package file-list check](scripts/check-package-file-lists.sh)
+- [Contributing](docs/CONTRIBUTING.md)
+- [Security policy](docs/SECURITY.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [License](LICENSE)
+
+## Repository Layout
+
+- Runtime module: repository root, actions/, assets/, includes/, locale/, and views/
+- RPM packaging: packaging/rpm/
+- Debian packaging: debian/
+- Tests: tests/
+- Public documentation: docs/
+
+## Bundled Dependency
+
+assets/js/echarts.min.js is a minified build of Apache ECharts 6.1.0 and includes ZRender. Both are distributed under the Apache License 2.0. See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Maintainer
+
+Developed and maintained by [HOLOZTEK](https://github.com/HOLOZTEK).
+
+## License
+
+This repository currently uses the proprietary license in [LICENSE](LICENSE). Apache ECharts and ZRender remain subject to their respective third-party license notices.

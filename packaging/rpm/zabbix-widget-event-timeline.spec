@@ -33,6 +33,10 @@ Features:
 %install
 SRCDIR=%{_sourcedir}/zabbix-widget-event-timeline
 STAGEDIR=%{buildroot}/usr/share/zabbix-widget-event-timeline
+LICENSEDIR=%{buildroot}%{_licensedir}/%{name}
+
+install -d ${LICENSEDIR}
+install -m 644 ${SRCDIR}/LICENSE ${LICENSEDIR}/
 
 install -D -m 644 ${SRCDIR}/actions/WidgetView.php ${STAGEDIR}/actions/WidgetView.php
 install -D -m 644 ${SRCDIR}/assets/css/widget.css ${STAGEDIR}/assets/css/widget.css
@@ -67,6 +71,7 @@ install -D -m 644 ${SRCDIR}/views/widget.view.php ${STAGEDIR}/views/widget.view.
 install -D -m 644 ${SRCDIR}/Widget.php ${STAGEDIR}/Widget.php
 
 %files
+%license %{_licensedir}/%{name}/LICENSE
 /usr/share/zabbix-widget-event-timeline/
 
 %post
@@ -93,7 +98,7 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
-* Tue Sep 29 2026 claude <noreply> - 0.1.5-0
+* Tue Sep 29 2026 HOLOZTEK <ttake-55@users.noreply.github.com> - 0.1.5-0
 - リリース運用をコンパクトなリリースブランチ方式へ移行（release/v0.1.5からmainへPR、
   レビュー・試験後にマージし、以降はmainへタグ・Releaseを作成する運用に変更）。
   機能・パッケージ内容の変更はなし（v0.1.4からの版数統一のみ）

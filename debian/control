@@ -1,15 +1,15 @@
 Source: zabbix-widget-event-timeline
 Section: web
 Priority: optional
-Maintainer: claude <noreply@example.com>
+Maintainer: HOLOZTEK <ttake-55@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
+Homepage: https://github.com/HOLOZTEK/zabbix-widget-event-timeline
 
 Package: zabbix-widget-event-timeline
 Architecture: all
 Depends: ${misc:Depends}, php (>= 2:8.1~)
 Description: Event Timeline widget for Zabbix dashboard
- Zabbix dashboard widget that shows how many problem events occurred over
- time as a stacked bar chart by severity. Supports host / host group
- selection, severity filter, automatic time buckets, per-severity event
- details in the tooltip, and theme-aware or custom line/text colors.
+ Zabbix dashboard widget that visualizes problem events as severity-stacked
+ charts over time or grouped by host, host group, or event. It supports
+ dashboard-linked sources, runtime filters, paging, tooltips, and drilldown.
