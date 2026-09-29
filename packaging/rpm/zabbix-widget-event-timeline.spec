@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.1.4
+Version:        0.1.5
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -93,6 +93,12 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Tue Sep 29 2026 claude <noreply> - 0.1.5-0
+- リリース運用をコンパクトなリリースブランチ方式へ移行（release/v0.1.5からmainへPR、
+  レビュー・試験後にマージし、以降はmainへタグ・Releaseを作成する運用に変更）。
+  機能・パッケージ内容の変更はなし（v0.1.4からの版数統一のみ）
+- README/spec説明文のv0.1.4実装内容への追随（週開始曜日設定・ui/modules優先分岐の案内等）を反映
+
 * Mon Sep 28 2026 claude <noreply> - 0.1.4-0
 - 【緊急修正】v0.1.3のRPM/DEBパッケージにincludes配下の新規クラス3ファイル
   （CWidgetFieldSelectAlwaysSaved.php, CWidgetFieldWeekStartView.php,

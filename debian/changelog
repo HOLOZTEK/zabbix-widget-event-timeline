@@ -1,3 +1,15 @@
+zabbix-widget-event-timeline (0.1.5) unstable; urgency=medium
+
+  * Switched the release workflow to a compact release-branch model
+    (release/vX.Y.Z -> PR to main, merged after review/testing, tags and
+    Releases created on main going forward). No functional or packaging
+    content changes beyond the version bump from 0.1.4.
+  * Carried forward the README/spec description updates that brought the
+    documented behaviour in line with the 0.1.4 implementation (configurable
+    week-start day, ui/modules-first install path, etc.).
+
+ -- claude <noreply@example.com>  Tue, 29 Sep 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.1.4) unstable; urgency=high
 
   * URGENT FIX: the 0.1.3 RPM/DEB packages omitted three newer includes/
