@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: event-timeline 0.1.0\n"
+"Project-Id-Version: event-timeline 0.2.0\n"
 "Language: ja_JP\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -20,7 +20,7 @@ msgid "Event count"
 msgstr "イベント件数"
 
 msgid "No events"
-msgstr "イベントなし"
+msgstr "イベントはありません"
 
 msgid "No target hosts."
 msgstr "対象ホストがありません。"
@@ -29,7 +29,7 @@ msgid "Failed to retrieve events."
 msgstr "イベントの取得に失敗しました。"
 
 msgid "Time"
-msgstr "時間"
+msgstr "発生時刻"
 
 msgid "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
 msgstr "不完全なデータ: イベント取得上限（%1$s件）に達しました。%2$s より前のイベントはこのグラフに集計されていません。"
@@ -82,8 +82,26 @@ msgstr "12時間"
 msgid "1 day"
 msgstr "1日"
 
-msgid "7 days (weeks start on Monday)"
+msgid "7 days (week starts Sunday)"
+msgstr "7日（週は日曜開始）"
+
+msgid "7 days (week starts Monday)"
 msgstr "7日（週は月曜開始）"
+
+msgid "7 days (week starts Tuesday)"
+msgstr "7日（週は火曜開始）"
+
+msgid "7 days (week starts Wednesday)"
+msgstr "7日（週は水曜開始）"
+
+msgid "7 days (week starts Thursday)"
+msgstr "7日（週は木曜開始）"
+
+msgid "7 days (week starts Friday)"
+msgstr "7日（週は金曜開始）"
+
+msgid "7 days (week starts Saturday)"
+msgstr "7日（週は土曜開始）"
 
 msgid "1 month"
 msgstr "1か月"
@@ -93,6 +111,9 @@ msgstr "ほか %1$s イベント"
 
 msgid "Unknown host"
 msgstr "不明なホスト"
+
+msgid "%1$s more hosts"
+msgstr "ほか %1$s台"
 
 msgid "Y-axis minimum"
 msgstr "Y軸最小値"
@@ -114,3 +135,309 @@ msgstr "リセット"
 
 msgid "Enter a 6-digit hex color such as #FF0000."
 msgstr "#FF0000 のような6桁の16進カラーコードを入力してください。"
+
+msgid "Monitoring target source"
+msgstr "監視対象のソース"
+
+msgid "Fixed"
+msgstr "固定"
+
+msgid "Widget"
+msgstr "ウィジェット"
+
+msgid "Tree Navigator"
+msgstr "Tree Navigator"
+
+msgid "Tree Navigator widget"
+msgstr "Tree Navigator ウィジェット"
+
+msgid "Tree Navigator widgets"
+msgstr "Tree Navigator ウィジェット"
+
+msgid "Event source"
+msgstr "イベントのソース"
+
+msgid "Events"
+msgstr "イベント"
+
+msgid "Trigger"
+msgstr "トリガー"
+
+msgid "Triggers"
+msgstr "トリガー"
+
+msgid "Inaccessible trigger"
+msgstr "アクセス不可のトリガー"
+
+msgid "Event Navigator"
+msgstr "Event Navigator"
+
+msgid "Event Navigator widget"
+msgstr "Event Navigator ウィジェット"
+
+msgid "Event Navigator widgets"
+msgstr "Event Navigator ウィジェット"
+
+msgid "widget is required"
+msgstr "ウィジェットを選択してください"
+
+msgid "Acknowledgement"
+msgstr "確認状態"
+
+msgid "Acknowledged"
+msgstr "確認済み"
+
+msgid "Unacknowledged"
+msgstr "未確認"
+
+msgid "Aggregation method"
+msgstr "集計方法"
+
+msgid "Occurred events"
+msgstr "発生イベント数"
+
+msgid "Continuing events (add to every bucket)"
+msgstr "継続イベント数"
+
+msgid "No target selected"
+msgstr "対象が選択されていません"
+
+msgid "All events are excluded by the current filters."
+msgstr "現在のフィルターにより、すべてのイベントが除外されています。"
+
+msgid "Count mode: continuing events (click for occurred events)"
+msgstr "カウント方式: 継続イベント加算（クリックで発生イベント数へ）"
+
+msgid "Count mode: occurred events (click for continuing events)"
+msgstr "カウント方式: 発生イベント数（クリックで継続イベント加算へ）"
+
+msgid "Reset filters to the configured values"
+msgstr "フィルターを設定値に戻す"
+
+msgid "Continuing events"
+msgstr "継続中イベント"
+
+msgid "Ongoing"
+msgstr "継続中"
+
+msgid "Aggregation"
+msgstr "集計"
+
+msgid "Occurred count"
+msgstr "発生数"
+
+msgid "Continuing count"
+msgstr "継続数"
+
+msgid "Number of events that started in each bucket"
+msgstr "各Bucketで新規に発生したEventの数"
+
+msgid "Number of events overlapping each bucket"
+msgstr "各Bucketと継続期間が重なるEventの数"
+
+msgid "Ack status"
+msgstr "確認状態"
+
+msgid "All"
+msgstr "全て"
+
+msgid "Tooltip order"
+msgstr "詳細表示順"
+
+msgid "By host"
+msgstr "ホスト順"
+
+msgid "Chronological"
+msgstr "時系列"
+
+msgid "Reset conditions"
+msgstr "条件リセット"
+
+msgid "Severity level"
+msgstr "深刻度"
+
+msgid "Not classified (chip)"
+msgstr "未分類"
+
+msgid "Information (chip)"
+msgstr "情報"
+
+msgid "Warning (chip)"
+msgstr "警告"
+
+msgid "Average (chip)"
+msgstr "軽度"
+
+msgid "High (chip)"
+msgstr "重度"
+
+msgid "Disaster (chip)"
+msgstr "致命的"
+
+msgid "%1$s events"
+msgstr "%1$s件"
+
+msgid "Initial filter state"
+msgstr "フィルタの初期状態"
+
+msgid "Target"
+msgstr "対象"
+
+msgid "Initial display state"
+msgstr "表示の初期状態"
+
+msgid "Data retrieval"
+msgstr "データ取得"
+
+msgid "Display mode"
+msgstr "表示モード"
+
+msgid "Timeline"
+msgstr "時間軸"
+
+msgid "Host"
+msgstr "ホスト"
+
+msgid "Host group"
+msgstr "ホストグループ"
+
+msgid "Event"
+msgstr "イベント"
+
+msgid "Event grouping"
+msgstr "イベント表示"
+
+msgid "Prototype group"
+msgstr "プロトタイプグループ"
+
+msgid "Individual events"
+msgstr "個別イベント"
+
+msgid "Sort order"
+msgstr "並び順"
+
+msgid "By count"
+msgstr "件数順"
+
+msgid "A to Z"
+msgstr "A→Z"
+
+msgid "Z to A"
+msgstr "Z→A"
+
+msgid "Affected hosts"
+msgstr "影響ホスト数"
+
+msgid "No target host groups."
+msgstr "対象のホストグループがありません。"
+
+msgid "Targets: %1$s (showing %2$s–%3$s)"
+msgstr "対象: %1$s件（%2$s–%3$s件を表示）"
+
+msgid "Page %1$s / %2$s"
+msgstr "%1$s / %2$sページ"
+
+msgid "Paging"
+msgstr "ページング"
+
+msgid "Chart items per page"
+msgstr "グラフの1ページ表示件数"
+
+msgid "Auto paging"
+msgstr "自動ページ送り"
+
+msgid "Detail items per page"
+msgstr "詳細一覧の1ページ表示件数"
+
+msgid "Off"
+msgstr "無効"
+
+msgid "10 seconds"
+msgstr "10秒"
+
+msgid "30 seconds"
+msgstr "30秒"
+
+msgid "60 seconds"
+msgstr "60秒"
+
+msgid "X-axis labels"
+msgstr "X軸ラベル"
+
+msgid "Horizontal"
+msgstr "水平"
+
+msgid "Angled"
+msgstr "斜め"
+
+msgid "Vertical"
+msgstr "縦"
+
+msgid "Event details"
+msgstr "イベント詳細"
+
+msgid "Period"
+msgstr "期間"
+
+msgid "Severity"
+msgstr "深刻度"
+
+msgid "Recovery time"
+msgstr "復旧時刻"
+
+msgid "Duration"
+msgstr "継続時間"
+
+msgid "Status"
+msgstr "状態"
+
+msgid "Resolved"
+msgstr "復旧済み"
+
+msgid "Number of events"
+msgstr "該当イベント数"
+
+msgid "Matching events: %1$s"
+msgstr "該当イベント: %1$s件"
+
+msgid "Affected hosts: %1$s"
+msgstr "影響ホスト: %1$s台"
+
+msgid "This list is based on data that reached the event retrieval limit."
+msgstr "この一覧はイベント取得上限に達したデータを基にしています。"
+
+msgid "Only the newest %1$s of %2$s events are listed."
+msgstr "%2$s件のうち新しい%1$s件のみ表示しています。"
+
+msgid "No matching data."
+msgstr "対象データはありません。"
+
+msgid "Close"
+msgstr "閉じる"
+
+msgid "First day of week"
+msgstr "週の開始曜日"
+
+msgid "Applies only when the 7-day bucket is used (automatically or by resizing the widget)."
+msgstr "7日のBucketが使用されている場合にのみ適用されます（自動選択時・Widgetのリサイズ時のいずれも含む）。"
+
+msgid "Sunday"
+msgstr "日曜日"
+
+msgid "Monday"
+msgstr "月曜日"
+
+msgid "Tuesday"
+msgstr "火曜日"
+
+msgid "Wednesday"
+msgstr "水曜日"
+
+msgid "Thursday"
+msgstr "木曜日"
+
+msgid "Friday"
+msgstr "金曜日"
+
+msgid "Saturday"
+msgstr "土曜日"

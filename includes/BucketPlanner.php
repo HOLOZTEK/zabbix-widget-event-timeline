@@ -18,8 +18,30 @@ class BucketPlanner {
 
 	public const MAX_BUCKETS = 100;
 
-	// 週の開始曜日（ISO-8601 の曜日番号: 1=月曜 … 7=日曜）。将来変更する場合はここだけ。
-	public const WEEK_START = 1;
+	// 週の開始曜日の内部値（PHP・JS共通の文字列表現。表示文言とは分離する）。
+	public const WEEKDAY_SUN = 'sun';
+	public const WEEKDAY_MON = 'mon';
+	public const WEEKDAY_TUE = 'tue';
+	public const WEEKDAY_WED = 'wed';
+	public const WEEKDAY_THU = 'thu';
+	public const WEEKDAY_FRI = 'fri';
+	public const WEEKDAY_SAT = 'sat';
+
+	// 内部値 → ISO-8601 の曜日番号（1=月曜 … 7=日曜）。
+	public const WEEKDAY_ISO = [
+		self::WEEKDAY_MON => 1,
+		self::WEEKDAY_TUE => 2,
+		self::WEEKDAY_WED => 3,
+		self::WEEKDAY_THU => 4,
+		self::WEEKDAY_FRI => 5,
+		self::WEEKDAY_SAT => 6,
+		self::WEEKDAY_SUN => 7
+	];
+
+	// 週の開始曜日が未指定の場合のフォールバック。本機能追加前は月曜固定だったため、
+	// 既存Widget（week_start未設定）の挙動を変えないよう月曜のまま維持する
+	// （新規Widgetの既定値=日曜はWidgetForm側で明示的に設定する）。
+	public const WEEK_START = self::WEEKDAY_MON;
 
 	public const UNIT_MINUTE = 'minute';
 	public const UNIT_HOUR   = 'hour';
@@ -45,17 +67,19 @@ class BucketPlanner {
 	];
 
 	/**
-	 * @param int          $from  表示期間の開始（UNIX時刻）
-	 * @param int          $to    表示期間の終了（UNIX時刻、この時刻を含む）
-	 * @param DateTimeZone $tz    Bucket境界を決めるタイムゾーン
-	 * @param int          $max   Bucket数の上限
+	 * @param int          $from        表示期間の開始（UNIX時刻）
+	 * @param int          $to          表示期間の終了（UNIX時刻、この時刻を含む）
+	 * @param DateTimeZone $tz          Bucket境界を決めるタイムゾーン
+	 * @param string       $week_start  週の開始曜日（WEEKDAY_* 定数。7日Bucketの自然境界にのみ影響）
+	 * @param int          $max         Bucket数の上限
 	 *
 	 * @return array {
 	 *     interval: array{key: string, unit: string, count: int},
 	 *     bounds: int[]   N+1個の境界。Bucket i = [bounds[i], bounds[i+1])
 	 * }
 	 */
-	public static function plan(int $from, int $to, DateTimeZone $tz, int $max = self::MAX_BUCKETS): array {
+	public static function plan(int $from, int $to, DateTimeZone $tz, string $week_start = self::WEEK_START,
+			int $max = self::MAX_BUCKETS): array {
 		if ($to < $from) {
 			$to = $from;
 		}
@@ -64,7 +88,7 @@ class BucketPlanner {
 
 		foreach (self::CANDIDATES as $i => [$key, $unit, $n]) {
 			// 最後の候補は上限を超えていても採用する（これ以上粗くできない）。
-			$bounds = self::generate($from, $to, $unit, $n, $tz, $i === $last ? PHP_INT_MAX : $max);
+			$bounds = self::generate($from, $to, $unit, $n, $tz, $i === $last ? PHP_INT_MAX : $max, $week_start);
 
 			if ($bounds !== null) {
 				return [
@@ -81,8 +105,9 @@ class BucketPlanner {
 	/**
 	 * 期間を覆う境界列を生成する。Bucket数が $max を超える場合は null（早期打ち切り）。
 	 */
-	public static function generate(int $from, int $to, string $unit, int $n, DateTimeZone $tz, int $max): ?array {
-		$cur = self::floor($from, $unit, $n, $tz);
+	public static function generate(int $from, int $to, string $unit, int $n, DateTimeZone $tz, int $max,
+			string $week_start = self::WEEK_START): ?array {
+		$cur = self::floor($from, $unit, $n, $tz, $week_start);
 		$bounds = [];
 
 		// $to を含むBucketまで生成する（最後の境界は $to より後になる）。
@@ -104,7 +129,8 @@ class BucketPlanner {
 	/**
 	 * $ts を含むBucketの開始時刻（自然境界）。
 	 */
-	public static function floor(int $ts, string $unit, int $n, DateTimeZone $tz): int {
+	public static function floor(int $ts, string $unit, int $n, DateTimeZone $tz,
+			string $week_start = self::WEEK_START): int {
 		switch ($unit) {
 			case self::UNIT_MINUTE:
 				return self::floorWall($ts, $n * 60, $tz);
@@ -117,7 +143,8 @@ class BucketPlanner {
 
 			case self::UNIT_WEEK:
 				$d = self::localMidnight($ts, $tz);
-				$back = ((int) $d->format('N') - self::WEEK_START + 7) % 7;
+				$week_start_iso = self::WEEKDAY_ISO[$week_start] ?? self::WEEKDAY_ISO[self::WEEK_START];
+				$back = ((int) $d->format('N') - $week_start_iso + 7) % 7;
 
 				return $back > 0
 					? self::midnightOf($d->modify('-'.$back.' day'))->getTimestamp()

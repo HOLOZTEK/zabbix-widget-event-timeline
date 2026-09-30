@@ -4,6 +4,12 @@ assets/js/class.widget.js usr/share/zabbix-widget-event-timeline/assets/js/
 assets/js/echarts.min.js usr/share/zabbix-widget-event-timeline/assets/js/
 includes/Aggregator.php usr/share/zabbix-widget-event-timeline/includes/
 includes/BucketPlanner.php usr/share/zabbix-widget-event-timeline/includes/
+includes/DimensionAggregator.php usr/share/zabbix-widget-event-timeline/includes/
+includes/CWidgetFieldMultiSelectTrigger.php usr/share/zabbix-widget-event-timeline/includes/
+includes/CWidgetFieldMultiSelectTriggerView.php usr/share/zabbix-widget-event-timeline/includes/
+includes/CWidgetFieldSelectAlwaysSaved.php usr/share/zabbix-widget-event-timeline/includes/
+includes/CWidgetFieldWeekStartView.php usr/share/zabbix-widget-event-timeline/includes/
+includes/DetailSelector.php usr/share/zabbix-widget-event-timeline/includes/
 includes/EventFetcher.php usr/share/zabbix-widget-event-timeline/includes/
 includes/helpers.php usr/share/zabbix-widget-event-timeline/includes/
 includes/SourceResolver.php usr/share/zabbix-widget-event-timeline/includes/

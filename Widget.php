@@ -15,6 +15,122 @@ class Widget extends CWidget {
 	public function getTranslationStrings(): array {
 		return [
 			'class.widget.js' => [
+				'Event details'
+					=> _et('Event details'),
+				'Period'
+					=> _et('Period'),
+				'Severity'
+					=> _et('Severity'),
+				'Time'
+					=> _et('Time'),
+				'Recovery time'
+					=> _et('Recovery time'),
+				'Duration'
+					=> _et('Duration'),
+				'Acknowledgement'
+					=> _et('Acknowledgement'),
+				'Status'
+					=> _et('Status'),
+				'Resolved'
+					=> _et('Resolved'),
+				'Number of events'
+					=> _et('Number of events'),
+				'Matching events: %1$s'
+					=> _et('Matching events: %1$s'),
+				'Affected hosts: %1$s'
+					=> _et('Affected hosts: %1$s'),
+				'This list is based on data that reached the event retrieval limit.'
+					=> _et('This list is based on data that reached the event retrieval limit.'),
+				'Only the newest %1$s of %2$s events are listed.'
+					=> _et('Only the newest %1$s of %2$s events are listed.'),
+				'No matching data.'
+					=> _et('No matching data.'),
+				'Close'
+					=> _et('Close'),
+				'Display mode'
+					=> _et('Display mode'),
+				'Timeline'
+					=> _et('Timeline'),
+				'Host'
+					=> _et('Host'),
+				'Host group'
+					=> _et('Host group'),
+				'Event'
+					=> _et('Event'),
+				'Prototype group'
+					=> _et('Prototype group'),
+				'Sort order'
+					=> _et('Sort order'),
+				'By count'
+					=> _et('By count'),
+				'A to Z'
+					=> _et('A to Z'),
+				'Z to A'
+					=> _et('Z to A'),
+				'Affected hosts'
+					=> _et('Affected hosts'),
+				'No target host groups.'
+					=> _et('No target host groups.'),
+				'Targets: %1$s (showing %2$s–%3$s)'
+					=> _et('Targets: %1$s (showing %2$s–%3$s)'),
+				'Page %1$s / %2$s'
+					=> _et('Page %1$s / %2$s'),
+				'No target selected'
+					=> _et('No target selected'),
+				'All events are excluded by the current filters.'
+					=> _et('All events are excluded by the current filters.'),
+				'Count mode: continuing events (click for occurred events)'
+					=> _et('Count mode: continuing events (click for occurred events)'),
+				'Count mode: occurred events (click for continuing events)'
+					=> _et('Count mode: occurred events (click for continuing events)'),
+				'Reset filters to the configured values'
+					=> _et('Reset filters to the configured values'),
+				'Continuing events'
+					=> _et('Continuing events'),
+				'Ongoing'
+					=> _et('Ongoing'),
+				'Acknowledged'
+					=> _et('Acknowledged'),
+				'Unacknowledged'
+					=> _et('Unacknowledged'),
+				'Aggregation'
+					=> _et('Aggregation'),
+				'Occurred count'
+					=> _et('Occurred count'),
+				'Continuing count'
+					=> _et('Continuing count'),
+				'Number of events that started in each bucket'
+					=> _et('Number of events that started in each bucket'),
+				'Number of events overlapping each bucket'
+					=> _et('Number of events overlapping each bucket'),
+				'Ack status'
+					=> _et('Ack status'),
+				'All'
+					=> _et('All'),
+				'Tooltip order'
+					=> _et('Tooltip order'),
+				'By host'
+					=> _et('By host'),
+				'Chronological'
+					=> _et('Chronological'),
+				'Reset conditions'
+					=> _et('Reset conditions'),
+				'Severity level'
+					=> _et('Severity level'),
+				'Not classified (chip)'
+					=> _et('Not classified (chip)'),
+				'Information (chip)'
+					=> _et('Information (chip)'),
+				'Warning (chip)'
+					=> _et('Warning (chip)'),
+				'Average (chip)'
+					=> _et('Average (chip)'),
+				'High (chip)'
+					=> _et('High (chip)'),
+				'Disaster (chip)'
+					=> _et('Disaster (chip)'),
+				'%1$s events'
+					=> _et('%1$s events'),
 				'Interval'
 					=> _et('Interval'),
 				'Total'
@@ -35,6 +151,8 @@ class Widget extends CWidget {
 					=> _et('And %1$s more events'),
 				'Unknown host'
 					=> _et('Unknown host'),
+				'%1$s more hosts'
+					=> _et('%1$s more hosts'),
 				'Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph.'
 					=> _et('Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph.')
 			]

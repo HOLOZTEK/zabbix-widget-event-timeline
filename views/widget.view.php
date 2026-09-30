@@ -10,6 +10,9 @@ $view = new CWidgetView($data);
 if (!empty($data['chart_data'])) {
 	$view->setVar('chart_data', $data['chart_data']);
 }
+if (isset($data['detail'])) {
+	$view->setVar('detail', $data['detail']);
+}
 if (!empty($data['error'])) {
 	$view->setVar('error', $data['error']);
 }

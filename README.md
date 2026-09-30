@@ -2,7 +2,7 @@
 
 固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
 
-> **v0.1.0（第一段階）スコープ**: 固定選択のHost / Host groupに対する発生イベント数の時系列表示のみ。Navigator連携、Event選択、動的フィルタ、By Host / By Event表示は対象外です（構造は拡張可能にしてあります）。
+> **v0.1.4**: Event bar / Stackクリックで詳細一覧を表示するDrilldown、7日Bucketの週開始曜日のWidgetごとの設定（新規Widgetは日曜、既存Widgetは月曜を維持）を追加しました。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Event Navigator 連携）で指定できます。
 
 ## 機能
 
@@ -11,7 +11,7 @@
 - **対象Event**: トリガー由来のProblem Event（1 eventid = 1件、抑制中のEventも含む）。Severity は `event.severity`（Event発生時点の値）
 - **Severityフィルタ**: Severityごとに集計対象をON/OFF（既定は全ON）。表示後の非表示ではなく集計段階で除外
 - **自動Bucket幅**: 候補 `1m, 5m, 10m, 15m, 30m, 1h, 2h, 3h, 6h, 12h, 1d, 7d, 1month` のうち、自然境界に揃えて生成したBucket数が100以下となる最小幅を採用
-  - 日・週・月は現地暦で扱う（DSTの日も1Bucket）。7dは月曜0:00開始、1monthは暦月
+  - 日・週・月は現地暦で扱う（DSTの日も1Bucket）。7dの週開始曜日はWidgetごとに全7曜日から設定可能（新規Widgetの既定は日曜、既存Widgetは月曜を維持）、1monthは暦月
   - Bucket境界とEvent所属は `start <= clock < end`
   - タイムゾーンはログインユーザーの実効TZ（Bucket境界・軸・Tooltipで共通）
 - **積み上げ棒グラフ**: Not classified → Disaster の順に下から積み上げ、Zabbix標準のSeverity色を使用
@@ -24,11 +24,23 @@
 - **空状態 / エラー表示**: 「No events」・対象Hostなし・取得失敗
 - 日本語 / English ロケール対応
 
+## 第2フェーズの機能
+
+- **Source**: Monitoring target と Event は独立して Fixed / Widget を選択（4通りの組み合わせ）。条件は `Monitoring target AND Event Selection`
+  - Monitoring target = Widget: Tree Navigator の Host / Host group 選択（Groupはサブグループ含む・Hostは重複排除）
+  - Event（イベント＝トリガー）= Fixed: Trigger をホスト等と同じ選択UIで指定。Event = Widget: Event Navigator の Trigger 選択。トリガー未指定なら対象Hostの期間内の全Eventを表示（対象Hostが未選択のときは「対象が選択されていません」）
+  - Widget Source で選択が届いていない場合は全Host・全Eventへ広げず「対象が選択されていません」を表示し、選択の到着・変更で再取得
+- **Severity Filter / Acknowledged Filter**: 設定値が実行時の初期値。表示画面のツールバーでON/OFF（Severityチップは凡例を兼ねる）。OFFは集計から除外され、合計は現在のフィルター下で再計算。確認状態は取得時点の現在値（過去時点の再構成なし）
+- **Filter Reset**: 設定値へ戻す（全ONではない）。実行時状態が設定値と同じ間は無効
+- **Event Count Mode**: 発生イベント数（Eventのclockが属するBucketのみ）/ 継続イベント加算（継続期間と重なるすべてのBucketへ加算。`start < bucket_end AND end > bucket_start`。未復旧は現在時刻・期間終端まで、未来のBucketには加算しない）
+- 実行時の状態は設定を書き換えず、通常のRefreshでは保持され、ダッシュボード再表示・ウィジェット再作成で設定値に戻る
+
 ## 制約事項
 
 - Event取得はページング（5,000件単位）で、上限件数に達すると古いEventから集計対象外になります（警告表示あり）。
 - 約8年を超える期間では1 monthでもBucket数が100を超える場合があります（Zabbixの Time period 上限は730日のため通常は発生しません）。
 - Host指定は監視有効/無効を区別しません。
+- 継続イベント加算モードの復旧時刻はEventの復旧Event（r_eventid）から取得します。取得上限は期間前に発生したEventの取得分も含みます。
 
 ## 動作環境
 
@@ -40,8 +52,13 @@
 ## インストール（開発中・手動）
 
 ```bash
+# /usr/share/zabbix/ui/modules が存在する環境（Zabbix 7.0以降の標準構成）はこちらを優先
+cp -r zabbix-widget-event-timeline /usr/share/zabbix/ui/modules/event-timeline
+# 上記が存在しない環境
 cp -r zabbix-widget-event-timeline /usr/share/zabbix/modules/event-timeline
 ```
+
+RPM/DEBパッケージのインストールスクリプトも同様に、`ui/modules`が存在すればそちらを優先し、なければ`modules`へ配置します。
 
 Zabbix 管理 → モジュール →「ディレクトリのスキャン」→ Event Timeline を有効化。
 
@@ -51,7 +68,7 @@ Zabbix 管理 → モジュール →「ディレクトリのスキャン」→ 
 php tests/run_tests.php
 ```
 
-Bucket選択・境界（09:59:59 / 10:00:00 / 10:59:59 / 11:00:00）・DST・月曜開始週・Severity集計などの純粋ロジックを検証します。
+Bucket選択・境界（09:59:59 / 10:00:00 / 10:59:59 / 11:00:00）・DST・週開始曜日（全7曜日）・Severity集計などの純粋ロジックを検証します。週境界・タイムゾーン・Bucket自動選択の追加試験は `php tests/run_final_tests.php` を参照。
 
 ## ライセンス
 

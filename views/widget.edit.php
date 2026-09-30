@@ -5,7 +5,11 @@
  * @var array $data
  */
 
+use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectTriggerView;
+use Modules\EventTimeline\Includes\CWidgetFieldWeekStartView;
+
 (new CWidgetFormView($data))
+	// 対象は必須の設定なので、折りたたみにせず常に表示する。
 	->addField(
 		new CWidgetFieldMultiSelectHostView($data['fields']['hostids'])
 	)
@@ -13,13 +17,52 @@
 		new CWidgetFieldMultiSelectGroupView($data['fields']['groupids'])
 	)
 	->addField(
-		new CWidgetFieldCheckBoxListView($data['fields']['severities'])
+		new CWidgetFieldMultiSelectTriggerView($data['fields']['triggerids'])
 	)
-	->addField(
-		new CWidgetFieldIntegerBoxView($data['fields']['max_events'])
+	->addFieldset(
+		(new CWidgetFormFieldsetCollapsibleView(_et('Initial display state')))
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['display_mode'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['event_display'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['sort_order'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['count_mode'])
+			)
+			->addField(
+				new CWidgetFieldCheckBoxListView($data['fields']['severities'])
+			)
+			->addField(
+				new CWidgetFieldCheckBoxListView($data['fields']['ack_states'])
+			)
 	)
-	->addField(
-		new CWidgetFieldTimePeriodView($data['fields']['time_period'])
+	->addFieldset(
+		(new CWidgetFormFieldsetCollapsibleView(_et('Paging')))
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['page_size'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['auto_page'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['detail_page_size'])
+			)
+	)
+	->addFieldset(
+		(new CWidgetFormFieldsetCollapsibleView(_et('Data retrieval')))
+			->addField(
+				new CWidgetFieldIntegerBoxView($data['fields']['max_events'])
+			)
+			->addField(
+				new CWidgetFieldTimePeriodView($data['fields']['time_period'])
+			)
+			->addField(
+				new CWidgetFieldWeekStartView($data['fields']['week_start'])
+			)
 	)
 	->addFieldset(
 		(new CWidgetFormFieldsetCollapsibleView(_et('Appearance')))
@@ -28,6 +71,9 @@
 			)
 			->addField(
 				new CWidgetFieldIntegerBoxView($data['fields']['y_axis_min'])
+			)
+			->addField(
+				new CWidgetFieldSelectView($data['fields']['x_label'])
 			)
 			->addField(
 				new CWidgetFieldColorView($data['fields']['line_color'])

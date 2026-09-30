@@ -5,12 +5,44 @@ namespace Modules\EventTimeline\Includes;
 use API;
 
 /**
- * Source resolution: 設定（Host / Host group）から対象Host ID集合を決定する。
+ * Source resolution: 設定（Fixed / Widget）から Monitoring target（対象Host ID集合）と
+ * Event Selection（Eventの絞り込み条件）を決定する。Filter・集計はここでは行わない。
  *
- * 後続処理（Event取得）はここが返す「resolved host IDs」だけを受け取る。将来 Navigator（Widget参照）
- * ソースを加える場合は、この段の入力を差し替えるだけで後続処理を再利用できる。
+ * 後続処理（Event取得）が受け取るのは「resolved host IDs」と「Event Selection」だけ。
+ * Widget Source で Selection がまだ届いていない・空のときは「未選択」とし、絶対に全Host・全Eventへ広げない。
  */
 class SourceResolver {
+
+	/**
+	 * Monitoring target の解決。固定指定でもWidget参照でも、解決済みの hostids / groupids だけを見る（Source種別は持ち込まない）。
+	 *
+	 * @return array{selected: bool, hostids: int[]}
+	 *   selected: Selection（Fixed設定 / Widget Selection）が存在するか。false のとき hostids は空。
+	 */
+	public static function resolveTarget(array $fields): array {
+		$hostids = self::normalize((array) ($fields['hostids'] ?? []));
+		$groupids = self::normalize((array) ($fields['groupids'] ?? []));
+
+		if (!$hostids && !$groupids) {
+			return ['selected' => false, 'hostids' => []];
+		}
+
+		return ['selected' => true, 'hostids' => self::resolve($hostids, $groupids)];
+	}
+
+	/**
+	 * Event Selection の解決。イベント＝Trigger として、固定指定でも Event Navigator 参照でも、
+	 * 解決済みの Trigger ID（triggerids）だけを見る。未指定（空）のときは絞り込みなしとし、対象Hostの期間内の全Eventを扱う
+	 * （対象Host自体が未選択の場合の扱いは resolveTarget 側）。
+	 *
+	 * @return array{selected: bool, selectors: array[]}
+	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。
+	 */
+	public static function resolveEventSelection(array $fields): array {
+		$triggerids = array_values(array_unique(self::normalize((array) ($fields['triggerids'] ?? []))));
+
+		return ['selected' => true, 'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : [[]]];
+	}
 
 	/**
 	 * @param int[] $hostids   直接指定されたHost ID

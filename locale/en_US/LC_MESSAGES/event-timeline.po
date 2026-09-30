@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: event-timeline 0.1.0\n"
+"Project-Id-Version: event-timeline 0.2.0\n"
 "Language: en_US\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -82,8 +82,26 @@ msgstr "12 hours"
 msgid "1 day"
 msgstr "1 day"
 
-msgid "7 days (weeks start on Monday)"
-msgstr "7 days (weeks start on Monday)"
+msgid "7 days (week starts Sunday)"
+msgstr "7 days (week starts Sunday)"
+
+msgid "7 days (week starts Monday)"
+msgstr "7 days (week starts Monday)"
+
+msgid "7 days (week starts Tuesday)"
+msgstr "7 days (week starts Tuesday)"
+
+msgid "7 days (week starts Wednesday)"
+msgstr "7 days (week starts Wednesday)"
+
+msgid "7 days (week starts Thursday)"
+msgstr "7 days (week starts Thursday)"
+
+msgid "7 days (week starts Friday)"
+msgstr "7 days (week starts Friday)"
+
+msgid "7 days (week starts Saturday)"
+msgstr "7 days (week starts Saturday)"
 
 msgid "1 month"
 msgstr "1 month"
@@ -93,6 +111,9 @@ msgstr ""
 
 msgid "Unknown host"
 msgstr ""
+
+msgid "%1$s more hosts"
+msgstr "%1$s more hosts"
 
 msgid "Y-axis minimum"
 msgstr ""
@@ -114,3 +135,309 @@ msgstr "Reset"
 
 msgid "Enter a 6-digit hex color such as #FF0000."
 msgstr "Enter a 6-digit hex color such as #FF0000."
+
+msgid "Monitoring target source"
+msgstr "Monitoring target source"
+
+msgid "Fixed"
+msgstr "Fixed"
+
+msgid "Widget"
+msgstr "Widget"
+
+msgid "Tree Navigator"
+msgstr "Tree Navigator"
+
+msgid "Tree Navigator widget"
+msgstr "Tree Navigator widget"
+
+msgid "Tree Navigator widgets"
+msgstr "Tree Navigator widgets"
+
+msgid "Event source"
+msgstr "Event source"
+
+msgid "Events"
+msgstr "Events"
+
+msgid "Trigger"
+msgstr "Trigger"
+
+msgid "Triggers"
+msgstr "Triggers"
+
+msgid "Inaccessible trigger"
+msgstr "Inaccessible trigger"
+
+msgid "Event Navigator"
+msgstr "Event Navigator"
+
+msgid "Event Navigator widget"
+msgstr "Event Navigator widget"
+
+msgid "Event Navigator widgets"
+msgstr "Event Navigator widgets"
+
+msgid "widget is required"
+msgstr "widget is required"
+
+msgid "Acknowledgement"
+msgstr "Acknowledgement"
+
+msgid "Acknowledged"
+msgstr "Acknowledged"
+
+msgid "Unacknowledged"
+msgstr "Unacknowledged"
+
+msgid "Aggregation method"
+msgstr "Aggregation method"
+
+msgid "Occurred events"
+msgstr "Occurred events"
+
+msgid "Continuing events (add to every bucket)"
+msgstr "Continuing events (add to every bucket)"
+
+msgid "No target selected"
+msgstr "No target selected"
+
+msgid "All events are excluded by the current filters."
+msgstr "All events are excluded by the current filters."
+
+msgid "Count mode: continuing events (click for occurred events)"
+msgstr "Count mode: continuing events (click for occurred events)"
+
+msgid "Count mode: occurred events (click for continuing events)"
+msgstr "Count mode: occurred events (click for continuing events)"
+
+msgid "Reset filters to the configured values"
+msgstr "Reset filters to the configured values"
+
+msgid "Continuing events"
+msgstr "Continuing events"
+
+msgid "Ongoing"
+msgstr "Ongoing"
+
+msgid "Aggregation"
+msgstr "Aggregation"
+
+msgid "Occurred count"
+msgstr "Occurred"
+
+msgid "Continuing count"
+msgstr "Continuing"
+
+msgid "Number of events that started in each bucket"
+msgstr "Number of events that started in each bucket"
+
+msgid "Number of events overlapping each bucket"
+msgstr "Number of events overlapping each bucket"
+
+msgid "Ack status"
+msgstr "Ack"
+
+msgid "All"
+msgstr "All"
+
+msgid "Tooltip order"
+msgstr "Details"
+
+msgid "By host"
+msgstr "By host"
+
+msgid "Chronological"
+msgstr "Chronological"
+
+msgid "Reset conditions"
+msgstr "Reset"
+
+msgid "Severity level"
+msgstr "Severity"
+
+msgid "Not classified (chip)"
+msgstr "Not classified"
+
+msgid "Information (chip)"
+msgstr "Information"
+
+msgid "Warning (chip)"
+msgstr "Warning"
+
+msgid "Average (chip)"
+msgstr "Average"
+
+msgid "High (chip)"
+msgstr "High"
+
+msgid "Disaster (chip)"
+msgstr "Disaster"
+
+msgid "%1$s events"
+msgstr "%1$s events"
+
+msgid "Initial filter state"
+msgstr "Initial filter state"
+
+msgid "Target"
+msgstr "Target"
+
+msgid "Initial display state"
+msgstr "Initial display state"
+
+msgid "Data retrieval"
+msgstr "Data retrieval"
+
+msgid "Display mode"
+msgstr "Display mode"
+
+msgid "Timeline"
+msgstr "Timeline"
+
+msgid "Host"
+msgstr "Host"
+
+msgid "Host group"
+msgstr "Host group"
+
+msgid "Event"
+msgstr "Event"
+
+msgid "Event grouping"
+msgstr "Event grouping"
+
+msgid "Prototype group"
+msgstr "Prototype group"
+
+msgid "Individual events"
+msgstr "Individual events"
+
+msgid "Sort order"
+msgstr "Sort order"
+
+msgid "By count"
+msgstr "By count"
+
+msgid "A to Z"
+msgstr "A to Z"
+
+msgid "Z to A"
+msgstr "Z to A"
+
+msgid "Affected hosts"
+msgstr "Affected hosts"
+
+msgid "No target host groups."
+msgstr "No target host groups."
+
+msgid "Targets: %1$s (showing %2$s–%3$s)"
+msgstr "Targets: %1$s (showing %2$s–%3$s)"
+
+msgid "Page %1$s / %2$s"
+msgstr "Page %1$s / %2$s"
+
+msgid "Paging"
+msgstr "Paging"
+
+msgid "Chart items per page"
+msgstr "Chart items per page"
+
+msgid "Auto paging"
+msgstr "Auto paging"
+
+msgid "Detail items per page"
+msgstr "Detail items per page"
+
+msgid "Off"
+msgstr "Off"
+
+msgid "10 seconds"
+msgstr "10 seconds"
+
+msgid "30 seconds"
+msgstr "30 seconds"
+
+msgid "60 seconds"
+msgstr "60 seconds"
+
+msgid "X-axis labels"
+msgstr "X-axis labels"
+
+msgid "Horizontal"
+msgstr "Horizontal"
+
+msgid "Angled"
+msgstr "Angled"
+
+msgid "Vertical"
+msgstr "Vertical"
+
+msgid "Event details"
+msgstr "Event details"
+
+msgid "Period"
+msgstr "Period"
+
+msgid "Severity"
+msgstr "Severity"
+
+msgid "Recovery time"
+msgstr "Recovery time"
+
+msgid "Duration"
+msgstr "Duration"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Resolved"
+msgstr "Resolved"
+
+msgid "Number of events"
+msgstr "Events"
+
+msgid "Matching events: %1$s"
+msgstr "Matching events: %1$s"
+
+msgid "Affected hosts: %1$s"
+msgstr "Affected hosts: %1$s"
+
+msgid "This list is based on data that reached the event retrieval limit."
+msgstr "This list is based on data that reached the event retrieval limit."
+
+msgid "Only the newest %1$s of %2$s events are listed."
+msgstr "Only the newest %1$s of %2$s events are listed."
+
+msgid "No matching data."
+msgstr "No matching data."
+
+msgid "Close"
+msgstr "Close"
+
+msgid "First day of week"
+msgstr "First day of week"
+
+msgid "Applies only when the 7-day bucket is used (automatically or by resizing the widget)."
+msgstr "Applies only when the 7-day bucket is used (automatically or by resizing the widget)."
+
+msgid "Sunday"
+msgstr "Sunday"
+
+msgid "Monday"
+msgstr "Monday"
+
+msgid "Tuesday"
+msgstr "Tuesday"
+
+msgid "Wednesday"
+msgstr "Wednesday"
+
+msgid "Thursday"
+msgstr "Thursday"
+
+msgid "Friday"
+msgstr "Friday"
+
+msgid "Saturday"
+msgstr "Saturday"

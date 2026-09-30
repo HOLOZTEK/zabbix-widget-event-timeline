@@ -5,11 +5,89 @@ class CWidgetEventTimeline extends CWidget {
 	#chart = null;
 	#data = null;
 
+	// echarts.init() 時点のコンテナサイズを基準にキャンバス解像度が固定されるため、その後コンテナの実サイズが
+	// 変わっても明示的に resize() を呼ばない限りHover判定が古いサイズのままズレる（見た目は正常なままTooltipだけ
+	// 反応しなくなる）。ダッシュボードの表示期間（グローバルタイムセレクター）変更時は連動する複数Widgetが同時に
+	// 再描画されるため、この種のサイズ変動がonResize()（Widget自体のリサイズ操作）を経由せずに起こり得る。
+	// ResizeObserverでコンテナの実サイズ変化を継続的に監視し、その都度キャンバス解像度を合わせ直す。
+	#chart_observer = null;
+
+	// 詳細表示（Drilldownダイアログ）の1ページ表示件数。設定値（グラフのページングとは別）。
+	// グラフのRuntime/Page状態には影響しない（ダイアログを閉じれば元の状態のまま）。
+	#detail_page_size = CWidgetEventTimeline.DETAIL_PAGE_SIZE;
+
 	// Runtime状態（設定値ではない）。Tooltip詳細の並び: 'host'=Host単位（既定）/ 'time'=時系列。
 	// 再描画（自動更新）をまたいで維持するため、インスタンスに保持する。
 	#tip_mode = 'host';
 
+	// Runtime Filter / Count Mode（設定値ではない。設定を書き換えず、設定値を初期値として最初の応答で作る）。
+	// 通常のWidget更新（Refresh）では維持し、ダッシュボードの再表示・Widget再生成で設定値から初期化し直す。
+	// 形式: {severities, ack, count_mode, mode, sort, page}
+	#runtime = null;
+
+	// 自動ページ送りのタイマー（表示画面上の状態。設定値ではない）。
+	#auto_timer = null;
+	#auto_seconds = 0;
+
+	// Drilldown要求の通番（古い応答が新しいダイアログを上書きしないため）。
+	#detail_seq = 0;
+
+	// Widget Source の参照（Tree Navigator / Event Navigator）。Selectionが未受信でも更新を止めず、
+	// サーバーへ空の Selection として渡して「対象が選択されていません」を表示させる（全Host・全Eventへは広げない）。
+	static SELECTION_PATHS = ['hostids', 'groupids', 'triggerids'];
+
+	// 発生イベント数 / 継続イベント加算（WidgetForm::COUNT_* と同じ値）。
+	static COUNT_OCCURRENCE = 0;
+	static COUNT_CONTINUOUS = 1;
+
+	// 表示モード（WidgetForm::MODE_* と同じ値）。
+	static MODE_TIMELINE = 0;
+	static MODE_HOST = 1;
+	static MODE_GROUP = 2;
+	static MODE_EVENT = 3;
+
+	// Tooltip詳細の並びの初期値（Resetの戻り先）。
+	static TIP_MODE_DEFAULT = 'host';
+
+	isFieldsReferredDataReady() {
+		const received = this.getFieldsReferredData();
+
+		for (const path of CWidgetBase.getFieldsReferencesAccessors(this._fields).keys()) {
+			if (!CWidgetEventTimeline.SELECTION_PATHS.includes(path) && !received.has(path)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	getFieldsData() {
+		const fields = super.getFieldsData();
+
+		for (const path of CWidgetEventTimeline.SELECTION_PATHS) {
+			const value = fields[path];
+
+			// 未受信（参照のまま）または参照先が未設定は、空のSelectionとして扱う。
+			if (value === null || (typeof value === 'object' && !Array.isArray(value))) {
+				fields[path] = [];
+			}
+		}
+
+		if (this.#runtime !== null) {
+			fields.rt_active = 1;
+			fields.rt_severities = this.#runtime.severities;
+			fields.rt_ack = this.#runtime.ack;
+			fields.rt_count_mode = this.#runtime.count_mode;
+			fields.rt_mode = this.#runtime.mode;
+			fields.rt_sort = this.#runtime.sort;
+			fields.rt_page = this.#runtime.page;
+		}
+
+		return fields;
+	}
+
 	onStop() {
+		this.#stopAutoPage();
 		this.#disposeChart();
 	}
 
@@ -18,9 +96,20 @@ class CWidgetEventTimeline extends CWidget {
 			requestAnimationFrame(() => {
 				if (this.#chart) {
 					this.#chart.resize();
-					// 表示されるTickと期間線の位置は幅で変わるため、やり直す。
-					this.#chart.setOption({xAxis: {axisLabel: this.#axisLabelOption(this.#data)}});
-					this.#chart.setOption({graphic: this.#periodGraphic(this.#data)}, {replaceMerge: ['graphic']});
+
+					// #axisLabelOption/#periodGraphic は時間軸モード（Bucket＝X軸カテゴリ）専用。
+					// ホスト/ホストグループ/イベント表示（#isCategory()）ではX軸カテゴリ数はBucket数と無関係
+					// （this.#data.buckets はFilter集計用の時間Bucketのままで、表示中のカテゴリ数と一致しない）
+					// なので、そのまま呼ぶとindexがbuckets.lengthを超えてundefinedを参照し例外になる。
+					// この例外はecharts内部のresize/update処理中に発生するため、チャートの内部状態が
+					// 壊れたまま残り、以降のHoverで毎回Tooltip側の例外（Popupが出ない）を引き起こしていた
+					// （グローバルタイムセレクター変更でダッシュボードのレイアウトが再計算され、
+					// Widget自体のサイズが変わらなくてもonResize()が呼ばれることがあるため表面化した）。
+					if (!this.#isCategory()) {
+						// 表示されるTickと期間線の位置は幅で変わるため、やり直す。
+						this.#chart.setOption({xAxis: {axisLabel: this.#axisLabelOption(this.#data)}});
+						this.#chart.setOption({graphic: this.#periodGraphic(this.#data)}, {replaceMerge: ['graphic']});
+					}
 				}
 			});
 		}
@@ -42,11 +131,36 @@ class CWidgetEventTimeline extends CWidget {
 		}
 
 		this.#data = response.chart_data;
+		this.#detail_page_size = this.#data.detail_page_size || CWidgetEventTimeline.DETAIL_PAGE_SIZE;
+
+		if (this.#runtime === null) {
+			// 初回のみ設定値（configured_filter / 初期モード）から runtime を作る。
+			this.#runtime = {
+				severities: [...this.#data.configured.severities],
+				ack: [...this.#data.configured.ack],
+				count_mode: this.#data.configured.count_mode,
+				mode: this.#data.configured.mode,
+				sort: this.#data.configured.sort,
+				page: 1
+			};
+		}
+
+		// 現在のページが存在しなくなった場合（件数減少）は、サーバーが最終ページへ丸めた値に合わせる。
+		if (this.#data.category) {
+			this.#runtime.page = this.#data.category.pager.page;
+		}
+
+		this.#syncAutoPage();
 
 		requestAnimationFrame(() => this.#render());
 	}
 
 	#disposeChart() {
+		if (this.#chart_observer) {
+			this.#chart_observer.disconnect();
+			this.#chart_observer = null;
+		}
+
 		if (this.#chart) {
 			this.#chart.dispose();
 			this.#chart = null;
@@ -81,22 +195,31 @@ class CWidgetEventTimeline extends CWidget {
 			this._body.appendChild(this.#buildTruncationWarning(data));
 		}
 
-		if (data.total === 0) {
+		if (data.empty_reason !== null) {
 			const empty = document.createElement('div');
 			empty.className = 'et-empty';
 
 			const title = document.createElement('div');
-			title.textContent = t('No events');
+			// 「対象が選択されていません」と「イベントはありません」は別の状態として表示する。モードごとに空状態の文言を変える。
+			title.textContent = data.empty_reason === 'no_selection'
+				? t('No target selected')
+				: this.#emptyText(data.empty_reason);
 			empty.appendChild(title);
 
-			if (data.empty_reason === 'no_hosts') {
+			const reason = {
+				no_hosts: t('No target hosts.'),
+				filtered: t('All events are excluded by the current filters.')
+			}[data.empty_reason];
+
+			if (reason) {
 				const sub = document.createElement('div');
 				sub.className = 'et-empty-sub';
-				sub.textContent = t('No target hosts.');
+				sub.textContent = reason;
 				empty.appendChild(sub);
 			}
 
 			this._body.appendChild(empty);
+			this._body.appendChild(this.#buildFooter(data));
 
 			return;
 		}
@@ -106,71 +229,780 @@ class CWidgetEventTimeline extends CWidget {
 		holder.style.height = data.style.graph_height + 'px';
 
 		this._body.appendChild(holder);
+		this._body.appendChild(this.#buildFooter(data));
 
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
 		this.#data = data;
+		this.#chart.on('click', params => this.#onChartClick(params));
+
+		// コンテナの実サイズがecharts初期化後に変わった場合に備え、キャンバス解像度を追従させる（上記フィールド参照）。
+		this.#chart_observer = new ResizeObserver(() => this.#chart?.resize());
+		this.#chart_observer.observe(holder);
+
+		if (this.#isCategory()) {
+			this.#chart.setOption(this.#buildCategoryOption(data));
+			return;
+		}
+
 		this.#chart.setOption(this.#buildOption(data));
 		// 期間線はグリッド領域が確定してから描画する。
 		this.#chart.setOption({graphic: this.#periodGraphic(data)}, {replaceMerge: ['graphic']});
 	}
 
-	#buildToolbar(data) {
-		const bar = document.createElement('div');
-		bar.className = 'et-toolbar';
+	#isCategory() {
+		return this.#runtime.mode !== CWidgetEventTimeline.MODE_TIMELINE;
+	}
 
-		const interval = document.createElement('span');
-		interval.className = 'et-interval';
-		interval.textContent = t('Interval') + ': ' + data.interval.label;
+	// 空状態の文言（モード別）。Timeline は従来どおり。
+	#emptyText(reason) {
+		if (this.#isCategory() && reason !== 'filtered') {
+			return {
+				[CWidgetEventTimeline.MODE_HOST]: t('No target hosts.'),
+				[CWidgetEventTimeline.MODE_GROUP]: t('No target host groups.')
+			}[this.#runtime.mode] ?? t('No events');
+		}
+
+		return t('No events');
+	}
+
+	// ─── Drilldown（詳細一覧） ──────────────────────────────────────
+	// 棒（Severity Stack）のクリックで、その集計値を構成するEvent（Eventモードでは影響Host）の一覧を出す。
+	// 詳細はクリック時点のSnapshotで、元Widgetの Runtime状態（モード・Sort・Page・Filter）は変更しない。
+	static DETAIL_PAGE_SIZE = 20;
+	static DETAIL_DIALOGUE_ID = 'event-timeline-detail';
+
+	#onChartClick(params) {
+		if (params?.componentType !== 'series' || !this.#data || this.#runtime === null) {
+			return;
+		}
+
+		const data = this.#data;
+		const severity = data.severities.filter(s => s.enabled)[params.seriesIndex];
+
+		if (!severity) {
+			return;
+		}
+
+		const ctx = {mode: this.#runtime.mode, severity: severity.id, severities: data.severities};
+
+		if (this.#isCategory()) {
+			const row = data.category?.rows?.[params.dataIndex];
+
+			if (!row) {
+				return;
+			}
+
+			ctx.key = row.id;
+			ctx.label = row.label;
+			ctx.start = 0;
+			ctx.end = 0;
+			// Event mode: 設定「イベント表示」（プロトタイプグループ／個別イベント）と、そのGroupが実際に
+			// Trigger prototype由来か（Fallbackされた個別Eventか）。Drilldownのタイトル・ヘッダー・
+			// 応答内容（kind）の分岐に使う（サーバー側 event_display と対応、Runtime切替はない。§1/§44）。
+			ctx.eventDisplay = data.category?.event_display ?? null;
+			ctx.isPrototype = !!row.is_prototype;
+		}
+		else {
+			const bucket = data.buckets?.[params.dataIndex];
+
+			if (!bucket) {
+				return;
+			}
+
+			ctx.key = '';
+			ctx.label = bucket.range;
+			ctx.start = bucket.start;
+			ctx.end = bucket.end;
+		}
+
+		this.#openDetail(ctx);
+	}
+
+	#openDetail(ctx) {
+		const box = document.createElement('div');
+		box.className = 'et-detail';
+
+		const state = {ctx, page: 1, detail: null, error: null, loading: true};
+		const seq = ++this.#detail_seq;
+
+		overlayDialogue({
+			// プロトタイプグループ表示（settings: event_display）では実Eventの一覧を返すため、
+			// 個別イベント表示（Affected hosts = Host一覧）と表題を分ける。
+			title: ctx.mode === CWidgetEventTimeline.MODE_EVENT && ctx.eventDisplay === 'individual'
+				? t('Affected hosts')
+				: t('Event details'),
+			class: 'modal-popup et-detail-popup',
+			content: box,
+			buttons: [{title: t('Close'), cancel: true, action: () => {}}],
+			dialogueid: CWidgetEventTimeline.DETAIL_DIALOGUE_ID
+		});
+
+		this.#renderDetail(box, state);
+
+		this.#fetchDetail(ctx)
+			.then(detail => {
+				if (seq === this.#detail_seq) {
+					state.detail = detail;
+				}
+			})
+			.catch(error => {
+				if (seq === this.#detail_seq) {
+					state.error = typeof error === 'string' && error !== '' ? error : t('Failed to retrieve events.');
+				}
+			})
+			.finally(() => {
+				if (seq === this.#detail_seq) {
+					state.loading = false;
+					this.#renderDetail(box, state);
+				}
+			});
+	}
+
+	#fetchDetail(ctx) {
+		const curl = new Curl('zabbix.php');
+		curl.setArgument('action', `widget.${this._type}.view`);
+
+		const body = this.getUpdateRequestData();
+
+		body.fields = {
+			...(body.fields ?? {}),
+			dd_active: 1,
+			dd_start: ctx.start,
+			dd_end: ctx.end,
+			dd_severity: ctx.severity,
+			dd_key: ctx.key
+		};
+
+		return fetch(curl.getUrl(), {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json'},
+			body: JSON.stringify(body)
+		})
+			.then(response => response.json())
+			.then(response => {
+				if ('error' in response) {
+					throw typeof response.error === 'string' ? response.error : '';
+				}
+
+				if (!response.detail) {
+					throw '';
+				}
+
+				return response.detail;
+			});
+	}
+
+	static #duration(seconds) {
+		const units = [[86400, 'd'], [3600, 'h'], [60, 'm'], [1, 's']];
+		const parts = [];
+		let rest = Math.max(0, Math.floor(seconds));
+
+		for (const [size, label] of units) {
+			const value = Math.floor(rest / size);
+
+			if (value > 0 || (label === 's' && parts.length === 0)) {
+				parts.push(value + label);
+			}
+
+			rest -= value * size;
+
+			if (parts.length === 2) {
+				break;
+			}
+		}
+
+		return parts.join(' ');
+	}
+
+	#renderDetail(box, state) {
+		const {ctx, detail} = state;
+		const sev = ctx.severities.find(s => s.id === ctx.severity);
+
+		box.innerHTML = '';
+
+		const el = (tag, class_name, text) => {
+			const node = document.createElement(tag);
+
+			if (class_name) {
+				node.className = class_name;
+			}
+
+			if (text !== undefined) {
+				node.textContent = text;
+			}
+
+			return node;
+		};
+
+		const severityCell = (severity_id, parent) => {
+			const def = ctx.severities.find(s => s.id === severity_id);
+			const dot = el('span', 'et-detail-dot');
+
+			dot.style.background = def?.color ?? '#97AAB3';
+			parent.appendChild(dot);
+			parent.appendChild(document.createTextNode(def?.name ?? String(severity_id)));
+		};
+
+		// Header: 何をDrilldownしたか。
+		const head = el('dl', 'et-detail-head');
+		const addHead = (label, value, severity_id) => {
+			head.appendChild(el('dt', null, label));
+
+			const dd = el('dd');
+
+			if (severity_id !== undefined) {
+				severityCell(severity_id, dd);
+			}
+			else {
+				dd.textContent = value;
+			}
+
+			head.appendChild(dd);
+		};
+
+		if (ctx.mode === CWidgetEventTimeline.MODE_TIMELINE) {
+			addHead(t('Period'), ctx.label);
+		}
+		else {
+			// プロトタイプグループのGroup（Trigger prototype由来）だけ、ラベルを「プロトタイプグループ」にする。
+			// Fallbackされた個別Event（is_prototype=false）は、プロトタイプグループ設定下でも通常のEventとして扱う（§37）。
+			const dim_label = ctx.mode === CWidgetEventTimeline.MODE_EVENT && ctx.isPrototype
+				? t('Prototype group')
+				: {
+					[CWidgetEventTimeline.MODE_HOST]: t('Host'),
+					[CWidgetEventTimeline.MODE_GROUP]: t('Host group'),
+					[CWidgetEventTimeline.MODE_EVENT]: t('Event')
+				}[ctx.mode];
+
+			addHead(dim_label, ctx.label);
+
+			if (detail?.period) {
+				addHead(t('Period'), detail.period);
+			}
+		}
+
+		if (sev) {
+			addHead(t('Severity'), '', sev.id);
+		}
+
+		box.appendChild(head);
+
+		if (state.loading) {
+			box.appendChild(el('div', 'is-loading et-detail-loading'));
+			return;
+		}
+
+		if (state.error !== null) {
+			box.appendChild(el('div', 'et-detail-message et-error', state.error));
+			return;
+		}
+
+		if (detail.kind === 'hosts') {
+			// 個別イベント表示（従来どおり）: 影響ホスト数のみ。
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Affected hosts: %1$s'), detail.total)));
+		}
+		else if (typeof detail.host_count === 'number') {
+			// プロトタイプグループ: 影響ホスト数（棒・Popupと同じ規則で数えたHost数）と該当イベント数の両方（§25〜27, §41）。
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Affected hosts: %1$s'), detail.host_count)));
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Matching events: %1$s'), detail.total)));
+		}
+		else {
+			// Timeline / Host / Host group（従来どおり）: 該当イベント数のみ。
+			box.appendChild(el('div', 'et-detail-count', sprintf(t('Matching events: %1$s'), detail.total)));
+		}
+
+		// 元のEvent取得が上限に達している場合、一覧も不完全であることを明示する。
+		if (detail.source_truncated) {
+			box.appendChild(el('div', 'et-warning', t('This list is based on data that reached the event retrieval limit.')));
+		}
+
+		if (detail.rows_truncated) {
+			box.appendChild(el('div', 'et-warning', sprintf(
+				t('Only the newest %1$s of %2$s events are listed.'), detail.rows.length, detail.total
+			)));
+		}
+
+		if (detail.rows.length === 0) {
+			box.appendChild(el('div', 'et-detail-message', t('No matching data.')));
+			return;
+		}
+
+		const size = this.#detail_page_size;
+		const pages = Math.max(1, Math.ceil(detail.rows.length / size));
+		state.page = Math.max(1, Math.min(pages, state.page));
+
+		const rows = detail.rows.slice((state.page - 1) * size, state.page * size);
+		const table = el('table', 'list-table et-detail-table');
+		const thead = el('thead');
+		const tr_head = el('tr');
+
+		const columns = detail.kind === 'hosts'
+			? [t('Host'), t('Severity'), t('Number of events')]
+			: [t('Time'), t('Recovery time'), t('Duration'), t('Host'), t('Event'), t('Severity'),
+				t('Acknowledgement'), t('Status')];
+
+		for (const c of columns) {
+			tr_head.appendChild(el('th', null, c));
+		}
+
+		thead.appendChild(tr_head);
+		table.appendChild(thead);
+
+		const tbody = el('tbody');
+
+		for (const r of rows) {
+			const tr = el('tr');
+
+			if (detail.kind === 'hosts') {
+				tr.appendChild(el('td', 'et-detail-wrap', r.name));
+				severityCell(r.severity, tr.appendChild(el('td')));
+				tr.appendChild(el('td', 'et-detail-num', String(r.count)));
+			}
+			else {
+				tr.appendChild(el('td', 'et-detail-nowrap', r.clock));
+				tr.appendChild(el('td', 'et-detail-nowrap', r.end ?? '-'));
+				tr.appendChild(el('td', 'et-detail-nowrap', CWidgetEventTimeline.#duration(r.duration)));
+				tr.appendChild(el('td', 'et-detail-wrap', r.hosts.map(h => h.name).join(', ')));
+
+				const name = el('td', 'et-detail-wrap');
+
+				if (r.triggerid !== '0') {
+					const a = el('a', null, r.name);
+
+					a.href = `tr_events.php?triggerid=${encodeURIComponent(r.triggerid)}&eventid=${encodeURIComponent(r.eventid)}`;
+					a.target = '_blank';
+					a.rel = 'noopener';
+					name.appendChild(a);
+				}
+				else {
+					name.textContent = r.name;
+				}
+
+				tr.appendChild(name);
+				severityCell(r.severity, tr.appendChild(el('td', 'et-detail-nowrap')));
+				tr.appendChild(el('td', 'et-detail-nowrap', r.acknowledged ? t('Acknowledged') : t('Unacknowledged')));
+				tr.appendChild(el('td', 'et-detail-nowrap', r.ongoing ? t('Ongoing') : t('Resolved')));
+			}
+
+			tbody.appendChild(tr);
+		}
+
+		table.appendChild(tbody);
+
+		const scroller = el('div', 'et-detail-scroll');
+		scroller.appendChild(table);
+		box.appendChild(scroller);
+
+		if (pages > 1) {
+			const pager = el('div', 'et-detail-pager');
+			const mk = (label, page, disabled) => {
+				const b = el('button', 'btn-alt', label);
+
+				b.type = 'button';
+				b.disabled = disabled;
+				b.addEventListener('click', () => {
+					state.page = page;
+					this.#renderDetail(box, state);
+				});
+
+				return b;
+			};
+
+			pager.appendChild(mk('‹', state.page - 1, state.page <= 1));
+			pager.appendChild(el('span', 'et-detail-pager-text', sprintf(t('Page %1$s / %2$s'), state.page, pages)));
+			pager.appendChild(mk('›', state.page + 1, state.page >= pages));
+			box.appendChild(pager);
+		}
+	}
+
+	// ─── Paging ───────────────────────────────────────────────────
+	// 自動ページ送り: 全ページを1→…→最終→1と巡回する。ページが1つ以下のときは何もしない。
+	// 手動のページ変更では無効化せずタイマーだけをリセットし、条件変更（ページ1へ戻る）でもリセットする。
+	#syncAutoPage() {
+		const pager = this.#data?.category?.pager;
+		const seconds = this.#data?.auto_page ?? 0;
+		const active = this.#isCategory() && pager && pager.pages > 1 && seconds > 0;
+
+		if (!active) {
+			this.#stopAutoPage();
+			return;
+		}
+
+		// 既に同じ間隔で動いていれば、更新（Refresh）のたびにタイマーをやり直さない。
+		if (this.#auto_timer === null || this.#auto_seconds !== seconds) {
+			this.#startAutoPage(seconds);
+		}
+	}
+
+	#startAutoPage(seconds) {
+		this.#stopAutoPage();
+
+		this.#auto_seconds = seconds;
+		this.#auto_timer = setInterval(() => {
+			const pager = this.#data?.category?.pager;
+
+			if (!pager || pager.pages <= 1) {
+				return;
+			}
+
+			this.#runtime.page = this.#runtime.page >= pager.pages ? 1 : this.#runtime.page + 1;
+			this._startUpdating();
+		}, seconds * 1000);
+	}
+
+	#stopAutoPage() {
+		if (this.#auto_timer !== null) {
+			clearInterval(this.#auto_timer);
+			this.#auto_timer = null;
+		}
+	}
+
+	#resetAutoPage() {
+		if (this.#auto_timer !== null) {
+			this.#startAutoPage(this.#auto_seconds);
+		}
+	}
+
+	#goPage(page) {
+		this.#runtime.page = page;
+		this.#resetAutoPage();
+		// ボタン状態は応答で更新される。ここでは再取得のみ。
+		this._startUpdating();
+	}
+
+	// グラフ下部（X軸の時刻・期間線より下）: 左に合計、右に間隔。
+	#buildFooter(data) {
+		const footer = document.createElement('div');
+		footer.className = 'et-footer';
+
+		if (this.#isCategory()) {
+			// 次元モード: 合計・間隔は出さず、対象件数とページ情報を出す。
+			const pager = data.category?.pager;
+			const info = document.createElement('span');
+			info.className = 'et-total';
+			info.textContent = sprintf(t('Targets: %1$s (showing %2$s–%3$s)'), pager?.total ?? 0, pager?.from ?? 0,
+				pager?.to ?? 0
+			);
+
+			footer.appendChild(info);
+
+			if (pager && pager.pages > 1) {
+				footer.appendChild(this.#buildPager(pager));
+			}
+
+			return footer;
+		}
 
 		const total = document.createElement('span');
 		total.className = 'et-total';
 		total.textContent = t('Total') + ': ' + data.total;
 
-		// Runtime操作領域。今後の操作（Severity Filter 等）もここへ並べる。
-		const controls = document.createElement('div');
-		controls.className = 'et-controls';
-		controls.appendChild(this.#buildTipModeButton());
-		controls.appendChild(interval);
+		const interval = document.createElement('span');
+		interval.className = 'et-interval';
+		interval.textContent = t('Interval') + ': ' + data.interval.label;
 
-		bar.appendChild(total);
-		bar.appendChild(controls);
+		footer.appendChild(total);
+		footer.appendChild(interval);
+
+		return footer;
+	}
+
+	// ページ送り: ‹ 2 / 7 ›（Top Nではなく、全件を1ページ分ずつ表示する）。
+	#buildPager(pager) {
+		const box = document.createElement('span');
+		box.className = 'et-pager';
+
+		const mk = (label, page, disabled) => {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'et-btn';
+			b.textContent = label;
+			b.disabled = disabled;
+			b.addEventListener('click', () => this.#goPage(page));
+
+			return b;
+		};
+
+		const text = document.createElement('span');
+		text.className = 'et-pager-text';
+		text.textContent = sprintf(t('Page %1$s / %2$s'), pager.page, pager.pages);
+
+		box.appendChild(mk('\u2039', pager.page - 1, pager.page <= 1));
+		box.appendChild(text);
+		box.appendChild(mk('\u203A', pager.page + 1, pager.page >= pager.pages));
+
+		return box;
+	}
+
+	// Runtime操作領域（2行構成）。
+	// 1行目: 集計 / 確認状態 / 詳細表示順 / 条件リセット（機能ごとのグループを横並び。操作専用）。
+	// 2行目: 深刻度（Severity Filter）専用行。
+	#buildToolbar(data) {
+		const bar = document.createElement('div');
+		bar.className = 'et-toolbar';
+
+		const row1 = document.createElement('div');
+		row1.className = 'et-controls';
+		row1.appendChild(this.#buildModeGroup());
+		row1.appendChild(this.#buildCountModeGroup());
+		row1.appendChild(this.#buildAckGroup());
+
+		if (this.#isCategory()) {
+			row1.appendChild(this.#buildSortGroup());
+		}
+		else {
+			row1.appendChild(this.#buildTipModeGroup());
+		}
+
+		row1.appendChild(this.#buildResetGroup(data));
+
+		bar.appendChild(row1);
+		bar.appendChild(this.#buildSeverityRow(data));
 
 		return bar;
 	}
 
-	// Tooltip詳細の並び順切替（Tooltip内に操作UIを置くとMouse移動で閉じるため、表示画面上に置く）。
-	#buildTipModeButton() {
+	// Runtime の変更を反映する。表示（ボタン状態）は即時に更新し、集計は再取得（Filter → Aggregation → Rendering）する。
+	// 条件（モード・集計・確認・深刻度・並び）が変わったときはページ1へ戻し、自動ページ送りのタイマーもやり直す。
+	#applyRuntimeChange() {
+		this.#runtime.page = 1;
+		this.#resetAutoPage();
+
+		// 表示中のデータの形（Timeline: buckets / 次元モード: category）が新しいモードと合わないときは、
+		// 即時再描画せず再取得だけを行う（合わないデータで描画すると例外になり、再取得も止まる）。
+		const shape_ok = this.#data
+			&& (this.#runtime.mode === CWidgetEventTimeline.MODE_TIMELINE) === (this.#data.category === null);
+
+		try {
+			if (shape_ok) {
+				this.#render();
+			}
+		}
+		finally {
+			this._startUpdating();
+		}
+	}
+
+	static #sameSet(a, b) {
+		return a.length === b.length && a.every(v => b.includes(v));
+	}
+
+	// 確認状態の配列（1=確認済み / 0=未確認）⇄ 排他的な選択（all / unack / ack）。
+	static #ackMode(ack) {
+		const has_ack = ack.includes(1);
+		const has_unack = ack.includes(0);
+
+		return has_ack && !has_unack ? 'ack' : (!has_ack && has_unack ? 'unack' : 'all');
+	}
+
+	static #ackFromMode(mode) {
+		return mode === 'ack' ? [1] : (mode === 'unack' ? [0] : [1, 0]);
+	}
+
+	// ボタングループ。説明ラベルは表示せず、支援技術向けの aria-label のみ付ける。
+	#buildGroup(label) {
+		const group = document.createElement('div');
+		group.className = 'et-group';
+		group.setAttribute('role', 'group');
+		group.setAttribute('aria-label', label);
+
+		return group;
+	}
+
+	// 排他的な選択ボタン（選択中は文字・外観の両方で判別できる）。
+	#buildChoice(group, label, selected, title, onSelect) {
 		const button = document.createElement('button');
+
 		button.type = 'button';
-		button.className = 'et-tipmode';
+		button.className = 'et-btn' + (selected ? ' et-selected' : '');
+		button.textContent = label;
+		button.setAttribute('aria-pressed', selected ? 'true' : 'false');
 
-		const update = () => {
-			const by_host = this.#tip_mode === 'host';
-			const label = by_host
-				? t('Tooltip details: grouped by host (click to sort chronologically)')
-				: t('Tooltip details: chronological (click to group by host)');
-
-			button.title = label;
-			button.setAttribute('aria-label', label);
-			button.dataset.mode = this.#tip_mode;
-			// 左: Host単位（見出し＋インデント行）/ 右: 時系列（時刻順の平坦な行）を示すアイコン。
-			button.innerHTML = by_host
-				? '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor">' +
-					'<rect x="1" y="2" width="8" height="2"/><rect x="4" y="6" width="11" height="2"/>' +
-					'<rect x="1" y="10" width="8" height="2"/><rect x="4" y="14" width="11" height="1.5"/></g></svg>'
-				: '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor">' +
-					'<rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="14" height="2"/>' +
-					'<rect x="1" y="12" width="14" height="2"/></g></svg>';
-		};
+		if (title) {
+			button.title = title;
+		}
 
 		button.addEventListener('click', () => {
-			this.#tip_mode = this.#tip_mode === 'host' ? 'time' : 'host';
-			update();
+			if (!selected) {
+				onSelect();
+			}
 		});
 
-		update();
+		group.appendChild(button);
+	}
 
-		return button;
+	// 表示モード: 時系列 / ホスト / ホストグループ / イベント（排他。実行時の切替は設定値を変えない）。
+	#buildModeGroup() {
+		const group = this.#buildGroup(t('Display mode'));
+
+		for (const [mode, label] of [
+			[CWidgetEventTimeline.MODE_TIMELINE, t('Timeline')],
+			[CWidgetEventTimeline.MODE_HOST, t('Host')],
+			[CWidgetEventTimeline.MODE_GROUP, t('Host group')],
+			[CWidgetEventTimeline.MODE_EVENT, t('Event')]
+		]) {
+			this.#buildChoice(group, label, this.#runtime.mode === mode, '', () => {
+				this.#runtime.mode = mode;
+				this.#applyRuntimeChange();
+			});
+		}
+
+		return group;
+	}
+
+	// 並び順（次元モードのみ）: 件数順 / A→Z / Z→A。
+	#buildSortGroup() {
+		const group = this.#buildGroup(t('Sort order'));
+
+		for (const [sort, label] of [[0, t('By count')], [1, t('A to Z')], [2, t('Z to A')]]) {
+			this.#buildChoice(group, label, this.#runtime.sort === sort, '', () => {
+				this.#runtime.sort = sort;
+				this.#applyRuntimeChange();
+			});
+		}
+
+		return group;
+	}
+
+	// 集計: 発生数 / 継続数（Event Count Mode）。
+	#buildCountModeGroup() {
+		const group = this.#buildGroup(t('Aggregation'));
+		const current = this.#runtime.count_mode;
+		const pick = mode => () => {
+			this.#runtime.count_mode = mode;
+			this.#applyRuntimeChange();
+		};
+
+		this.#buildChoice(group, t('Occurred count'), current === CWidgetEventTimeline.COUNT_OCCURRENCE,
+			t('Number of events that started in each bucket'), pick(CWidgetEventTimeline.COUNT_OCCURRENCE)
+		);
+		this.#buildChoice(group, t('Continuing count'), current === CWidgetEventTimeline.COUNT_CONTINUOUS,
+			t('Number of events overlapping each bucket'), pick(CWidgetEventTimeline.COUNT_CONTINUOUS)
+		);
+
+		return group;
+	}
+
+	// 確認: 全て / 未確認 / 確認済み（取得時点のEventの現在の確認状態で判定する）。
+	#buildAckGroup() {
+		const group = this.#buildGroup(t('Ack status'));
+		const current = CWidgetEventTimeline.#ackMode(this.#runtime.ack);
+
+		for (const [mode, label] of [['all', t('All')], ['unack', t('Unacknowledged')],
+				['ack', t('Acknowledged')]]) {
+			this.#buildChoice(group, label, current === mode, '', () => {
+				this.#runtime.ack = CWidgetEventTimeline.#ackFromMode(mode);
+				this.#applyRuntimeChange();
+			});
+		}
+
+		return group;
+	}
+
+	// 詳細: ホスト順 / 時系列（Tooltip詳細の並び。表示画面上の操作のみで、集計には影響しない）。
+	#buildTipModeGroup() {
+		const group = this.#buildGroup(t('Tooltip order'));
+
+		for (const [mode, label] of [['host', t('By host')], ['time', t('Chronological')]]) {
+			this.#buildChoice(group, label, this.#tip_mode === mode, '', () => {
+				this.#tip_mode = mode;
+				// Resetの有効/無効を更新するため、ツールバーを含めて再描画する（再取得は不要）。
+				this.#render();
+			});
+		}
+
+		return group;
+	}
+
+	// リセット: 集計・確認・深刻度・詳細を設定初期値へ戻す（「全ON」ではない）。設定値と同じ状態のときは無効。
+	#buildResetGroup(data) {
+		const configured = data.configured;
+		const same = CWidgetEventTimeline.#sameSet(this.#runtime.severities, configured.severities)
+			&& CWidgetEventTimeline.#ackMode(this.#runtime.ack) === CWidgetEventTimeline.#ackMode(configured.ack)
+			&& this.#runtime.count_mode === configured.count_mode
+			&& this.#runtime.mode === configured.mode
+			&& this.#runtime.sort === configured.sort
+			&& this.#runtime.page === 1
+			&& this.#tip_mode === CWidgetEventTimeline.TIP_MODE_DEFAULT;
+
+		const group = document.createElement('div');
+		// et-group-end: 折り返し時に単独で行の先頭へ取り残されて見えないよう、常に行の右端へ寄せる（§4）。
+		group.className = 'et-group et-group-end';
+
+		const button = document.createElement('button');
+
+		button.type = 'button';
+		button.className = 'et-btn et-reset';
+		button.disabled = same;
+		button.textContent = t('Reset conditions');
+		button.title = t('Reset filters to the configured values');
+
+		button.addEventListener('click', () => {
+			this.#runtime = {
+				severities: [...configured.severities],
+				ack: [...configured.ack],
+				count_mode: configured.count_mode,
+				mode: configured.mode,
+				sort: configured.sort,
+				page: 1
+			};
+			this.#tip_mode = CWidgetEventTimeline.TIP_MODE_DEFAULT;
+			this.#applyRuntimeChange();
+		});
+
+		group.appendChild(button);
+
+		return group;
+	}
+
+	// 深刻度: Severity Filter 専用行。色付きラベルチップ（ON=Severity色で塗り / OFF=枠のみ・薄く）。
+	// Hoverで正式名称と件数を表示する。件数はSeverity自身のON/OFFを除く現在条件での件数（OFFでも本来の件数を確認できる）。
+	#buildSeverityRow(data) {
+		const row = document.createElement('div');
+		row.className = 'et-severity-row';
+		row.setAttribute('role', 'group');
+		row.setAttribute('aria-label', t('Severity level'));
+
+		const labels = [t('Not classified (chip)'), t('Information (chip)'), t('Warning (chip)'),
+			t('Average (chip)'), t('High (chip)'), t('Disaster (chip)')];
+
+		for (const s of data.severities) {
+			const on = this.#runtime.severities.includes(s.id);
+			const count = (data.severity_counts ?? [])[s.id] ?? 0;
+			const button = document.createElement('button');
+
+			button.type = 'button';
+			button.className = 'et-chip et-sev' + (on ? ' et-on' : ' et-off');
+			button.style.setProperty('--et-sev-color', s.color);
+			button.style.setProperty('--et-sev-text', CWidgetEventTimeline.#contrastText(s.color));
+			button.textContent = labels[s.id] ?? s.name;
+			button.title = s.name + '\n' + sprintf(t('%1$s events'), count);
+			button.setAttribute('aria-pressed', on ? 'true' : 'false');
+
+			button.addEventListener('click', () => {
+				const list = this.#runtime.severities;
+
+				this.#runtime.severities = list.includes(s.id) ? list.filter(v => v !== s.id) : [...list, s.id];
+				this.#applyRuntimeChange();
+			});
+
+			row.appendChild(button);
+		}
+
+		return row;
+	}
+
+	// Severity色の背景に載せる文字色（明るい色には濃い文字、暗い色には白）。
+	static #contrastText(hex) {
+		const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+
+		if (!m) {
+			return '#fff';
+		}
+
+		const [r, g, b] = [m[1], m[2], m[3]].map(v => parseInt(v, 16));
+
+		return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#1f2c33' : '#fff';
 	}
 
 	// Event取得上限に達した場合、グラフは実際より少ない件数を示す。目立つ警告を常時表示する。
@@ -294,14 +1126,207 @@ class CWidgetEventTimeline extends CWidget {
 		};
 	}
 
+	// 次元モード（By Host / By Host group / By Event）の棒グラフ。カテゴリは間引かず、長い名称は省略・回転する。
+	// 完全な名称は軸ラベルのHoverとTooltipで確認できる。
+	// X軸ラベルの向き。0=水平 / 45=斜め / 90=縦（0:自動 1:水平 2:斜め 3:縦）。
+	// 自動は、水平のまま各ラベルが帯幅に収まる（文字幅の概算）なら水平、収まらなければ斜め。縦へは自動で切り替えない。
+	#xLabelRotate(rows, band, mode) {
+		if (mode === 1) {
+			return 0;
+		}
+
+		if (mode === 2) {
+			return 45;
+		}
+
+		if (mode === 3) {
+			return 90;
+		}
+
+		const char_w = 7;
+		const longest = Math.max(0, ...rows.map(r => [...String(r.label)]
+			.reduce((w, c) => w + (c.charCodeAt(0) > 255 ? char_w * 2 : char_w), 0)));
+
+		// 水平表示は帯幅に収まらないラベルが省略されるため、1ラベル最大でも帯幅で切る前提で、半分以上切れるなら斜めにする。
+		return longest <= band - 6 || band >= longest * 0.6 + 6 ? 0 : 45;
+	}
+
+	// ラベル文字列の概算ピクセル幅（全角は2倍）。表示上のラベル箱（width_box）で頭打ちにする。
+	static #labelPixelWidth(label, width_box) {
+		const char_w = 7;
+		const raw = [...String(label ?? '')].reduce((w, c) => w + (c.charCodeAt(0) > 255 ? char_w * 2 : char_w), 0);
+
+		return Math.min(raw, width_box);
+	}
+
+	// 斜め・縦表示で、先頭・末尾カテゴリのラベルがband幅の半分（boundaryGapによる余白）を超えてはみ出す分だけ、
+	// grid外側へ追加の余白を確保する（§2）。水平表示・カテゴリ数が十分に少ない（bandが広い）場合は追加なし。
+	static #edgeLabelMargin(label, width_box, band, rotate) {
+		if (rotate === 0 || !label) {
+			return 0;
+		}
+
+		const overhang = CWidgetEventTimeline.#labelPixelWidth(label, width_box) * Math.abs(Math.cos(rotate * Math.PI / 180));
+
+		return Math.min(Math.max(0, Math.ceil(overhang - band / 2)), 90);
+	}
+
+	// 斜め・縦表示のときだけ、ラベルの高さ分の下部余白を確保する（水平表示・短いラベルは既存の最小値のまま。§3）。
+	// グラフ本体を過度に縮小しないよう、グラフ高さに応じた上限も設ける。
+	static #categoryBottomMargin(rows, width_box, rotate, graph_height) {
+		if (rotate === 0) {
+			return 8;
+		}
+
+		const longest = Math.max(0, ...rows.map(r => CWidgetEventTimeline.#labelPixelWidth(r.label, width_box)));
+		// 90度: 縦書きの見かけの高さ ≈ 文字列のピクセル長。45度: 対角線の高さ成分 + 行の高さ分。
+		const needed = rotate === 90 ? longest : longest * Math.sin(rotate * Math.PI / 180) + 14;
+		const min_plot = 20;
+		const max_bottom = Math.max(8, (graph_height || 0) - 28 - min_plot);
+
+		return Math.min(Math.ceil(needed) + 12, max_bottom, 80);
+	}
+
+	#buildCategoryOption(data) {
+		const colors = this.#resolveColors(data.style);
+		const rows = data.category.rows;
+		const by_event = this.#runtime.mode === CWidgetEventTimeline.MODE_EVENT;
+		const enabled = data.severities.filter(s => s.enabled);
+		const width = this.#chart.getWidth();
+		const band = Math.max(width - 48, 1) / Math.max(rows.length, 1);
+		const rotate = this.#xLabelRotate(rows, band, data.style.x_label);
+		const width_box = rotate === 0 ? Math.max(band - 6, 24) : 130;
+		const edge_left = CWidgetEventTimeline.#edgeLabelMargin(rows[0]?.label, width_box, band, rotate);
+		const edge_right = rows.length > 1
+			? CWidgetEventTimeline.#edgeLabelMargin(rows[rows.length - 1]?.label, width_box, band, rotate)
+			: edge_left;
+		const bottom = CWidgetEventTimeline.#categoryBottomMargin(rows, width_box, rotate, data.style.graph_height);
+
+		const series = enabled.map(s => ({
+			name: s.name,
+			type: 'bar',
+			stack: 'severity',
+			barCategoryGap: '20%',
+			itemStyle: {color: s.color},
+			emphasis: {focus: 'none', itemStyle: {borderColor: colors.text, borderWidth: 2}},
+			data: rows.map(r => r.counts[s.id])
+		}));
+
+		const data_max = Math.max(0, ...rows.map(r => enabled.reduce((sum, s) => sum + r.counts[s.id], 0)));
+		const y_min_scale = data.style.y_axis_min;
+
+		return {
+			animation: false,
+			backgroundColor: 'transparent',
+			textStyle: {color: colors.text},
+			grid: {left: 8 + edge_left, right: 16 + edge_right, top: 28, bottom, containLabel: true},
+			xAxis: {
+				type: 'category',
+				data: rows.map(r => r.label),
+				axisLine: {lineStyle: {color: colors.line}},
+				axisTick: {alignWithLabel: true, lineStyle: {color: colors.line}},
+				axisLabel: {
+					color: colors.text,
+					interval: 0,
+					hideOverlap: false,
+					rotate,
+					width: width_box,
+					overflow: 'truncate',
+					ellipsis: '\u2026'
+				},
+				triggerEvent: true,
+				tooltip: {show: true, formatter: p => CWidgetEventTimeline.#escape(p.value)}
+			},
+			yAxis: {
+				type: 'value',
+				name: by_event ? t('Affected hosts') : t('Event count'),
+				nameTextStyle: {color: colors.text, align: 'left'},
+				min: 0,
+				max: y_min_scale > 0 && data_max <= y_min_scale ? y_min_scale : undefined,
+				minInterval: 1,
+				axisLine: {show: true, lineStyle: {color: colors.line}},
+				axisTick: {show: true, lineStyle: {color: colors.line}},
+				axisLabel: {color: colors.text, formatter: v => String(Math.round(v))},
+				splitLine: {lineStyle: {color: colors.line, opacity: 0.6}}
+			},
+			tooltip: {
+				trigger: 'item',
+				confine: true,
+				backgroundColor: colors.background,
+				borderColor: colors.line,
+				textStyle: {color: colors.text},
+				formatter: params => this.#categoryTooltipHtml(data, params, enabled, by_event)
+			},
+			series
+		};
+	}
+
+	// カテゴリTooltip: 名称（省略なし）、合計、Hoverしている深刻度の件数。By Event の件数は影響ホスト数。
+	// Event mode（個別イベント／プロトタイプグループ共通）では、影響Host名の一覧（上限超過は「ほかN台」）を追加する。
+	// プロトタイプグループのGroupでは、さらに該当イベント数（Filter後の実Event数）も示す（§20〜24）。
+	#categoryTooltipHtml(data, params, enabled, by_event) {
+		const p = Array.isArray(params) ? params[0] : params;
+
+		if (p?.componentType === 'xAxis') {
+			return `<div class="et-tip">${CWidgetEventTimeline.#escape(p.value)}</div>`;
+		}
+
+		const row = data.category.rows[p?.dataIndex];
+		const severity = enabled[p?.seriesIndex];
+
+		if (!row || !severity) {
+			return '';
+		}
+
+		const esc = CWidgetEventTimeline.#escape;
+		const total_label = by_event ? t('Affected hosts') : t('Event count');
+
+		let html = `<div class="et-tip"><div class="et-tip-range">${esc(row.label)}</div>` +
+			`<div class="et-tip-total"><b>${esc(total_label)}: ${row.total}</b></div>`;
+
+		if (typeof row.event_count === 'number') {
+			html += `<div class="et-tip-total"><b>${esc(t('Number of events'))}: ${row.event_count}</b></div>`;
+		}
+
+		html += `<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
+			`${esc(severity.name)}: ${row.counts[severity.id]}</div>`;
+
+		if (Array.isArray(row.hosts)) {
+			for (const host of row.hosts) {
+				html += `<div class="et-tip-host">${esc(host)}</div>`;
+			}
+
+			if (row.hosts_more > 0) {
+				html += `<div class="et-tip-more">${esc(sprintf(t('%1$s more hosts'), row.hosts_more))}</div>`;
+			}
+		}
+
+		return html + '</div>';
+	}
+
 	static ROW_HEIGHT = 18;
+
+	/**
+	 * 長期間表示（12時間以上のBucket幅）では、X軸主表示を時刻ではなく日付にする。
+	 * 時刻の繰り返し表示（00:00 等）よりも日付の把握を優先するため（Tooltipで時刻詳細は維持）。
+	 */
+	#isDatePrimary(data) {
+		return data.interval.unit === 'hour' && data.interval.count >= 12;
+	}
 
 	/**
 	 * X軸ラベル。ラベルを表示するTickは幅から求めた一定間隔（step）で決め、ECharts任せの間引きは使わない。
 	 * Tickには最小の単位（分・時Bucketは時刻、日・週・月Bucketは日付/月）だけを出し、
 	 * それより上位の階層（月日・年）は下部の期間線（#periodGraphic）で示す。
+	 *
+	 * 日付主表示（#isDatePrimary）のときは、この行自体を表示しない。時刻の繰り返し表示をなくし、
+	 * 日付は#periodGraphicの行（Bucketペアをまたいで中央寄せ）だけで示すため。
 	 */
 	#axisLabelOption(data) {
+		if (this.#isDatePrimary(data)) {
+			return {show: false};
+		}
+
 		const buckets = data.buckets;
 		const colors = this.#resolveColors(data.style);
 		const width = this.#chart ? this.#chart.getWidth() : 0;
@@ -324,18 +1349,102 @@ class CWidgetEventTimeline extends CWidget {
 	/**
 	 * X軸下部に並べる期間線の行。上から、時刻Bucketでは 月日 → 年、日・週・月Bucketでは 年。
 	 * 長期間表示向けに月などの階層を足せるよう、行は配列で表す。
+	 *
+	 * 日付主表示（12時間以上のBucket、#isDatePrimary）では、この日付行がX軸の主表示を兼ねるため、
+	 * 間引き（thin: true）で「表示期間の先頭・末尾」「月の切替日」「間隔を空けた中間の日付」を
+	 * 優先して残す（#periodGraphicで判定）。時刻だけの独立行は設けない。
 	 */
 	#periodRows(data) {
 		const sub_day = data.interval.unit === 'minute' || data.interval.unit === 'hour';
+		const date_primary = this.#isDatePrimary(data);
 		const rows = [];
 
 		if (sub_day) {
-			rows.push({key: b => b.axis.key, text: b => b.axis.date});
+			rows.push({key: b => b.axis.key, text: b => b.axis.date, thin: date_primary});
 		}
 
 		rows.push({key: b => b.axis.year, text: b => b.axis.year});
 
 		return rows;
+	}
+
+	/**
+	 * 間引き対象の行で、実際にラベルを表示するグループ添字を選ぶ。
+	 *
+	 * 「何日おきに出すか（step）」を幅から決め、一つの等間隔の格子（0, step, 2*step, ...）を
+	 * 敷くことで表示間隔を均一にする。月初（月が変わる日）が範囲内にあれば、格子を
+	 * 「別候補として追加」するのではなく、格子の基準位相そのものを月初に合わせることで、
+	 * 月初を含めたまま格子全体が均等間隔になるようにする（月替わりの前後だけ間隔が
+	 * 詰まる/開くという不規則な見た目を避ける）。
+	 * 期間の開始・終了は常に表示し、最寄りの格子点を置き換える形で確保する（新規候補として
+	 * 追加すると、隣接する格子点と衝突してどちらも描画されない、という共倒れの原因になるため）。
+	 * Bucketの統合や再集計は行わず、描画するラベルの取捨選択のみを行う。
+	 */
+	static #pickThinnedLabels(groups, avg_width, label_width) {
+		const n = groups.length;
+
+		if (n <= 1 || avg_width >= label_width) {
+			return new Set(groups.map((g, i) => i));
+		}
+
+		if (n <= 2) {
+			return new Set([0, n - 1]);
+		}
+
+		const month_of = g => g.text.slice(0, 2);
+		const step = Math.max(1, Math.ceil(label_width / avg_width));
+
+		// 月初の添字を探し、最初に見つかったものに格子の位相を合わせる（複数月にまたがる
+		// 場合も、先頭の月初を基準にすれば以降は同じ間隔で規則的に並ぶ）。
+		let phase = 0;
+
+		for (let i = 1; i < n; i++) {
+			if (month_of(groups[i]) !== month_of(groups[i - 1])) {
+				phase = i % step;
+				break;
+			}
+		}
+
+		const lattice = [];
+
+		for (let i = phase; i < n; i += step) {
+			lattice.push(i);
+		}
+
+		if (lattice.length === 0) {
+			lattice.push(0);
+		}
+
+		// 指定した添字(edge)を、格子点を新規追加するのではなく最寄りの格子点を
+		// 置き換える形で確保する。
+		const snapEdge = edge => {
+			if (lattice.includes(edge)) {
+				return;
+			}
+
+			let nearest_pos = 0;
+
+			for (let i = 1; i < lattice.length; i++) {
+				if (Math.abs(lattice[i] - edge) < Math.abs(lattice[nearest_pos] - edge)) {
+					nearest_pos = i;
+				}
+			}
+
+			lattice[nearest_pos] = edge;
+		};
+
+		snapEdge(0);
+
+		if (!lattice.includes(n - 1)) {
+			if (lattice.length === 1) {
+				lattice.push(n - 1);
+			}
+			else {
+				snapEdge(n - 1);
+			}
+		}
+
+		return new Set(lattice);
 	}
 
 	/**
@@ -354,6 +1463,9 @@ class CWidgetEventTimeline extends CWidget {
 
 		rows.forEach((row, r) => {
 			const y = top + r * H;
+
+			// 連続Bucketを同じ値でグループ化する（例: 12時間Bucket2本 → 同じ日付の1グループ）。
+			const groups = [];
 			let from = 0;
 
 			for (let i = 1; i <= n; i++) {
@@ -361,9 +1473,29 @@ class CWidgetEventTimeline extends CWidget {
 					continue;
 				}
 
-				const x1 = rect.x + from * band;
-				const x2 = rect.x + i * band;
-				const label = String(row.text(data.buckets[from]));
+				groups.push({from, to: i, text: String(row.text(data.buckets[from]))});
+				from = i;
+			}
+
+			// 間引き対象の行は、幅から求めた平均グループ幅をもとに表示するラベルを選ぶ。
+			// それ以外の行は従来通り、各グループごとに個別に収まるかを判定する。
+			let chosen = null;
+			let chosen_list = null;
+
+			if (row.thin) {
+				const avg_width = (rect.width / groups.length) || 0;
+				const label_width = Math.max(...groups.map(g => g.text.length)) * 7 + 8;
+
+				chosen = CWidgetEventTimeline.#pickThinnedLabels(groups, avg_width, label_width);
+				chosen_list = [...chosen].sort((a, b) => a - b);
+			}
+
+			// グループ添字からラベル中心のX座標を求める（間引き行の隣接ラベル間隔判定に使う）。
+			const centerOf = gi => rect.x + (groups[gi].from + groups[gi].to) / 2 * band;
+
+			groups.forEach((g, idx) => {
+				const x1 = rect.x + g.from * band;
+				const x2 = rect.x + g.to * band;
 				const line = {stroke: colors.line, lineWidth: 1};
 
 				elements.push(
@@ -373,20 +1505,50 @@ class CWidgetEventTimeline extends CWidget {
 					{type: 'line', silent: true, z: 100, shape: {x1: x2, y1: y + 2, x2, y2: y + 8}, style: line}
 				);
 
-				// 区間が狭くラベルが入りきらない場合は、ラベルだけ省略する（線は残す）。
-				if (x2 - x1 >= label.length * 7 + 8) {
-					elements.push({
-						type: 'text', silent: true, z: 100,
-						x: (x1 + x2) / 2, y: y + 5,
-						style: {
-							text: label, fill: colors.text, font: '12px sans-serif',
-							textAlign: 'center', textVerticalAlign: 'top'
-						}
-					});
+				// 間引き対象外のグループ、または間引きで選ばれなかったグループは描画しない。
+				if (chosen !== null && !chosen.has(idx)) {
+					return;
 				}
 
-				from = i;
-			}
+				const text_width = g.text.length * 7;
+				let text_x = (x1 + x2) / 2;
+				let align = 'center';
+
+				if (chosen !== null) {
+					// 間引き行: 自グループの幅ではなく、隣接する表示予定ラベルとの間隔で収まるかを判定する
+					// （日付主表示では1グループ＝半日程度で、そのままでは常に収まらないため）。
+					const pos = chosen_list.indexOf(idx);
+					const prev_center = pos > 0 ? centerOf(chosen_list[pos - 1]) : rect.x - text_width;
+					const next_center = pos < chosen_list.length - 1 ? centerOf(chosen_list[pos + 1]) : rect.x + rect.width + text_width;
+
+					if (Math.min(text_x - prev_center, next_center - text_x) < text_width / 2 + 4) {
+						return;
+					}
+
+					// 先頭・末尾のラベルがWidget外にはみ出さないよう、範囲内に寄せる。
+					if (text_x - text_width / 2 < rect.x) {
+						text_x = rect.x;
+						align = 'left';
+					}
+					else if (text_x + text_width / 2 > rect.x + rect.width) {
+						text_x = rect.x + rect.width;
+						align = 'right';
+					}
+				}
+				// 間引き対象外の行は従来通り、自グループの幅に収まる場合のみラベルを描画する。
+				else if (x2 - x1 < text_width + 8) {
+					return;
+				}
+
+				elements.push({
+					type: 'text', silent: true, z: 100,
+					x: text_x, y: y + 5,
+					style: {
+						text: g.text, fill: colors.text, font: '12px sans-serif',
+						textAlign: align, textVerticalAlign: 'top'
+					}
+				});
+			});
 		});
 
 		return {elements};
@@ -408,10 +1570,19 @@ class CWidgetEventTimeline extends CWidget {
 		const esc = CWidgetEventTimeline.#escape;
 		const count = bucket.counts[severity.id];
 
+		const continuous = data.runtime.count_mode === CWidgetEventTimeline.COUNT_CONTINUOUS;
+
+		// 継続モードでは Bucket と重なる継続中のEventを数えていることを明示する。
 		let html = `<div class="et-tip"><div class="et-tip-range">${esc(bucket.range)}</div>` +
+			(continuous ? `<div class="et-tip-mode">${esc(t('Continuing events'))}</div>` : '') +
 			`<div class="et-tip-total"><b>${esc(t('Total'))}: ${bucket.total}</b></div>` +
 			`<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
 			`${esc(severity.name)}: ${count}</div>`;
+
+		// 継続モード: 発生時刻 → 復旧時刻（未復旧は「継続中」）。
+		const timeText = e => continuous
+			? `${e.time} \u2192 ${e.end ?? t('Ongoing')}`
+			: e.time;
 
 		const events = bucket.details[severity.id] ?? [];
 
@@ -420,7 +1591,7 @@ class CWidgetEventTimeline extends CWidget {
 			for (const e of events) {
 				const hosts = e.hosts.length ? e.hosts.join(', ') : t('Unknown host');
 
-				html += `<div class="et-tip-event et-tip-flat"><span class="et-tip-time">${esc(e.time)}</span>` +
+				html += `<div class="et-tip-event et-tip-flat"><span class="et-tip-time">${esc(timeText(e))}</span>` +
 					`<span class="et-tip-hostname">${esc(hosts)}</span><span class="et-tip-name">${esc(e.name)}</span></div>`;
 			}
 		}
@@ -442,7 +1613,7 @@ class CWidgetEventTimeline extends CWidget {
 				html += `<div class="et-tip-host">${esc(host)}</div>`;
 
 				for (const e of groups.get(host)) {
-					html += `<div class="et-tip-event"><span class="et-tip-time">${esc(e.time)}</span>` +
+					html += `<div class="et-tip-event"><span class="et-tip-time">${esc(timeText(e))}</span>` +
 						`<span class="et-tip-name">${esc(e.name)}</span></div>`;
 				}
 			}

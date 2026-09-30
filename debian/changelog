@@ -1,3 +1,71 @@
+zabbix-widget-event-timeline (0.1.5) unstable; urgency=medium
+
+  * Switched the release workflow to a compact release-branch model
+    (release/vX.Y.Z -> PR to main, merged after review/testing, tags and
+    Releases created on main going forward). No functional or packaging
+    content changes beyond the version bump from 0.1.4.
+  * Carried forward the README/spec description updates that brought the
+    documented behaviour in line with the 0.1.4 implementation (configurable
+    week-start day, ui/modules-first install path, etc.).
+
+ -- claude <noreply@example.com>  Tue, 29 Sep 2026 00:00:00 +0000
+
+zabbix-widget-event-timeline (0.1.4) unstable; urgency=high
+
+  * URGENT FIX: the 0.1.3 RPM/DEB packages omitted three newer includes/
+    class files (CWidgetFieldSelectAlwaysSaved.php, CWidgetFieldWeekStartView.php,
+    DetailSelector.php) from the packaging file lists, causing a PHP Fatal
+    error on every dashboard view/edit containing this widget. No functional
+    code was changed; this release only corrects the packaged file list.
+
+ -- claude <noreply@example.com>  Mon, 28 Sep 2026 00:00:00 +0000
+
+zabbix-widget-event-timeline (0.1.3) unstable; urgency=medium
+
+  * Added a Drilldown dialog that shows the detailed event list when clicking
+    an event bar / stack segment (prototype-group or individual-event level,
+    with a host name list).
+  * The 7-day bucket's week-start day can now be configured per widget for
+    all 7 weekdays (new widgets default to Sunday; existing widgets keep
+    Monday).
+  * Improved the 30-day-range X-axis date labels to use an evenly spaced
+    grid.
+  * Adjusted X-axis label overflow, bottom margin, and runtime control row
+    wrapping.
+  * Fixed the event bar tooltip no longer responding after changing the
+    dashboard's displayed time period.
+  * Clarified the paging item-count labels (chart body vs. Drilldown) and
+    merged the "Detail view" setting into the "Paging" section.
+  * Confirmed the automatic bucket-width candidates (1 minute to 1 month)
+    intentionally omit a 2-day width; the granularity now jumps from 1 day
+    directly to 7 days by design.
+
+ -- claude <noreply@example.com>  Sun, 27 Sep 2026 00:00:00 +0000
+
+zabbix-widget-event-timeline (0.1.2) unstable; urgency=medium
+
+  * Display modes (Timeline / Host / Host group / Event), sort order, paging
+    and auto paging.
+  * Source is now specified by host, host group and trigger fields, each fixed
+    or taken from a widget.
+  * New "X-axis labels" setting (Auto / Horizontal / Angled / Vertical); long
+    names are truncated with full text on hover and in the tooltip.
+  * Fixed untranslated strings in the Japanese UI.
+
+ -- claude <noreply@example.com>  Mon, 21 Sep 2026 00:00:00 +0000
+
+zabbix-widget-event-timeline (0.1.1) unstable; urgency=medium
+
+  * Monitoring target and events can be taken from fixed settings or from
+    widgets (Tree Navigator / Event Navigator).
+  * Events are specified by selecting triggers; with no trigger selected, all
+    events of the target hosts are shown.
+  * Runtime controls: severity chips, acknowledgement filter, aggregation
+    (occurred / continuing), tooltip order, and reset.
+  * Total / interval moved below the chart; settings dialog reorganized.
+
+ -- claude <noreply@example.com>  Sun, 20 Sep 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.1.0) unstable; urgency=medium
 
   * Initial release. Stacked bar chart of problem events per time bucket by
