@@ -86,8 +86,9 @@ class WidgetForm extends CWidgetForm {
 		}
 
 		return $this
-			// 対象の指定。Host / Host group / Event（Trigger）の各フィールド自身が「固定指定」または
-			// 「他ウィジェット（Tree Navigator / Event Navigator）の参照」のどちらかを持つ（manifest.json の "in"）。
+			// Host Selection（「どのHostで発生したEventを見るか」）。Trigger Selectionとは独立した条件
+			// （v0.2.0 §3.1）。Host / Host group の各フィールド自身が「固定指定」または「他ウィジェット
+			// （Tree Navigator等）の参照」のどちらかを持つ（manifest.json の "in"）。
 			->addField(
 				(new CWidgetFieldMultiSelectHost('hostids', _('Hosts')))
 					->setMultiple(true)
@@ -96,8 +97,10 @@ class WidgetForm extends CWidgetForm {
 				(new CWidgetFieldMultiSelectGroup('groupids', _('Host groups')))
 					->setMultiple(true)
 			)
+			// Trigger Selection: 固定Trigger指定 または Navigator（Metric Navigator等）からのWidget参照。
+			// どちらのTriggerに関するEventを見るかを示す、Host Selectionとは独立した条件（v0.2.0 §3.2/§4）。
 			->addField(
-				(new CWidgetFieldMultiSelectTrigger('triggerids', _et('Events')))
+				(new CWidgetFieldMultiSelectTrigger('triggerids', _et('Triggers')))
 					->setMultiple(true)
 			)
 			// Severity: configured_filter（表示画面の runtime_filter の初期値）。
