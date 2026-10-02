@@ -11,6 +11,7 @@ require_once __DIR__.'/../includes/TimeFormatter.php';
 require_once __DIR__.'/../includes/DimensionAggregator.php';
 require_once __DIR__.'/../includes/DetailSelector.php';
 require_once __DIR__.'/../includes/SourceResolver.php';
+require_once __DIR__.'/../includes/TriggerSelection.php';
 
 require_once __DIR__.'/stubs.php';
 
@@ -20,6 +21,7 @@ use Modules\EventTimeline\Includes\DetailSelector as DS;
 use Modules\EventTimeline\Includes\DimensionAggregator as D;
 use Modules\EventTimeline\Includes\SourceResolver;
 use Modules\EventTimeline\Includes\TimeFormatter;
+use Modules\EventTimeline\Includes\TriggerSelection as TS;
 
 $pass = 0;
 $fail = 0;
@@ -590,6 +592,78 @@ $r = D::byEventGroup($sev_events, $sev_hosts, $sev_names, $proto_ids6, $proto_na
 check('§6.5 prototype group: affected host count', $r[0]['total'], 2);
 check('§6.5 prototype group: severity breakdown (Host A→High only)', $r[0]['counts'], [0, 0, 1, 0, 1, 0]);
 check('§6.5 prototype group: matching event count (event_count)', $r[0]['event_count'], 3);
+
+// ---- TriggerSelection（v0.2.0 Phase 1: §9.1〜§9.4 / §14.2〜§14.9 相当のPure-logic検証） ----
+
+// §9.1 Trigger条件なし: 未参照・固定未指定のいずれも null として渡る想定（フィールド既定値 []）。
+check('TS §9.1 no condition (null)', TS::resolve(null), ['trigger_filter' => TS::STATE_INACTIVE, 'triggerids' => []]);
+check('TS §9.1 no condition (empty array)', TS::resolve([]),
+	['trigger_filter' => TS::STATE_INACTIVE, 'triggerids' => []]
+);
+
+// §14.2 固定Trigger 1件。
+check('TS §14.2 single fixed trigger', TS::resolve(['12345']),
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [12345]]
+);
+
+// §14.3 固定Trigger複数（3件以上）・重複除去・順序に意味を持たせない（昇順で正規化）。
+check('TS §14.3 multiple triggers, dedup, order-independent', TS::resolve(['12347', '12345', '12346', '12345']),
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [12345, 12346, 12347]]
+);
+
+// §14.4 Navigator broadcastは triggerids[] がそのまま届く想定（int/文字列いずれの要素も受理）。
+check('TS §14.4 navigator broadcast (int elements)', TS::resolve([12345, 12346]),
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [12345, 12346]]
+);
+
+// §14.5/§14.6 Selection変更・解除の追従（呼び出し側は都度 resolve するだけで良いことを確認）。
+check('TS §14.5 A -> B', TS::resolve(['1']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [1]]);
+check('TS §14.5 A -> A+B', TS::resolve(['1', '2']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [1, 2]]);
+check('TS §14.5 A+B -> B', TS::resolve(['2']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [2]]);
+check('TS §14.6 A -> none', TS::resolve([]), ['trigger_filter' => TS::STATE_INACTIVE, 'triggerids' => []]);
+
+// §14.9 不正入力: 文字列単体・不正型。
+check('TS §14.9 invalid: non-array scalar (string)', TS::resolve('12345'),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+check('TS §14.9 invalid: non-array scalar (bool)', TS::resolve(true),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+
+// §14.9 不正入力: 配列内の要素が不正（文字列混入・0以下・小数・null混入・入れ子配列）。
+check('TS §14.9 invalid: non-numeric element in array', TS::resolve(['12345', 'abc']),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+check('TS §14.9 invalid: zero is not a valid trigger id', TS::resolve(['0']),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+check('TS §14.9 invalid: negative id', TS::resolve([-5]),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+check('TS §14.9 invalid: float element', TS::resolve([12345.5]),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+check('TS §14.9 invalid: null element in array', TS::resolve([null]),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+check('TS §14.9 invalid: nested array element (malformed payload)', TS::resolve([['itemid' => '1']]),
+	['trigger_filter' => TS::STATE_INVALID, 'triggerids' => []]
+);
+
+// §14.9 存在しないTrigger ID: フォーマットは正しいが実在しないIDも、形式上はactiveとして保持する
+// （実在確認はPure-logicの責務外。§9.3どおりPhase 1ではEvent抽出に反映しないため、
+// 「指定なし」と無条件に混同しない＝triggeridsが空ではなくactiveであることだけを確認する）。
+check('TS §14.9 nonexistent trigger id is still a format-valid active selection', TS::resolve(['999999999']),
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [999999999]]
+);
+
+// §14.7/§14.8 Host Selectionとの独立性: TriggerSelectionの正規化はtriggerids配列のみに依存し、
+// hostids/groupidsの値には一切触れない（resolve()のシグネチャ自体が参照しないことが保証）。
+// Host A由来のTrigger XをMetric Navigatorが選択していても、Tree NavigatorのHost B/C/Dとは
+// 独立に保持できることを確認する（triggeridsの解決にhostidsが影響しない）。
+check('TS §14.8 cross-host trigger held independently of host selection', TS::resolve(['123']),
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [123]]
+);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

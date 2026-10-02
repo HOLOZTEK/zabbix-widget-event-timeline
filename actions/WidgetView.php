@@ -15,6 +15,7 @@ use Modules\EventTimeline\Includes\{
 	EventFetcher,
 	SourceResolver,
 	TimeFormatter,
+	TriggerSelection,
 	WidgetForm
 };
 
@@ -96,6 +97,13 @@ class WidgetView extends CControllerDashboardWidgetView {
 		// 1. Source config → Fixed/Widget Selection resolve → Host set resolve → Event Selection resolve
 		$target = SourceResolver::resolveTarget($fields);
 		$event_selection = SourceResolver::resolveEventSelection($fields);
+
+		// Trigger Selection（v0.2.0 Phase 1）: triggerids の内部状態（inactive/active/invalid）を正規化して
+		// 保持するだけ。既存の $event_selection（SourceResolver::resolveEventSelection）には一切合成せず、
+		// Event抽出・集計ロジック（EventFetcher / Aggregator / BucketPlanner / DimensionAggregator）も
+		// 変更しない（§9.3/§12/§13）。レスポンスへは、Navigatorからの受信内容を確認できるよう可視化のみ
+		// 目的で含める（JS側はPhase 1では参照しない）。
+		$trigger_selection = TriggerSelection::resolve($fields['triggerids'] ?? []);
 
 		$events = [];
 		$severity_counts = array_fill_keys(Aggregator::SEVERITIES, 0);
@@ -196,6 +204,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'name' => $this->getInput('name', $this->widget->getDefaultName()),
 				'detail' => $detail ?? ['kind' => 'events', 'rows' => [], 'total' => 0, 'rows_truncated' => false,
 					'period' => null, 'source_truncated' => $truncated, 'covered_from' => null],
+				'trigger_selection' => $trigger_selection,
 				'user' => ['debug_mode' => $this->getDebugMode()]
 			]));
 
@@ -233,6 +242,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 		$this->setResponse(new CControllerResponseData([
 			'name' => $this->getInput('name', $this->widget->getDefaultName()),
+			'trigger_selection' => $trigger_selection,
 			'chart_data' => $this->buildChartData($rows, $plan, $tz, $runtime, $configured, $fields, $picked,
 				$event_details ?? [], $continuous, [
 				'total' => $total,

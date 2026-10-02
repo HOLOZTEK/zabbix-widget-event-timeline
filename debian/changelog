@@ -1,3 +1,16 @@
+zabbix-widget-event-timeline (0.2.0) unstable; urgency=medium
+
+  * Added the Trigger Selection receiving foundation (v0.2.0 Phase 1): in
+    addition to fixed triggers, the widget now accepts a _triggerids
+    broadcast (plain triggerids[]) from e.g. Metric Navigator 0.4.2+.
+    Resolved independently of the Host Selection (TriggerSelection::resolve()).
+    In Phase 1 the received state is only exposed for inspection; event
+    extraction and aggregation results are identical to 0.1.5.
+  * Renamed the configuration field label from "Events" to "Triggers".
+  * Added includes/TriggerSelection.php to the RPM/DEB file lists.
+
+ -- claude <noreply@example.com>  Fri, 02 Oct 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.1.5) unstable; urgency=medium
 
   * Switched the release workflow to a compact release-branch model
