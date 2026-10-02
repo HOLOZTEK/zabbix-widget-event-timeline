@@ -50,6 +50,7 @@ install -D -m 644 ${SRCDIR}/includes/EventFetcher.php ${STAGEDIR}/includes/Event
 install -D -m 644 ${SRCDIR}/includes/helpers.php ${STAGEDIR}/includes/helpers.php
 install -D -m 644 ${SRCDIR}/includes/SourceResolver.php ${STAGEDIR}/includes/SourceResolver.php
 install -D -m 644 ${SRCDIR}/includes/TimeFormatter.php ${STAGEDIR}/includes/TimeFormatter.php
+install -D -m 644 ${SRCDIR}/includes/TriggerSelection.php ${STAGEDIR}/includes/TriggerSelection.php
 install -D -m 644 ${SRCDIR}/includes/WidgetForm.php ${STAGEDIR}/includes/WidgetForm.php
 install -D -m 644 ${SRCDIR}/LICENSE ${STAGEDIR}/LICENSE
 install -D -m 644 ${SRCDIR}/locale/en_US/LC_MESSAGES/event-timeline.mo ${STAGEDIR}/locale/en_US/LC_MESSAGES/event-timeline.mo
