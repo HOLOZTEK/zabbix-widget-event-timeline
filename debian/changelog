@@ -6,7 +6,7 @@ zabbix-widget-event-timeline (0.2.1) unstable; urgency=medium
     from PHP 8.3 to php8.4-* packages). Minimum PHP version unchanged.
     No changes to the DEB dependencies or the widget code.
 
- -- claude <noreply@example.com>  Fri, 02 Oct 2026 00:00:00 +0000
+ -- claude <noreply@example.com>  Fri, 02 Oct 2026 18:19:55 +0000
 
 zabbix-widget-event-timeline (0.2.0) unstable; urgency=medium
 
