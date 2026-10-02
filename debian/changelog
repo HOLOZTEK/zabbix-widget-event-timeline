@@ -1,3 +1,13 @@
+zabbix-widget-event-timeline (0.2.1) unstable; urgency=medium
+
+  * RPM only: relaxed the PHP dependency from "php >= 8.1" to
+    "(php >= 8.1 or php-common >= 8.1)" so that the package stays
+    installable when the php metapackage is absent (e.g. while switching
+    from PHP 8.3 to php8.4-* packages). Minimum PHP version unchanged.
+    No changes to the DEB dependencies or the widget code.
+
+ -- claude <noreply@example.com>  Fri, 02 Oct 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.2.0) unstable; urgency=medium
 
   * Added the Trigger Selection receiving foundation (v0.2.0 Phase 1): in

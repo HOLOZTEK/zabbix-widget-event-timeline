@@ -1,11 +1,11 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.0
+Version:        0.2.1
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
 BuildArch:      noarch
-Requires:       php >= 8.1
+Requires:       (php >= 8.1 or php-common >= 8.1)
 
 %description
 Zabbix dashboard widget that shows how many problem events occurred over time
@@ -94,6 +94,11 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Fri Oct 02 2026 claude <noreply> - 0.2.1-0
+- RPMのPHP依存を「php >= 8.1」から「(php >= 8.1 or php-common >= 8.1)」に変更。
+  phpメタパッケージを伴わない環境（PHP 8.3→8.4への切替時など、php8.4-common等のみが
+  入っている状態）で依存性の欠如エラーになる問題を修正。最小PHPバージョン(8.1)は変更なし
+
 * Fri Oct 02 2026 claude <noreply> - 0.2.0-0
 - Trigger Selection受信基盤を追加（v0.2.0 Phase 1）。固定Trigger指定に加え、
   Metric Navigator(v0.4.2以降)等が送信する_triggerids(triggerids[])を受信可能に。
