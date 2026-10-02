@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.1.5
+Version:        0.2.0
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -94,6 +94,14 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Fri Oct 02 2026 claude <noreply> - 0.2.0-0
+- Trigger Selection受信基盤を追加（v0.2.0 Phase 1）。固定Trigger指定に加え、
+  Metric Navigator(v0.4.2以降)等が送信する_triggerids(triggerids[])を受信可能に。
+  Host Selectionとは独立に解決（TriggerSelection::resolve()）。Phase 1では受信状態の
+  可視化のみで、Eventの抽出・集計結果はv0.1.5と同一
+- 設定画面のフィールド名を「イベント」から「トリガー」に変更
+- RPM/DEBのファイル一覧にincludes/TriggerSelection.phpを追加
+
 * Tue Sep 29 2026 claude <noreply> - 0.1.5-0
 - リリース運用をコンパクトなリリースブランチ方式へ移行（release/v0.1.5からmainへPR、
   レビュー・試験後にマージし、以降はmainへタグ・Releaseを作成する運用に変更）。
