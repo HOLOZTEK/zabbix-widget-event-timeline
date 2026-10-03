@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.1
+Version:        0.2.2
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -94,6 +94,13 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sat Oct 03 2026 claude <noreply> - 0.2.2-0
+- Zabbix 8.0（8.0.0rc1以降）対応: ウィジェット設定画面がHTTP 500（8.0で廃止された
+  PHP定数 ZBX_STYLE_COLOR_PICKER / クラス CColor の参照）やJSエラー（jQuery colorpicker の廃止、
+  設定フォームIDの widget-dialogue-form → widget-form 変更）で動作しない不具合を修正。
+  Zabbix 7.0 では従来の処理を使い、8.0以降は <z-color-picker> / CColorPicker と
+  新しいフォームIDを使う。Zabbix 7.0 系での動作は従来と同一。
+
 * Fri Oct 02 2026 claude <noreply> - 0.2.1-0
 - RPMのPHP依存を「php >= 8.1」から「(php >= 8.1 or php-common >= 8.1)」に変更。
   phpメタパッケージを伴わない環境（PHP 8.3→8.4への切替時など、php8.4-common等のみが
