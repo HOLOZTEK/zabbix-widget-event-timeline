@@ -370,9 +370,9 @@ $fetch_57 = static fn(array $ids): array => array_intersect_key([5 => ['template
 	7 => ['templateid' => 0, 'flags' => 0]], array_flip($ids));
 $ts_57 = TS::resolve(['5', '5', '7']);
 check('event fixed', SourceResolver::resolveEventSelection($ts_57, TR::resolve($ts_57['triggerids'], $fetch_57)),
-	['selected' => true, 'selectors' => [['objectids' => ['5', '7']]]]);
+	['selected' => true, 'selectors' => [['objectids' => ['5', '7']]], 'error' => null]);
 check('event fixed empty', SourceResolver::resolveEventSelection(TS::resolve([])),
-	['selected' => true, 'selectors' => [[]]]);
+	['selected' => true, 'selectors' => [[]], 'error' => null]);
 
 // --- 第3フェーズ: 次元集計 / Sort / Paging ---
 $ev = static fn(string $id, int $sev): array => ['eventid' => $id, 'clock' => 0, 'end' => null, 'severity' => $sev];
@@ -774,10 +774,13 @@ $r = TR::resolve([999], $tr_fetch);
 check('TR §17.8 not found', $tr_entry($r, 0), [null, null, TR::STATUS_INVALID, [999], TR::REASON_NOT_FOUND]);
 check('TR §17.8 not found: no canonical', $r['canonical'], []);
 check('TR §17.8 not found: event selection is empty (no fallback to all)',
-	SourceResolver::resolveEventSelection(TS::resolve(['999']), $r), ['selected' => true, 'selectors' => []]);
+	SourceResolver::resolveEventSelection(TS::resolve(['999']), $r), ['selected' => true, 'selectors' => [], 'error' => null]);
 $r = TR::resolve([600], $tr_fetch);
 check('TR §17.8 broken chain (parent unavailable)', $tr_entry($r, 0),
 	[null, TR::TYPE_TEMPLATE, TR::STATUS_UNRESOLVED, [600, 601], TR::REASON_PARENT_UNAVAILABLE]);
+check('TR §17.8 broken chain -> fail-closed (no source fallback)',
+	SourceResolver::resolveEventSelection(TS::resolve(['600']), $r),
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
 $r = TR::resolve([700], $tr_fetch);
 check('TR §17.8 cycle terminates', $tr_entry($r, 0),
 	[null, TR::TYPE_TEMPLATE, TR::STATUS_INVALID, [700, 701, 700], TR::REASON_CYCLE]);
@@ -794,14 +797,14 @@ check('TR §17.8 chain at MAX_DEPTH still resolves', [$r['entries'][0]['canonica
 	count($r['entries'][0]['inheritance_chain'])], [1000, TR::MAX_DEPTH + 1]);
 check('TR §17.8 API failure -> null', TR::resolve([25143], static fn(array $ids) => null), null);
 check('TR §17.8 invalid format -> empty event selection',
-	SourceResolver::resolveEventSelection(TS::resolve(['abc'])), ['selected' => true, 'selectors' => []]);
+	SourceResolver::resolveEventSelection(TS::resolve(['abc'])), ['selected' => true, 'selectors' => [], 'error' => null]);
 // 有効と無効の混在: 有効な source だけで絞り込む（無効分で全体を絞り込みなしにはしない）。
 $ts_mix = TS::resolve(['25143', '999']);
 $r = TR::resolve($ts_mix['triggerids'], $tr_fetch);
 check('TR §17.8 mixed valid/invalid: canonical from valid only', $tr_canon($r),
 	[[23176, TR::TYPE_TEMPLATE, [25143]]]);
 check('TR §17.8 mixed valid/invalid: event selection uses valid source only',
-	SourceResolver::resolveEventSelection($ts_mix, $r), ['selected' => true, 'selectors' => [['objectids' => ['25143']]]]);
+	SourceResolver::resolveEventSelection($ts_mix, $r), ['selected' => true, 'selectors' => [['objectids' => ['25143']]], 'error' => null]);
 
 // §17.9 Load average + ICMP ping: canonical 2件、Event Selection は両 source の OR（1つの objectids 集合）。
 $ts_two = TS::resolve(['25091', '25143']);
@@ -809,15 +812,54 @@ $r = TR::resolve($ts_two['triggerids'], $tr_fetch);
 check('TR §17.9 two canonicals', $tr_canon($r),
 	[[22381, TR::TYPE_TEMPLATE, [25091]], [23176, TR::TYPE_TEMPLATE, [25143]]]);
 check('TR §17.9 OR kept in event selection', SourceResolver::resolveEventSelection($ts_two, $r),
-	['selected' => true, 'selectors' => [['objectids' => ['25091', '25143']]]]);
+	['selected' => true, 'selectors' => [['objectids' => ['25091', '25143']]], 'error' => null]);
 
 // LLD（Discovery）由来: 正規化しない（canonical = null, type = discovered）。Event 抽出は従来どおり source で行う。
 $r = TR::resolve([500], $tr_fetch);
 check('TR LLD discovered not normalized', $tr_entry($r, 0),
 	[null, TR::TYPE_DISCOVERED, TR::STATUS_UNRESOLVED, [500], TR::REASON_DISCOVERED]);
 check('TR LLD event selection keeps source', SourceResolver::resolveEventSelection(TS::resolve(['500']), $r),
-	['selected' => true, 'selectors' => [['objectids' => ['500']]]]);
+	['selected' => true, 'selectors' => [['objectids' => ['500']]], 'error' => null]);
 check('TR empty input', TR::resolve([], $tr_fetch), ['entries' => [], 'canonical' => []]);
+
+
+// ---- Phase 2 追加修正: 継承元Template参照権限不足（parent_unavailable）の fail-closed（追加修正指示書§4〜§9） ----
+// 601 を参照できない継承チェーン（600 → 601 → ?）を「Triggerは参照できるがTemplateを参照できない」状態として使う。
+$sel = static function (array $ids) use ($tr_fetch): array {
+	$ts = TS::resolve($ids);
+	$r = $ts['trigger_filter'] === TS::STATE_ACTIVE ? TR::resolve($ts['triggerids'], $tr_fetch) : null;
+
+	return SourceResolver::resolveEventSelection($ts, $r);
+};
+check('PERM filterError: none for resolved', TR::filterError(TR::resolve([25143, 400], $tr_fetch)), null);
+check('PERM filterError: parent_unavailable detected', TR::filterError(TR::resolve([25143, 600], $tr_fetch)),
+	TR::REASON_PARENT_UNAVAILABLE);
+check('PERM filterError: LLD alone is not a permission error', TR::filterError(TR::resolve([500], $tr_fetch)), null);
+check('PERM filterError: not_found alone is not a permission error', TR::filterError(TR::resolve([999], $tr_fetch)),
+	null);
+// Case A: すべて resolved → 正常（OR）
+check('PERM Case A all resolved', $sel(['25143', '25171']),
+	['selected' => true, 'selectors' => [['objectids' => ['25143', '25171']]], 'error' => null]);
+// Case B: resolved + exact → 正常
+check('PERM Case B resolved + exact', $sel(['25143', '400']),
+	['selected' => true, 'selectors' => [['objectids' => ['400', '25143']]], 'error' => null]);
+// Case C: resolved + parent_unavailable → Selection全体エラー（解決できた分だけを使わない）
+check('PERM Case C resolved + parent_unavailable', $sel(['25143', '600', '25171']),
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
+// Case D: parent_unavailable のみ → エラー
+check('PERM Case D parent_unavailable only', $sel(['600']),
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
+// Case E: Selectionなし → 従来どおり絞り込みなし（fail-closedにしない）
+check('PERM Case E no selection', $sel([]), ['selected' => true, 'selectors' => [[]], 'error' => null]);
+// Hostローカル（exact）だけならTemplate権限は不要で正常
+check('PERM host-local only', $sel(['400']), ['selected' => true, 'selectors' => [['objectids' => ['400']]], 'error' => null]);
+// LLD + parent_unavailable の混在もエラー（LLDを名前等で推測して救済しない）
+check('PERM LLD + parent_unavailable', $sel(['500', '600']),
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
+// Selection変更・解除で前回のエラー状態を持ち越さない（リクエストごとに再解決するだけ）
+check('PERM error -> change to resolvable', $sel(['25143']),
+	['selected' => true, 'selectors' => [['objectids' => ['25143']]], 'error' => null]);
+check('PERM error -> cleared', $sel([]), ['selected' => true, 'selectors' => [[]], 'error' => null]);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

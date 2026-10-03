@@ -25,6 +25,12 @@ msgstr "イベントはありません"
 msgid "No target hosts."
 msgstr "対象ホストがありません。"
 
+msgid "The selected triggers cannot be resolved."
+msgstr "選択されたトリガーを展開できません。"
+
+msgid "Check access permissions for the inherited templates."
+msgstr "継承元テンプレートの参照権限を確認してください。"
+
 msgid "Failed to retrieve events."
 msgstr "イベントの取得に失敗しました。"
 

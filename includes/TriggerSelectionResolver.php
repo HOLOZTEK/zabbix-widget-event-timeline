@@ -26,7 +26,8 @@ namespace Modules\EventTimeline\Includes;
  *             null            … source自体を取得できない等で種別不明
  *   - status: STATUS_RESOLVED   … canonical を決定できた
  *             STATUS_UNRESOLVED … source は存在するが canonical を決定できない（LLD由来、継承チェーンの途中が
- *                                 閲覧不可で辿れない）
+ *                                 閲覧不可で辿れない＝parent_unavailable。後者は filterError() により
+ *                                 Selection 全体を適用不能（fail-closed）とする）
  *             STATUS_INVALID    … source が存在しない／閲覧権限がない／継承チェーンが循環・深すぎる
  *   - inheritance_chain:   source から canonical 方向へ辿ったTrigger IDの列（先頭 = source）
  *   - reason:              unresolved / invalid の理由（resolved は null）
@@ -224,9 +225,30 @@ class TriggerSelectionResolver {
 	}
 
 	/**
+	 * Trigger Selection 全体を適用できない状態（Trigger filter error）か。
+	 *
+	 * 1件でも parent_unavailable（Trigger自体は参照できるが継承元Templateを参照できず canonical を確定できない）が
+	 * 含まれる場合、Selection 全体を展開不能とする（Phase 2 追加修正 §4/§5）。解決できた Trigger だけ、あるいは
+	 * source Trigger だけで代替して部分的な結果を表示しない（利用者は全Triggerを条件として指定しているため）。
+	 * Template参照権限は Template 由来 Trigger の正規化の前提条件であり、権限を迂回して取得することはしない。
+	 *
+	 * @return string|null  エラーの理由（REASON_PARENT_UNAVAILABLE）。エラーでなければ null。
+	 */
+	public static function filterError(array $resolution): ?string {
+		foreach ($resolution['entries'] as $entry) {
+			if ($entry['reason'] === self::REASON_PARENT_UNAVAILABLE) {
+				return self::REASON_PARENT_UNAVAILABLE;
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Phase 2 時点の Event 抽出に使う Trigger ID（source のうち、実体として存在・閲覧可能なもの）。
-	 * resolved / unresolved（LLD由来・チェーン途中閲覧不可）は従来どおり source のまま Event を絞り込む。
+	 * resolved / unresolved（LLD由来）は従来どおり source のまま Event を絞り込む。
 	 * invalid（存在しない・権限なし・循環）は除外する。
+	 * filterError() がエラーを返す Selection では呼び出し側がこの結果を使わない（Event を取得しない）。
 	 *
 	 * @return int[]
 	 */

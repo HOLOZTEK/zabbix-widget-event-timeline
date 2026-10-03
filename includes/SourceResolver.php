@@ -38,31 +38,42 @@ class SourceResolver {
 	 * - active: Resolver で実体が確認できた source Trigger（invalid 以外）の Event だけ。1件も残らない場合は
 	 *           絞り込みなしへ戻さず、取得対象なし（selectors = []）とする（Fail-Openにしない）。
 	 * - invalid（Trigger ID配列として解釈できない）: 取得対象なし。
+	 * - Trigger filter error（1件でも継承元Templateを参照できず正規化できない Trigger を含む）: Selection 全体を
+	 *   適用不能とし取得対象なし。解決できた Trigger や source Trigger だけでの部分表示はしない。
+	 *   'error' に理由（TriggerSelectionResolver::REASON_PARENT_UNAVAILABLE）を返す。
 	 *
 	 * Host範囲（resolveTarget）には一切影響しない。選択されたTriggerのHostを対象Hostへ加えることはしない。
 	 *
 	 * @param array      $trigger_selection  TriggerSelection::resolve() の結果
 	 * @param array|null $resolution         TriggerSelectionResolver::resolve() の結果（active のときのみ）
 	 *
-	 * @return array{selected: bool, selectors: array[]}
+	 * @return array{selected: bool, selectors: array[], error: ?string}
 	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。[[]] は絞り込みなし、[] は取得対象なし。
+	 *   error: Trigger filter error の理由。通常は null（正常な0件とは区別する）。
 	 */
 	public static function resolveEventSelection(array $trigger_selection, ?array $resolution = null): array {
 		switch ($trigger_selection['trigger_filter'] ?? TriggerSelection::STATE_INVALID) {
 			case TriggerSelection::STATE_INACTIVE:
-				return ['selected' => true, 'selectors' => [[]]];
+				return ['selected' => true, 'selectors' => [[]], 'error' => null];
 
 			case TriggerSelection::STATE_ACTIVE:
+				$error = $resolution !== null ? TriggerSelectionResolver::filterError($resolution) : null;
+
+				if ($error !== null) {
+					return ['selected' => true, 'selectors' => [], 'error' => $error];
+				}
+
 				$triggerids = $resolution !== null ? TriggerSelectionResolver::eventTriggerids($resolution) : [];
 				$triggerids = array_values(array_unique(self::normalize($triggerids)));
 				sort($triggerids, SORT_NUMERIC);
 
 				return ['selected' => true,
-					'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : []
+					'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : [],
+					'error' => null
 				];
 
 			default:
-				return ['selected' => true, 'selectors' => []];
+				return ['selected' => true, 'selectors' => [], 'error' => null];
 		}
 	}
 

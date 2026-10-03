@@ -141,6 +141,10 @@ class Widget extends CWidget {
 					=> _et('No events'),
 				'No target hosts.'
 					=> _et('No target hosts.'),
+				'The selected triggers cannot be resolved.'
+					=> _et('The selected triggers cannot be resolved.'),
+				'Check access permissions for the inherited templates.'
+					=> _et('Check access permissions for the inherited templates.'),
 				'Failed to retrieve events.'
 					=> _et('Failed to retrieve events.'),
 				'Tooltip details: grouped by host (click to sort chronologically)'

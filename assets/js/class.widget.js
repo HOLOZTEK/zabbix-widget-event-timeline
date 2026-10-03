@@ -119,7 +119,8 @@ class CWidgetEventTimeline extends CWidget {
 		super.setContents(response);
 
 		if (response.trigger_selection) {
-			// デバッグ専用（§19）: source / canonical / type / chain / status。画面には出さない。
+			// デバッグ専用（§19）: source / canonical / type / chain / status。Zabbix のデバッグモードが有効なユーザーにだけ
+			// サーバーが応答へ含める（通常は送られないため出力されない）。画面には出さない。
 			console.debug('[Event Timeline] trigger selection', response.trigger_selection);
 		}
 
@@ -198,6 +199,19 @@ class CWidgetEventTimeline extends CWidget {
 
 		if (data.truncated) {
 			this._body.appendChild(this.#buildTruncationWarning(data));
+		}
+
+		if (data.empty_reason === 'trigger_unresolvable') {
+			// Trigger Selection を適用できない（継承元Templateの参照権限不足）。正常な0件（No events）とは区別し、
+			// 既存の警告表示（取得上限警告と同じ et-warning）で原因を示す。Event は表示しない（fail-closed）。
+			this._body.appendChild(this.#buildTriggerPermissionWarning());
+
+			const filler = document.createElement('div');
+			filler.className = 'et-empty';
+			this._body.appendChild(filler);
+			this._body.appendChild(this.#buildFooter(data));
+
+			return;
 		}
 
 		if (data.empty_reason !== null) {
@@ -1011,6 +1025,23 @@ class CWidgetEventTimeline extends CWidget {
 	}
 
 	// Event取得上限に達した場合、グラフは実際より少ない件数を示す。目立つ警告を常時表示する。
+	#buildTriggerPermissionWarning() {
+		const warn = document.createElement('div');
+		warn.className = 'et-warning et-trigger-warning';
+		warn.setAttribute('role', 'alert');
+
+		const title = document.createElement('div');
+		title.textContent = t('The selected triggers cannot be resolved.');
+
+		const sub = document.createElement('div');
+		sub.className = 'et-warning-sub';
+		sub.textContent = t('Check access permissions for the inherited templates.');
+
+		warn.append(title, sub);
+
+		return warn;
+	}
+
 	#buildTruncationWarning(data) {
 		const warn = document.createElement('div');
 		warn.className = 'et-warning';

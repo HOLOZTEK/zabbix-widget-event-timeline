@@ -40,6 +40,11 @@
 	font-weight: bold;
 }
 
+.et-warning-sub {
+	margin-top: 2px;
+	font-weight: normal;
+}
+
 .et-empty,
 .et-error {
 	display: flex;
