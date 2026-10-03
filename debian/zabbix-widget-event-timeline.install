@@ -15,6 +15,7 @@ includes/helpers.php usr/share/zabbix-widget-event-timeline/includes/
 includes/SourceResolver.php usr/share/zabbix-widget-event-timeline/includes/
 includes/TimeFormatter.php usr/share/zabbix-widget-event-timeline/includes/
 includes/TriggerSelection.php usr/share/zabbix-widget-event-timeline/includes/
+includes/TriggerSelectionResolver.php usr/share/zabbix-widget-event-timeline/includes/
 includes/WidgetForm.php usr/share/zabbix-widget-event-timeline/includes/
 LICENSE usr/share/zabbix-widget-event-timeline/
 locale/en_US/LC_MESSAGES/event-timeline.mo usr/share/zabbix-widget-event-timeline/locale/en_US/LC_MESSAGES/

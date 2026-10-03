@@ -451,6 +451,38 @@ class EventFetcher {
 	}
 
 	/**
+	 * TriggerSelectionResolver 用: Triggerの継承情報（templateid / flags）。Host上のTriggerもテンプレート上の
+	 * Triggerも対象にする（trigger.get は templated 未指定で両方を返す）。閲覧権限のないTriggerは返らない。
+	 *
+	 * @param int[] $triggerids
+	 *
+	 * @return array<int, array{templateid: int, flags: int}>|null  API失敗時は null
+	 */
+	public static function fetchTriggerInheritance(array $triggerids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_map('strval', $triggerids)), 500) as $chunk) {
+			$rows = API::Trigger()->get([
+				'output' => ['triggerid', 'templateid', 'flags'],
+				'triggerids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$result[(int) $row['triggerid']] = [
+					'templateid' => (int) $row['templateid'],
+					'flags' => (int) $row['flags']
+				];
+			}
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Hostごとの所属Host group。
 	 *
 	 * @param string[] $hostids

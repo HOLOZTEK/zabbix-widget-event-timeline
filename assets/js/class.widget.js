@@ -118,6 +118,11 @@ class CWidgetEventTimeline extends CWidget {
 	setContents(response) {
 		super.setContents(response);
 
+		if (response.trigger_selection) {
+			// デバッグ専用（§19）: source / canonical / type / chain / status。画面には出さない。
+			console.debug('[Event Timeline] trigger selection', response.trigger_selection);
+		}
+
 		this.#disposeChart();
 
 		if (response.error) {

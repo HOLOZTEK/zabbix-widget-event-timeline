@@ -31,17 +31,39 @@ class SourceResolver {
 	}
 
 	/**
-	 * Event Selection の解決。イベント＝Trigger として、固定指定でも Event Navigator 参照でも、
-	 * 解決済みの Trigger ID（triggerids）だけを見る。未指定（空）のときは絞り込みなしとし、対象Hostの期間内の全Eventを扱う
-	 * （対象Host自体が未選択の場合の扱いは resolveTarget 側）。
+	 * Event Selection の解決。イベント＝Trigger として、固定指定でも Navigator 参照でも、
+	 * TriggerSelection（形式の正規化）と TriggerSelectionResolver（Canonical正規化）を通した結果だけを見る。
+	 *
+	 * - inactive（Trigger指定なし）: 絞り込みなし。対象Hostの期間内の全Eventを扱う（従来どおり）。
+	 * - active: Resolver で実体が確認できた source Trigger（invalid 以外）の Event だけ。1件も残らない場合は
+	 *           絞り込みなしへ戻さず、取得対象なし（selectors = []）とする（Fail-Openにしない）。
+	 * - invalid（Trigger ID配列として解釈できない）: 取得対象なし。
+	 *
+	 * Host範囲（resolveTarget）には一切影響しない。選択されたTriggerのHostを対象Hostへ加えることはしない。
+	 *
+	 * @param array      $trigger_selection  TriggerSelection::resolve() の結果
+	 * @param array|null $resolution         TriggerSelectionResolver::resolve() の結果（active のときのみ）
 	 *
 	 * @return array{selected: bool, selectors: array[]}
-	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。
+	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。[[]] は絞り込みなし、[] は取得対象なし。
 	 */
-	public static function resolveEventSelection(array $fields): array {
-		$triggerids = array_values(array_unique(self::normalize((array) ($fields['triggerids'] ?? []))));
+	public static function resolveEventSelection(array $trigger_selection, ?array $resolution = null): array {
+		switch ($trigger_selection['trigger_filter'] ?? TriggerSelection::STATE_INVALID) {
+			case TriggerSelection::STATE_INACTIVE:
+				return ['selected' => true, 'selectors' => [[]]];
 
-		return ['selected' => true, 'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : [[]]];
+			case TriggerSelection::STATE_ACTIVE:
+				$triggerids = $resolution !== null ? TriggerSelectionResolver::eventTriggerids($resolution) : [];
+				$triggerids = array_values(array_unique(self::normalize($triggerids)));
+				sort($triggerids, SORT_NUMERIC);
+
+				return ['selected' => true,
+					'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : []
+				];
+
+			default:
+				return ['selected' => true, 'selectors' => []];
+		}
 	}
 
 	/**
