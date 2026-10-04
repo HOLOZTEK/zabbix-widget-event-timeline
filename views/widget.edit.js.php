@@ -9,17 +9,26 @@
 window.widget_event_timeline_form = new class {
 
 	init() {
-		this._form = document.getElementById('widget-dialogue-form');
+		// フォームIDは Zabbix 7.0 では 'widget-dialogue-form'、8.0以降では 'widget-form'。
+		this._form = document.getElementById('widget-dialogue-form') ?? document.getElementById('widget-form');
 
-		// CWidgetFieldColorView は Color Picker の初期化を行わないため、ここで初期化する。
+		// Zabbix 7.0: CWidgetFieldColorView は Color Picker の初期化を行わないため、ここで jQuery colorpicker を初期化する。
+		// Zabbix 8.0以降: <z-color-picker> が自己初期化し、jQuery colorpicker は存在しない。
+		// PHP定数 ZBX_STYLE_COLOR_PICKER は8.0で廃止されたため使わない（クラス名 'color-picker' は両バージョン共通）。
 		// 保存値は「RRGGBB」または空（空 = 自動 = Zabbixテーマに追従）。
 		// 「自動」チェック・Hex入力・Resetは表示用の部品で、保存されるのは隠し入力の値のみ。
-		for (const colorpicker of this._form.querySelectorAll('.<?= ZBX_STYLE_COLOR_PICKER ?> input')) {
-			$(colorpicker).colorpicker({
-				appendTo: '.overlay-dialogue-body',
-				use_default: false
-			});
+		const colorpickers = [...this._form.querySelectorAll('.color-picker input')];
 
+		if (typeof jQuery.fn.colorpicker === 'function') {
+			for (const colorpicker of colorpickers) {
+				$(colorpicker).colorpicker({
+					appendTo: '.overlay-dialogue-body',
+					use_default: false
+				});
+			}
+		}
+
+		for (const colorpicker of colorpickers) {
 			this._enhance(colorpicker);
 		}
 	}
@@ -33,8 +42,23 @@ window.widget_event_timeline_form = new class {
 
 	_enhance(hidden) {
 		const HEX = /^#?([0-9a-fA-F]{6})$/;
-		const preview = document.getElementById('lbl_' + hidden.id);
-		const holder = hidden.parentNode;
+		// Zabbix 8.0以降は hidden が <z-color-picker> 内部の隠し入力になる。隠し入力の値は要素の再描画時に
+		// color 属性の値で上書きされるため、値の変更は picker.color 経由で行う。
+		const picker = hidden.closest('z-color-picker');
+		const preview = document.getElementById('lbl_' + (picker !== null ? hidden.name : hidden.id));
+		const holder = picker ?? hidden.parentNode;
+
+		// 値を確定し、Color Picker 本体からの変更と同じ change イベントを発火する。
+		const setValue = value => {
+			if (picker !== null) {
+				picker.color = value;
+				picker.dispatchEvent(new Event('change', {bubbles: true}));
+			}
+			else {
+				hidden.value = value;
+				$(hidden).trigger('change');
+			}
+		};
 
 		const auto_label = document.createElement('label');
 		auto_label.className = 'et-color-auto';
@@ -82,8 +106,7 @@ window.widget_event_timeline_form = new class {
 		};
 
 		const commit = value => {
-			hidden.value = value;
-			$(hidden).trigger('change');
+			setValue(value);
 			show();
 		};
 
@@ -112,8 +135,7 @@ window.widget_event_timeline_form = new class {
 				hex.classList.remove('et-color-invalid');
 				error.hidden = true;
 				last_custom = m[1].toUpperCase();
-				hidden.value = last_custom;
-				$(hidden).trigger('change');
+				setValue(last_custom);
 			}
 			else {
 				// 不正値は保存させない: 隠し入力へそのまま入れ、サーバー検証でエラーにする（JS例外は出さない）。
@@ -131,8 +153,8 @@ window.widget_event_timeline_form = new class {
 			}
 		});
 
-		// Color Picker側の変更をHex入力へ反映する。
-		$(hidden).on('change', () => {
+		// Color Picker側の変更をHex入力へ反映する（8.0以降は <z-color-picker> 要素が change を発火する）。
+		$(picker ?? hidden).on('change', () => {
 			if (hidden.value !== '' && HEX.test(hidden.value)) {
 				last_custom = hidden.value;
 				show();
