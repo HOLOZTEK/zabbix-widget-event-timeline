@@ -25,6 +25,12 @@ msgstr "No events"
 msgid "No target hosts."
 msgstr "No target hosts."
 
+msgid "The selected triggers cannot be resolved."
+msgstr "The selected triggers cannot be resolved."
+
+msgid "Check access permissions for the inherited templates."
+msgstr "Check access permissions for the inherited templates."
+
 msgid "Failed to retrieve events."
 msgstr "Failed to retrieve events."
 

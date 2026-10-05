@@ -22,9 +22,9 @@ namespace Modules\EventTimeline\Includes;
  * 3値の内部状態を区別する。
  *   - inactive: Trigger条件なし（§9.1）。固定Triggerも指定されておらず、Navigatorからの
  *               Selectionも届いていない（または届いているが0件選択。§9.2）。v0.1.5と同じ挙動。
- *   - active:   1件以上のTrigger IDを保持している（§9.3）。Phase 1では状態保持のみで、
- *               Event抽出には反映しない（既存の SourceResolver::resolveEventSelection() /
- *               EventFetcher / Aggregator は一切変更しない）。
+ *   - active:   1件以上のTrigger IDを保持している（§9.3）。Phase 2 以降は TriggerSelectionResolver で
+ *               Canonical Trigger へ正規化され、SourceResolver::resolveEventSelection() が
+ *               実体の確認できた source Trigger で Event を絞り込む。
  *   - invalid:  受信値がTrigger ID配列として解釈できない（§9.4）。「Trigger指定なし」と無条件に
  *               同一視すると、結果的に全Eventを表示してしまうFail-Openになるため、呼び出し側
  *               （WidgetView）で明示的に区別できるようにする。

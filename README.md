@@ -35,6 +35,26 @@
 - **Event Count Mode**: 発生イベント数（Eventのclockが属するBucketのみ）/ 継続イベント加算（継続期間と重なるすべてのBucketへ加算。`start < bucket_end AND end > bucket_start`。未復旧は現在時刻・期間終端まで、未来のBucketには加算しない）
 - 実行時の状態は設定を書き換えず、通常のRefreshでは保持され、ダッシュボード再表示・ウィジェット再作成で設定値に戻る
 
+## トリガー連携の権限
+
+Event TimelineでTemplate由来のトリガーを使用する場合、ログインユーザーには、そのトリガーの継承元Template（継承チェーン上のすべてのTemplate）を参照できる権限が必要です。これは不具合の回避策ではなく製品仕様です。Event TimelineはZabbixの権限を迂回してTemplateを参照することはありません。
+
+- 継承元Templateを参照できない場合、Event Timelineはトリガーを正規化できないため、トリガー条件を適用せずに全イベントを表示することはありません。
+- 選択したトリガーのうち1件でも正規化できない場合は、選択全体を適用できないものとして扱います。正規化できたトリガーだけで絞り込んだ不完全な部分結果も表示しません。
+- この場合、Widgetに権限不足を示す警告「選択されたトリガーを展開できません。継承元テンプレートの参照権限を確認してください。」が表示されます（該当イベントが0件の通常表示とは区別されます）。
+- Template参照権限が必要なのはTemplate由来のトリガーの場合だけです。Hostへ直接作成されたローカルトリガーでは、Template参照権限は必要ありません。
+- トリガー選択を解除する、または正規化できるトリガーへ変更すると、ページを再読み込みしなくても通常の表示に戻ります。
+
+### Permissions for trigger integration
+
+When template-inherited triggers are used with Event Timeline, the logged-in user must have permission to access the templates in the trigger inheritance chain. This is a product requirement, not a workaround; Event Timeline never bypasses Zabbix permissions to read templates.
+
+- If an inherited template cannot be accessed, Event Timeline cannot resolve the trigger to its canonical definition. It does not fall back to displaying unfiltered event results.
+- If any of the selected triggers cannot be resolved, the whole selection is treated as unusable. Partial results filtered by only the resolvable triggers are not displayed.
+- A permission warning is shown in the widget in this case: "The selected triggers cannot be resolved. Check access permissions for the inherited templates." (distinct from a normal result with no events).
+- Template access is required only for template-inherited triggers. Triggers created directly on a host do not require template access for this resolution step.
+- Clearing the trigger selection or changing it to resolvable triggers restores normal display without reloading the page.
+
 ## 制約事項
 
 - Event取得はページング（5,000件単位）で、上限件数に達すると古いEventから集計対象外になります（警告表示あり）。

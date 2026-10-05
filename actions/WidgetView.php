@@ -16,6 +16,7 @@ use Modules\EventTimeline\Includes\{
 	SourceResolver,
 	TimeFormatter,
 	TriggerSelection,
+	TriggerSelectionResolver,
 	WidgetForm
 };
 
@@ -96,14 +97,41 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 		// 1. Source config → Fixed/Widget Selection resolve → Host set resolve → Event Selection resolve
 		$target = SourceResolver::resolveTarget($fields);
-		$event_selection = SourceResolver::resolveEventSelection($fields);
 
-		// Trigger Selection（v0.2.0 Phase 1）: triggerids の内部状態（inactive/active/invalid）を正規化して
-		// 保持するだけ。既存の $event_selection（SourceResolver::resolveEventSelection）には一切合成せず、
-		// Event抽出・集計ロジック（EventFetcher / Aggregator / BucketPlanner / DimensionAggregator）も
-		// 変更しない（§9.3/§12/§13）。レスポンスへは、Navigatorからの受信内容を確認できるよう可視化のみ
-		// 目的で含める（JS側はPhase 1では参照しない）。
+		// Trigger Selection（v0.2.0）: Phase 1 で triggerids の形式を正規化（inactive/active/invalid）し、
+		// Phase 2 で TriggerSelectionResolver によりテンプレート継承を辿って Canonical Trigger へ正規化する。
+		// 固定指定・Navigator 参照のどちらも同じ経路を通る。Canonical の結果は現時点では Event 抽出に使わず
+		// （対象Host上のTriggerへの展開は後続Phase）、Event は実体の確認できた source Trigger で絞り込む。
+		// 選択TriggerのHostを対象Hostへ加えることはしない（Host範囲は resolveTarget だけが決める）。
 		$trigger_selection = TriggerSelection::resolve($fields['triggerids'] ?? []);
+		$trigger_resolution = null;
+
+		if ($trigger_selection['trigger_filter'] === TriggerSelection::STATE_ACTIVE) {
+			$trigger_resolution = TriggerSelectionResolver::resolve($trigger_selection['triggerids'],
+				[EventFetcher::class, 'fetchTriggerInheritance']
+			);
+
+			if ($trigger_resolution === null) {
+				$this->setResponse(new CControllerResponseData([
+					'name' => $this->getInput('name', $this->widget->getDefaultName()),
+					'error' => _et('Failed to retrieve events.'),
+					'user' => ['debug_mode' => $this->getDebugMode()]
+				]));
+
+				return;
+			}
+		}
+
+		$event_selection = SourceResolver::resolveEventSelection($trigger_selection, $trigger_resolution);
+
+		// Trigger filter error（継承元Templateを参照できず正規化できないTriggerを含む）: Selection 全体を適用不能とし、
+		// Event を取得しない（fail-closed）。正常な0件（no_events）とは別の empty_reason で利用者へ警告する。
+		$trigger_selection['trigger_filter_error'] = $event_selection['error'];
+		$trigger_selection['resolution'] = $trigger_resolution;
+
+		// 解決結果（source / canonical / type / chain / status）はデバッグ専用。Zabbix のユーザー設定でデバッグモードが
+		// 有効なときだけ応答へ含め、JS 側で console.debug に出す（正式UIには表示しない）。
+		$debug_trigger_selection = $this->getDebugMode() == GROUP_DEBUG_MODE_ENABLED ? $trigger_selection : null;
 
 		$events = [];
 		$severity_counts = array_fill_keys(Aggregator::SEVERITIES, 0);
@@ -115,8 +143,16 @@ class WidgetView extends CControllerDashboardWidgetView {
 			// 対象Hostが未選択（Widget Source で未受信/空を含む）。全Hostへ広げず、専用のEmpty Stateにする。
 			$empty_reason = 'no_selection';
 		}
+		elseif ($event_selection['error'] !== null) {
+			$empty_reason = 'trigger_unresolvable';
+		}
 		elseif (!$target['hostids']) {
 			$empty_reason = 'no_hosts';
+		}
+		elseif (!$event_selection['selectors']) {
+			// Trigger が指定されているが、実体として有効なTriggerが1件もない（削除済み・権限なし・不正値）。
+			// 絞り込みなし（全Event）へ戻さず、0件として扱う。
+			$empty_reason = 'no_events';
 		}
 		elseif (!$runtime['ack']) {
 			// 確認状態が空（通常のUIでは発生しない）: 取得せず0件。Filter起因の表示にする。
@@ -204,7 +240,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'name' => $this->getInput('name', $this->widget->getDefaultName()),
 				'detail' => $detail ?? ['kind' => 'events', 'rows' => [], 'total' => 0, 'rows_truncated' => false,
 					'period' => null, 'source_truncated' => $truncated, 'covered_from' => null],
-				'trigger_selection' => $trigger_selection,
+				'trigger_selection' => $debug_trigger_selection,
 				'user' => ['debug_mode' => $this->getDebugMode()]
 			]));
 
@@ -242,7 +278,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 		$this->setResponse(new CControllerResponseData([
 			'name' => $this->getInput('name', $this->widget->getDefaultName()),
-			'trigger_selection' => $trigger_selection,
+			'trigger_selection' => $debug_trigger_selection,
 			'chart_data' => $this->buildChartData($rows, $plan, $tz, $runtime, $configured, $fields, $picked,
 				$event_details ?? [], $continuous, [
 				'total' => $total,
