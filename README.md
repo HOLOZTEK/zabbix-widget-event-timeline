@@ -53,7 +53,7 @@
 
 **対象外・既知の挙動**
 
-- **LLD（ディスカバリ）由来のトリガー**の対象Host展開には対応していません。LLDトリガーを選択した場合は、そのトリガー自身の所属Hostが対象Hostに含まれるときだけ、そのトリガーのイベントを表示します（他Hostの同じプロトタイプ由来トリガーへは展開しません）。
+- **LLD（ディスカバリ）由来のトリガー**は第4フェーズで対象Host展開に対応しました（次節）。
 - **複数Hostのアイテムを参照するトリガー**は正式対応外です。そのようなトリガーは1つのトリガーとして扱われ、参照先Hostのいずれかが対象Hostに含まれると一致します（例: Host A と B を参照するトリガーは、対象が Host B だけでも表示されます）。
 
 ### Phase 3: expanding triggers to target hosts
@@ -74,8 +74,54 @@ When a trigger selection is combined with a host selection, the widget shows eve
 
 **Out of scope / known behavior**
 
-- Expansion of **LLD (discovered) triggers** is not supported. A selected LLD trigger is used only as itself, when its host is in the target hosts.
+- **LLD (discovered) triggers** are expanded since Phase 4 (see below).
 - **Triggers referencing items of multiple hosts** are not officially supported. Such a trigger is treated as one trigger and matches when any of its hosts is in the target hosts.
+
+## 第4フェーズの機能（LLD / トリガープロトタイプの対象Host展開）
+
+LLD（ディスカバリ）で生成されたトリガー（Discovered Trigger）を選択した場合は、**そのトリガーの生成元トリガープロトタイプと同じ Canonical トリガープロトタイプに由来する、対象Host上のすべての Discovered Trigger** のイベントを表示します。
+
+- 照合の経路: Discovered Trigger → 生成元トリガープロトタイプ（Host上）→ Template 継承（多段も可）→ Canonical トリガープロトタイプ（継承元のない最上位）→ Event Timeline 側の対象Host上で、同じ Canonical に由来するプロトタイプから生成された Discovered Trigger。
+- 例: Host A の「Interface eth0 down」（Template T のプロトタイプ「Interface {#IFNAME} down」由来）を選択し、対象が Host B の場合、Host B 上の同じプロトタイプ由来のトリガー（ens18 / ens19 / bond0 など）すべてのイベントを表示します。
+- **LLDマクロ値（{#IFNAME} 等）では絞り込みません**。選択した eth0 と同じ値のトリガーだけでなく、同じプロトタイプから生成されたすべてのトリガーが対象です。
+- 一致の判定はプロトタイプID・継承元（templateid）・生成元の関係だけで行います。トリガー名・プロトタイプ名・条件式・Severity・LLDマクロ値は使いません。**同名でも別Templateのプロトタイプは別物**として扱います。
+- 対象Hostに該当Templateが適用されていない、またはディスカバリ結果が0件の場合は、該当なし（イベントなし）になるだけで、エラー・警告にはしません。
+- **Hostへ直接作成されたプロトタイプ**（Hostローカル）は、そのプロトタイプ自身が Canonical です。同じHost上のそのプロトタイプ由来のトリガーだけが一致し、他Hostの同名プロトタイプとは対応付けません。
+- 通常トリガーとLLDトリガーを同時に選択した場合は、それぞれの展開結果の和集合（OR、重複なし）です。
+- **Lost（ディスカバリで検出されなくなり、削除待ち）のトリガー**は、Zabbix上に存在する間は通常どおり対象です。
+- **削除済みのトリガー**は Zabbix から取得できないため対象外です（削除前に発生したイベントも表示しません。名前等から推測して補うことはしません）。削除済みトリガーを選択していた場合（古い選択の受信など）は、存在しない選択として扱い「イベントなし」になります。
+- **権限（fail-closed）**: 選択した Discovered Trigger の生成元プロトタイプ、または継承元のプロトタイプ（Template）を参照できない場合は、第3フェーズと同じく選択全体を適用せず、権限不足の警告を表示します。
+- **部分結果の警告**: 選択は正規化できたものの、対象Host上の一部の Discovered Trigger について継承元を辿れず照合できない場合は、照合できたトリガーのイベントだけを表示し、第3フェーズと同じ部分結果の警告を表示します。ただし、Host ローカルのプロトタイプだけを選択している場合、Template由来のプロトタイプは一致し得ないため警告しません。
+- **イベント表示（プロトタイプグループ）**: 表示モード「イベント」のプロトタイプグループは Canonical トリガープロトタイプ単位で集計します（同じ Template プロトタイプ由来なら Host が違っても1グループ）。継承元を辿れないプロトタイプは、生成元（Host上）のプロトタイプ単位で分けて表示し、「一部のイベントは継承元のトリガープロトタイプを特定できないため、プロトタイプグループがホストごとに分かれて表示されている可能性があります。」を表示します（イベントの集合は変わりません）。
+- 対象Host上のトリガーとプロトタイプは一括取得・段ごとの一括解決で照合します（Host数・トリガー数に比例してAPI呼び出し回数が増える構造にはしていません）。
+
+**対象外・既知の挙動**
+
+- **複数Hostのアイテムを参照するトリガープロトタイプ**は正式対応外です。生成されたトリガーは1つのトリガーとして扱われ、第3フェーズの複数Host参照トリガーと同じく、参照先Hostのいずれかが対象Hostに含まれると一致します。
+- Zabbix 8.0 のネストしたLLD（ディスカバリで生成されたプロトタイプ）には個別対応していません。生成されたプロトタイプは継承元（templateid）を持たないため Host ローカルと同じ扱いになり、親のプロトタイプまでは辿りません（実データでの動作は未検証）。
+
+### Phase 4: expanding LLD triggers (trigger prototypes) to target hosts
+
+When a discovered (LLD) trigger is selected, the widget shows events of **all discovered triggers on the target hosts whose trigger prototype derives from the same canonical trigger prototype**.
+
+- Path: discovered trigger → parent trigger prototype (on the host) → template inheritance (multi-level) → canonical trigger prototype (top-level, no parent) → discovered triggers on the Event Timeline target hosts created from prototypes with the same canonical prototype.
+- Example: if "Interface eth0 down" on host A (from prototype "Interface {#IFNAME} down" of template T) is selected and the target is host B, events of all triggers on host B created from that prototype (ens18, ens19, bond0, ...) are shown.
+- **LLD macro values ({#IFNAME} etc.) are not used for filtering.** All triggers created from the same prototype are included, not only those with the same value as the selected one.
+- Matching uses only prototype IDs, inheritance (templateid) and the discovery relationship. Trigger names, prototype names, expressions, severities and LLD macro values are never used. **Prototypes with the same name on different templates are different.**
+- A target host without the template, or with no discovered entities, simply has no match (no error or warning).
+- **Host-local prototypes** (created directly on a host) are their own canonical prototype. Only triggers from that prototype on the same host match; same-name prototypes on other hosts are not mapped.
+- Normal and LLD triggers can be selected together; the result is the union (OR, deduplicated).
+- **Lost triggers** (no longer discovered, pending deletion) are included while they still exist in Zabbix.
+- **Deleted triggers** cannot be retrieved from Zabbix and are not included (their past events are not shown either; nothing is inferred from names). A selection of a deleted trigger (e.g. a stale broadcast) is treated as not found and results in "No events".
+- **Permissions (fail-closed)**: if the parent prototype of a selected discovered trigger, or an inherited prototype (template), cannot be accessed, the whole selection is rejected with the permission warning, as in Phase 3.
+- **Partial result warning**: if the selection is resolved but some discovered triggers on the target hosts cannot be matched because their inheritance cannot be traced, only matched triggers are shown with the Phase 3 partial result warning. When only host-local prototypes are selected, template-derived prototypes can never match, so no warning is shown.
+- **Event mode (prototype groups)**: prototype groups are aggregated per canonical trigger prototype (one group across hosts for the same template prototype). Prototypes whose inheritance cannot be traced are grouped per their own (host) prototype, with the warning "Some events could not be grouped by their inherited trigger prototype. Some prototype groups may be split by host." (the set of events is unchanged).
+- Triggers and prototypes on the target hosts are fetched in bulk and resolved level by level; the number of API calls does not grow with the number of hosts or triggers.
+
+**Out of scope / known behavior**
+
+- **Trigger prototypes referencing items of multiple hosts** are not officially supported. The generated trigger is treated as one trigger and, like Phase 3 multi-host triggers, matches when any of its hosts is in the target hosts.
+- Nested LLD in Zabbix 8.0 (prototypes created by discovery) is not specifically supported. Such a prototype has no inherited parent (templateid) and is treated like a host-local prototype; its parent prototype is not traced (not verified with real data).
 
 ## トリガー連携の権限
 
@@ -84,6 +130,7 @@ Event TimelineでTemplate由来のトリガーを使用する場合、ログイ�
 - 継承元Templateを参照できない場合、Event Timelineはトリガーを正規化できないため、トリガー条件を適用せずに全イベントを表示することはありません。
 - 選択したトリガーのうち1件でも正規化できない場合は、選択全体を適用できないものとして扱います。正規化できたトリガーだけで絞り込んだ不完全な部分結果も表示しません。
 - この場合、Widgetに権限不足を示す警告「選択されたトリガーを展開できません。継承元テンプレートの参照権限を確認してください。」が表示されます（該当イベントが0件の通常表示とは区別されます）。
+- LLD由来のトリガーでは、生成元のトリガープロトタイプと、その継承元Template上のプロトタイプを参照できる権限が必要です（第4フェーズ）。
 - Template参照権限が必要なのはTemplate由来のトリガーの場合だけです。Hostへ直接作成されたローカルトリガーでは、Template参照権限は必要ありません。
 - トリガー選択を解除する、または正規化できるトリガーへ変更すると、ページを再読み込みしなくても通常の表示に戻ります。
 
@@ -94,6 +141,7 @@ When template-inherited triggers are used with Event Timeline, the logged-in use
 - If an inherited template cannot be accessed, Event Timeline cannot resolve the trigger to its canonical definition. It does not fall back to displaying unfiltered event results.
 - If any of the selected triggers cannot be resolved, the whole selection is treated as unusable. Partial results filtered by only the resolvable triggers are not displayed.
 - A permission warning is shown in the widget in this case: "The selected triggers cannot be resolved. Check access permissions for the inherited templates." (distinct from a normal result with no events).
+- For LLD (discovered) triggers, access to the parent trigger prototype and its inherited prototypes on templates is required (Phase 4).
 - Template access is required only for template-inherited triggers. Triggers created directly on a host do not require template access for this resolution step.
 - Clearing the trigger selection or changing it to resolvable triggers restores normal display without reloading the page.
 
