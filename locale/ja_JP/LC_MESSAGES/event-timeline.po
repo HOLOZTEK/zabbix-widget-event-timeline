@@ -31,6 +31,9 @@ msgstr "選択されたトリガーを展開できません。"
 msgid "Check access permissions for the inherited templates."
 msgstr "継承元テンプレートの参照権限を確認してください。"
 
+msgid "Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete."
+msgstr "対象ホスト上に、選択されたトリガーと照合できないトリガーがあります。結果が不完全な可能性があります。"
+
 msgid "Failed to retrieve events."
 msgstr "イベントの取得に失敗しました。"
 

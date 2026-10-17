@@ -15,6 +15,8 @@ use Modules\EventTimeline\Includes\{
 	EventFetcher,
 	SourceResolver,
 	TimeFormatter,
+	TriggerInheritanceCache,
+	TriggerScopeExpander,
 	TriggerSelection,
 	TriggerSelectionResolver,
 	WidgetForm
@@ -99,19 +101,38 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$target = SourceResolver::resolveTarget($fields);
 
 		// Trigger Selection（v0.2.0）: Phase 1 で triggerids の形式を正規化（inactive/active/invalid）し、
-		// Phase 2 で TriggerSelectionResolver によりテンプレート継承を辿って Canonical Trigger へ正規化する。
-		// 固定指定・Navigator 参照のどちらも同じ経路を通る。Canonical の結果は現時点では Event 抽出に使わず
-		// （対象Host上のTriggerへの展開は後続Phase）、Event は実体の確認できた source Trigger で絞り込む。
+		// Phase 2 で TriggerSelectionResolver によりテンプレート継承を辿って Canonical Trigger へ正規化し、
+		// Phase 3 で TriggerScopeExpander により Canonical を Host Scope（$target）上の Trigger へ展開して Event 抽出に使う。
+		// 固定指定・Navigator 参照のどちらも同じ経路を通る。Source Trigger ID をそのまま Event 条件には使わない。
 		// 選択TriggerのHostを対象Hostへ加えることはしない（Host範囲は resolveTarget だけが決める）。
+		$started = microtime(true);
+		EventFetcher::$api_calls = [];
+		TriggerSelectionResolver::$calls = 0;
+		$inheritance = new TriggerInheritanceCache([EventFetcher::class, 'fetchTriggerInheritance']);
+
 		$trigger_selection = TriggerSelection::resolve($fields['triggerids'] ?? []);
 		$trigger_resolution = null;
+		$trigger_expansion = null;
 
 		if ($trigger_selection['trigger_filter'] === TriggerSelection::STATE_ACTIVE) {
 			$trigger_resolution = TriggerSelectionResolver::resolve($trigger_selection['triggerids'],
-				[EventFetcher::class, 'fetchTriggerInheritance']
+				[$inheritance, 'fetch']
 			);
 
-			if ($trigger_resolution === null) {
+			// Selection 自体が fail-closed（filterError）の場合と、対象Hostがない場合は展開しない。
+			if ($trigger_resolution !== null && TriggerSelectionResolver::filterError($trigger_resolution) === null
+					&& $target['hostids']) {
+				$trigger_expansion = TriggerScopeExpander::expand($trigger_resolution, $target['hostids'],
+					[EventFetcher::class, 'fetchHostTriggers'], $inheritance
+				);
+
+				$failed = $trigger_expansion === null;
+			}
+			else {
+				$failed = $trigger_resolution === null;
+			}
+
+			if ($failed) {
 				$this->setResponse(new CControllerResponseData([
 					'name' => $this->getInput('name', $this->widget->getDefaultName()),
 					'error' => _et('Failed to retrieve events.'),
@@ -122,22 +143,30 @@ class WidgetView extends CControllerDashboardWidgetView {
 			}
 		}
 
-		$event_selection = SourceResolver::resolveEventSelection($trigger_selection, $trigger_resolution);
+		$trigger_ms = (int) round((microtime(true) - $started) * 1000);
+
+		$event_selection = SourceResolver::resolveEventSelection($trigger_selection, $trigger_resolution,
+			$trigger_expansion
+		);
 
 		// Trigger filter error（継承元Templateを参照できず正規化できないTriggerを含む）: Selection 全体を適用不能とし、
 		// Event を取得しない（fail-closed）。正常な0件（no_events）とは別の empty_reason で利用者へ警告する。
+		// 展開時の判定不能（partial）: 一致を確定できた Trigger の Event だけを表示し、不完全な可能性を警告する。
 		$trigger_selection['trigger_filter_error'] = $event_selection['error'];
+		$trigger_selection['trigger_filter_partial'] = $event_selection['partial'];
 		$trigger_selection['resolution'] = $trigger_resolution;
+		$trigger_selection['expansion'] = $trigger_expansion;
 
-		// 解決結果（source / canonical / type / chain / status）はデバッグ専用。Zabbix のユーザー設定でデバッグモードが
-		// 有効なときだけ応答へ含め、JS 側で console.debug に出す（正式UIには表示しない）。
-		$debug_trigger_selection = $this->getDebugMode() == GROUP_DEBUG_MODE_ENABLED ? $trigger_selection : null;
+		// 解決結果（source / canonical / type / chain / status）・展開結果・API統計はデバッグ専用。Zabbix のユーザー設定で
+		// デバッグモードが有効なときだけ応答へ含め、JS 側で console.debug に出す（正式UIには表示しない）。
+		$debug = $this->getDebugMode() == GROUP_DEBUG_MODE_ENABLED;
 
 		$events = [];
 		$severity_counts = array_fill_keys(Aggregator::SEVERITIES, 0);
 		$truncated = false;
 		$covered_from = null;
 		$empty_reason = null;
+		$event_ms = null;
 
 		if (!$target['selected'] || !$event_selection['selected']) {
 			// 対象Hostが未選択（Widget Source で未受信/空を含む）。全Hostへ広げず、専用のEmpty Stateにする。
@@ -150,8 +179,8 @@ class WidgetView extends CControllerDashboardWidgetView {
 			$empty_reason = 'no_hosts';
 		}
 		elseif (!$event_selection['selectors']) {
-			// Trigger が指定されているが、実体として有効なTriggerが1件もない（削除済み・権限なし・不正値）。
-			// 絞り込みなし（全Event）へ戻さず、0件として扱う。
+			// Trigger が指定されているが、対象Host上に一致するTriggerが1件もない（Template未適用のHostだけ・Hostローカル
+			// Triggerの所有HostがHost Scope外・削除済み・権限なし・不正値）。絞り込みなし（全Event）へ戻さず、正常な0件として扱う。
 			$empty_reason = 'no_events';
 		}
 		elseif (!$runtime['ack']) {
@@ -175,6 +204,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				return;
 			}
 
+			$event_ms = (int) round((microtime(true) - $started) * 1000) - $trigger_ms;
 			$truncated = $result['truncated'];
 			$covered_from = $result['covered_from'];
 
@@ -240,7 +270,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'name' => $this->getInput('name', $this->widget->getDefaultName()),
 				'detail' => $detail ?? ['kind' => 'events', 'rows' => [], 'total' => 0, 'rows_truncated' => false,
 					'period' => null, 'source_truncated' => $truncated, 'covered_from' => null],
-				'trigger_selection' => $debug_trigger_selection,
+				'trigger_selection' => $debug
+					? $this->debugTriggerSelection($trigger_selection, $started, $trigger_ms, $event_ms, $inheritance)
+					: null,
 				'user' => ['debug_mode' => $this->getDebugMode()]
 			]));
 
@@ -278,7 +310,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 		$this->setResponse(new CControllerResponseData([
 			'name' => $this->getInput('name', $this->widget->getDefaultName()),
-			'trigger_selection' => $debug_trigger_selection,
+			'trigger_selection' => $debug
+					? $this->debugTriggerSelection($trigger_selection, $started, $trigger_ms, $event_ms, $inheritance)
+					: null,
 			'chart_data' => $this->buildChartData($rows, $plan, $tz, $runtime, $configured, $fields, $picked,
 				$event_details ?? [], $continuous, [
 				'total' => $total,
@@ -292,6 +326,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'page_size' => $page_size,
 				'auto_page' => $auto_page,
 				'detail_page_size' => $detail_page_size,
+				'trigger_partial' => $event_selection['partial'],
 				'empty_reason' => $shown > 0 ? null
 					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events'))
 			], $week_start),
@@ -304,6 +339,26 @@ class WidgetView extends CControllerDashboardWidgetView {
 	 *
 	 * @return array|null  失敗時は null
 	 */
+	/**
+	 * デバッグモード用: Trigger Selection の解決・展開結果と、Trigger 展開 / Event 取得の所要時間・API 呼び出し回数。
+	 */
+	private function debugTriggerSelection(array $trigger_selection, float $started, int $trigger_ms,
+			?int $event_ms, TriggerInheritanceCache $inheritance): array {
+		$trigger_selection['stats'] = [
+			'trigger_ms' => $trigger_ms,
+			'event_ms' => $event_ms,
+			'total_ms' => (int) round((microtime(true) - $started) * 1000),
+			'api_calls' => EventFetcher::$api_calls,
+			'resolver_calls' => TriggerSelectionResolver::$calls,
+			'inheritance_fetches' => $inheritance->fetch_calls,
+			'expanded_triggers' => $trigger_selection['expansion'] !== null
+				? count($trigger_selection['expansion']['triggerids'])
+				: null
+		];
+
+		return $trigger_selection;
+	}
+
 	private function buildCategory(array $events, array $hostids, array $runtime, array $fields, int $page_size,
 			int $page): ?array {
 		$info = $events
@@ -678,6 +733,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'total' => $meta['total'],
 			'severity_counts' => $meta['severity_counts'],
 			'empty_reason' => $meta['empty_reason'],
+			'trigger_partial' => $meta['trigger_partial'],
 			'truncated' => $meta['truncated'],
 			'covered_from' => $meta['covered_from'],
 			'max_events' => $meta['max_events'],

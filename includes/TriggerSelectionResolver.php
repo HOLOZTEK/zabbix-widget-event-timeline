@@ -9,7 +9,8 @@ namespace Modules\EventTimeline\Includes;
  *
  * 入力は source triggerids[]、出力は Canonical Trigger の集合（と、各sourceの解決結果）。
  * 固定Trigger指定でも Navigator（Metric Navigator等）からのWidget参照でも、同じこの Resolver を通す。
- * 後続Phase（Canonical Trigger → 対象Host上のTriggerへの展開）の入力となることを想定している。
+ * Phase 3 以降は、この結果を TriggerScopeExpander が対象Host上の Trigger へ展開して Event 抽出に使う
+ * （source Trigger ID をそのまま Event 条件には使わない）。
  *
  * 同一性の判定に使うのは Trigger ID と templateid（継承の親子関係）、flags（通常/Discovery由来）だけである。
  * Trigger名・表示名・Severity・Event名・式文字列は一切参照しない（同名でも別テンプレートなら別Canonical）。
@@ -55,6 +56,9 @@ class TriggerSelectionResolver {
 	// 循環検出（visited）とは別に、想定外のデータで無限ループしないための上限とする。
 	public const MAX_DEPTH = 64;
 
+	/** resolve() の呼び出し回数（統計・デバッグ用。呼び出し側がリクエストごとに 0 へ戻す）。 */
+	public static int $calls = 0;
+
 	/**
 	 * @param int[]    $source_triggerids  正規化済み（TriggerSelection::resolve の active）の source Trigger ID
 	 * @param callable $fetch  function(int[] $triggerids): ?array
@@ -66,6 +70,7 @@ class TriggerSelectionResolver {
 	 *              各要素は ['canonical_triggerid' => int, 'type' => string, 'source_triggerids' => int[]]。
 	 */
 	public static function resolve(array $source_triggerids, callable $fetch): ?array {
+		self::$calls++;
 		$sources = [];
 
 		foreach ($source_triggerids as $id) {
@@ -242,25 +247,5 @@ class TriggerSelectionResolver {
 		}
 
 		return null;
-	}
-
-	/**
-	 * Phase 2 時点の Event 抽出に使う Trigger ID（source のうち、実体として存在・閲覧可能なもの）。
-	 * resolved / unresolved（LLD由来）は従来どおり source のまま Event を絞り込む。
-	 * invalid（存在しない・権限なし・循環）は除外する。
-	 * filterError() がエラーを返す Selection では呼び出し側がこの結果を使わない（Event を取得しない）。
-	 *
-	 * @return int[]
-	 */
-	public static function eventTriggerids(array $resolution): array {
-		$ids = [];
-
-		foreach ($resolution['entries'] as $entry) {
-			if ($entry['status'] !== self::STATUS_INVALID) {
-				$ids[] = $entry['source_triggerid'];
-			}
-		}
-
-		return $ids;
 	}
 }

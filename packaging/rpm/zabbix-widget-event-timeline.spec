@@ -50,6 +50,8 @@ install -D -m 644 ${SRCDIR}/includes/EventFetcher.php ${STAGEDIR}/includes/Event
 install -D -m 644 ${SRCDIR}/includes/helpers.php ${STAGEDIR}/includes/helpers.php
 install -D -m 644 ${SRCDIR}/includes/SourceResolver.php ${STAGEDIR}/includes/SourceResolver.php
 install -D -m 644 ${SRCDIR}/includes/TimeFormatter.php ${STAGEDIR}/includes/TimeFormatter.php
+install -D -m 644 ${SRCDIR}/includes/TriggerInheritanceCache.php ${STAGEDIR}/includes/TriggerInheritanceCache.php
+install -D -m 644 ${SRCDIR}/includes/TriggerScopeExpander.php ${STAGEDIR}/includes/TriggerScopeExpander.php
 install -D -m 644 ${SRCDIR}/includes/TriggerSelection.php ${STAGEDIR}/includes/TriggerSelection.php
 install -D -m 644 ${SRCDIR}/includes/TriggerSelectionResolver.php ${STAGEDIR}/includes/TriggerSelectionResolver.php
 install -D -m 644 ${SRCDIR}/includes/WidgetForm.php ${STAGEDIR}/includes/WidgetForm.php

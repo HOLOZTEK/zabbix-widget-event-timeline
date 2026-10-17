@@ -14,6 +14,8 @@ includes/EventFetcher.php usr/share/zabbix-widget-event-timeline/includes/
 includes/helpers.php usr/share/zabbix-widget-event-timeline/includes/
 includes/SourceResolver.php usr/share/zabbix-widget-event-timeline/includes/
 includes/TimeFormatter.php usr/share/zabbix-widget-event-timeline/includes/
+includes/TriggerInheritanceCache.php usr/share/zabbix-widget-event-timeline/includes/
+includes/TriggerScopeExpander.php usr/share/zabbix-widget-event-timeline/includes/
 includes/TriggerSelection.php usr/share/zabbix-widget-event-timeline/includes/
 includes/TriggerSelectionResolver.php usr/share/zabbix-widget-event-timeline/includes/
 includes/WidgetForm.php usr/share/zabbix-widget-event-timeline/includes/

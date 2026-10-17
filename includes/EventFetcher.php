@@ -20,6 +20,16 @@ class EventFetcher {
 	private const RECOVERY_CHUNK = 500;
 
 	/**
+	 * 取得系 API の呼び出し回数（method => 回数）。1リクエスト内の統計で、デバッグモード時の応答と性能試験の記録に使う。
+	 * Event 取得（event.get）と Trigger 展開（trigger.get）の経路だけを数える。
+	 */
+	public static array $api_calls = [];
+
+	private static function countCall(string $method): void {
+		self::$api_calls[$method] = (self::$api_calls[$method] ?? 0) + 1;
+	}
+
+	/**
 	 * @param int[]   $hostids    resolved host IDs（Source resolution の結果）
 	 * @param int     $time_from  期間開始（UNIX時刻、含む）
 	 * @param int     $time_till  期間終了（UNIX時刻、含む）
@@ -137,6 +147,7 @@ class EventFetcher {
 				$page_options['eventid_till'] = $till_eventid;
 			}
 
+			self::countCall('event.get');
 			$page = API::Event()->get($page_options);
 
 			if (!is_array($page)) {
@@ -217,6 +228,7 @@ class EventFetcher {
 		$clocks = [];
 
 		foreach (array_chunk($ids, self::RECOVERY_CHUNK) as $chunk) {
+			self::countCall('event.get');
 			$rows = API::Event()->get([
 				'output' => ['eventid', 'clock'],
 				'eventids' => $chunk,
@@ -462,9 +474,44 @@ class EventFetcher {
 		$result = [];
 
 		foreach (array_chunk(array_values(array_map('strval', $triggerids)), 500) as $chunk) {
+			self::countCall('trigger.get');
 			$rows = API::Trigger()->get([
 				'output' => ['triggerid', 'templateid', 'flags'],
 				'triggerids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$result[(int) $row['triggerid']] = [
+					'templateid' => (int) $row['templateid'],
+					'flags' => (int) $row['flags']
+				];
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * TriggerScopeExpander 用: 対象Host群の上にある Trigger の継承情報（templateid / flags）を、Host をまとめて取得する
+	 * （Host 1台ごとの呼び出しはしない）。複数Hostの Item を参照する Trigger は、参照先のいずれかが対象Hostなら返る。
+	 * 閲覧権限のない Trigger は返らない。Trigger prototype は trigger.get の対象外。
+	 *
+	 * @param int[] $hostids
+	 *
+	 * @return array<int, array{templateid: int, flags: int}>|null  API失敗時は null
+	 */
+	public static function fetchHostTriggers(array $hostids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_unique(array_map('strval', $hostids))), 500) as $chunk) {
+			self::countCall('trigger.get');
+			$rows = API::Trigger()->get([
+				'output' => ['triggerid', 'templateid', 'flags'],
+				'hostids' => $chunk
 			]);
 
 			if (!is_array($rows)) {
