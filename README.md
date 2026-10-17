@@ -35,6 +35,48 @@
 - **Event Count Mode**: 発生イベント数（Eventのclockが属するBucketのみ）/ 継続イベント加算（継続期間と重なるすべてのBucketへ加算。`start < bucket_end AND end > bucket_start`。未復旧は現在時刻・期間終端まで、未来のBucketには加算しない）
 - 実行時の状態は設定を書き換えず、通常のRefreshでは保持され、ダッシュボード再表示・ウィジェット再作成で設定値に戻る
 
+## 第3フェーズの機能（トリガーの対象Host展開）
+
+トリガー選択（Triggers）とホスト選択（Monitoring target）を組み合わせると、**選択したトリガーと同じTemplateトリガーに由来する、対象Host上のトリガー**のイベントを表示します。
+
+- 例: Host A の「Template T / Trigger X」を選択し、Event Timeline の対象が Host B・C の場合、Host B・C 上の「Template T / Trigger X」に由来するイベントを表示します。
+- 選択元（Event Navigator / Metric Navigator 等）で選ばれていたHostには固定されません。**表示範囲を決めるのは Event Timeline 側のホスト条件**（固定Host / Host group（サブグループ含む）/ Tree Navigator等から受信したHost）です。
+- 一致の判定はトリガーID・継承元（templateid）だけで行い、トリガー名・条件式・Severity が似ているだけのトリガーは対象にしません。多段継承（Template → Template → Host）でも最上位のTemplateトリガーで照合します。
+- 複数のトリガーを選択した場合は、それぞれの展開結果の和集合（OR、重複なし）です。
+- 対象Hostに該当Templateが適用されていない場合、そのHostには一致するトリガーがなく、イベントが表示されないだけです（エラー・警告にはしません）。
+- 展開の結果、一致するトリガーが0件の場合は「イベントなし」です。トリガー条件なしの全イベント表示へは切り替えません。
+- トリガー未選択の場合は従来どおり、対象Hostの期間内の全イベントを表示します。
+- **Hostへ直接作成されたローカルトリガー**は他Hostへ展開しません。そのトリガー自身の所属Hostが対象Hostに含まれるときだけ使用します（他Hostの同名トリガーは対象外）。
+- 展開にもTemplate参照権限が必要です（次節）。選択したトリガー自体を正規化できない場合は、従来どおり選択全体を適用せず警告を表示します。
+- **部分結果の警告**: 選択したトリガーは正規化できたものの、対象Host上の一部のトリガーについて継承元Templateを参照できず照合できなかった場合は、照合できたトリガーのイベントだけを表示し、グラフ上部に「対象ホスト上に、選択されたトリガーと照合できないトリガーがあります。結果が不完全な可能性があります。」を表示します。
+- 対象Host上のトリガーはHost数に比例しない一括取得で照合します（Host数に応じてAPI呼び出し回数が増える構造にはしていません）。
+
+**対象外・既知の挙動**
+
+- **LLD（ディスカバリ）由来のトリガー**の対象Host展開には対応していません。LLDトリガーを選択した場合は、そのトリガー自身の所属Hostが対象Hostに含まれるときだけ、そのトリガーのイベントを表示します（他Hostの同じプロトタイプ由来トリガーへは展開しません）。
+- **複数Hostのアイテムを参照するトリガー**は正式対応外です。そのようなトリガーは1つのトリガーとして扱われ、参照先Hostのいずれかが対象Hostに含まれると一致します（例: Host A と B を参照するトリガーは、対象が Host B だけでも表示されます）。
+
+### Phase 3: expanding triggers to target hosts
+
+When a trigger selection is combined with a host selection, the widget shows events of **the triggers on the target hosts that derive from the same template trigger as the selected trigger**.
+
+- Example: if "Template T / Trigger X" on host A is selected and the Event Timeline targets hosts B and C, events of "Template T / Trigger X" on hosts B and C are shown.
+- The widget is not bound to the host selected in the source widget (Event Navigator, Metric Navigator, etc.). **The Event Timeline host condition defines the scope** (fixed hosts, host groups including subgroups, or hosts received from Tree Navigator etc.).
+- Matching uses only trigger IDs and inheritance (templateid). Triggers that merely have a similar name, expression or severity are not matched. Multi-level inheritance is resolved to the top-level template trigger.
+- Multiple selected triggers are combined with OR and deduplicated.
+- A target host without the template simply has no matching trigger (no error or warning).
+- If no trigger matches after expansion, the result is "No events"; it never falls back to unfiltered events.
+- Without a trigger selection, all events of the target hosts are shown as before.
+- **Host-local triggers** are not expanded to other hosts. They are used only when their own host is in the target hosts.
+- Template access permission is also required for expansion (see below). If a selected trigger itself cannot be resolved, the whole selection is rejected with a warning as before.
+- **Partial result warning**: if the selected triggers are resolved but some triggers on the target hosts cannot be matched because their inherited templates are not accessible, only the matched triggers' events are shown with the warning "Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete."
+- Triggers on the target hosts are fetched in bulk; the number of API calls does not grow with the number of hosts.
+
+**Out of scope / known behavior**
+
+- Expansion of **LLD (discovered) triggers** is not supported. A selected LLD trigger is used only as itself, when its host is in the target hosts.
+- **Triggers referencing items of multiple hosts** are not officially supported. Such a trigger is treated as one trigger and matches when any of its hosts is in the target hosts.
+
 ## トリガー連携の権限
 
 Event TimelineでTemplate由来のトリガーを使用する場合、ログインユーザーには、そのトリガーの継承元Template（継承チェーン上のすべてのTemplate）を参照できる権限が必要です。これは不具合の回避策ではなく製品仕様です。Event TimelineはZabbixの権限を迂回してTemplateを参照することはありません。

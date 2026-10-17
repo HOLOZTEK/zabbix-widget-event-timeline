@@ -13,6 +13,8 @@ require_once __DIR__.'/../includes/DetailSelector.php';
 require_once __DIR__.'/../includes/SourceResolver.php';
 require_once __DIR__.'/../includes/TriggerSelection.php';
 require_once __DIR__.'/../includes/TriggerSelectionResolver.php';
+require_once __DIR__.'/../includes/TriggerInheritanceCache.php';
+require_once __DIR__.'/../includes/TriggerScopeExpander.php';
 
 require_once __DIR__.'/stubs.php';
 
@@ -24,6 +26,8 @@ use Modules\EventTimeline\Includes\SourceResolver;
 use Modules\EventTimeline\Includes\TimeFormatter;
 use Modules\EventTimeline\Includes\TriggerSelection as TS;
 use Modules\EventTimeline\Includes\TriggerSelectionResolver as TR;
+use Modules\EventTimeline\Includes\TriggerInheritanceCache as TC;
+use Modules\EventTimeline\Includes\TriggerScopeExpander as TX;
 
 $pass = 0;
 $fail = 0;
@@ -369,10 +373,12 @@ check('bucketRange none', Aggregator::bucketRange($bounds, $T0 + 6 * $h, $T0 + 7
 $fetch_57 = static fn(array $ids): array => array_intersect_key([5 => ['templateid' => 0, 'flags' => 0],
 	7 => ['templateid' => 0, 'flags' => 0]], array_flip($ids));
 $ts_57 = TS::resolve(['5', '5', '7']);
-check('event fixed', SourceResolver::resolveEventSelection($ts_57, TR::resolve($ts_57['triggerids'], $fetch_57)),
-	['selected' => true, 'selectors' => [['objectids' => ['5', '7']]], 'error' => null]);
+$r_57 = TR::resolve($ts_57['triggerids'], $fetch_57);
+check('event fixed', SourceResolver::resolveEventSelection($ts_57, $r_57,
+	TX::expand($r_57, [9], static fn(array $h): array => $fetch_57([5, 7]), new TC($fetch_57))),
+	['selected' => true, 'selectors' => [['objectids' => ['5', '7']]], 'error' => null, 'partial' => false]);
 check('event fixed empty', SourceResolver::resolveEventSelection(TS::resolve([])),
-	['selected' => true, 'selectors' => [[]], 'error' => null]);
+	['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false]);
 
 // --- 第3フェーズ: 次元集計 / Sort / Paging ---
 $ev = static fn(string $id, int $sev): array => ['eventid' => $id, 'clock' => 0, 'end' => null, 'severity' => $sev];
@@ -710,6 +716,37 @@ $tr_fetch = static function (array $ids) use ($tr_db, &$tr_calls): array {
 
 	return array_intersect_key($tr_db, array_flip($ids));
 };
+// Phase 3: 対象Host上の Trigger（hostid => triggerid[]）。$tr_db と同じ継承関係を持つ実体を各Hostに置く。
+// Host 1 = A, 2 = B, 3 = C, 4 = D（agent active / 継承チェーン途中が閲覧不可のTriggerを持つ）, 5 = E（Template未適用）。
+$tx_hosts = [
+	1 => [25143, 25091, 300, 400, 500],
+	2 => [25171, 25131, 350],
+	3 => [25184],
+	4 => [22395, 600],
+	5 => []
+];
+$tx_host_calls = [];
+$tx_fetch_hosts = static function (array $hostids) use ($tx_hosts, $tr_db, &$tx_host_calls): array {
+	$tx_host_calls[] = $hostids;
+	$ids = [];
+
+	foreach ($hostids as $h) {
+		foreach ($tx_hosts[$h] ?? [] as $id) {
+			$ids[$id] = true;
+		}
+	}
+
+	return array_intersect_key($tr_db, $ids);
+};
+// Selection → Resolver → Expander → Event Selection（WidgetView と同じ順序。キャッシュも共有する）。
+$tx_es = static function (array $ids, array $hostids) use ($tr_fetch, $tx_fetch_hosts): array {
+	$ts = TS::resolve($ids);
+	$cache = new TC($tr_fetch);
+	$r = $ts['trigger_filter'] === TS::STATE_ACTIVE ? TR::resolve($ts['triggerids'], [$cache, 'fetch']) : null;
+	$x = $r !== null && TR::filterError($r) === null ? TX::expand($r, $hostids, $tx_fetch_hosts, $cache) : null;
+
+	return SourceResolver::resolveEventSelection($ts, $r, $x);
+};
 $tr_canon = static fn(array $r): array => array_map(
 	static fn(array $c): array => [$c['canonical_triggerid'], $c['type'], $c['source_triggerids']], $r['canonical']
 );
@@ -728,7 +765,7 @@ $r = TR::resolve([25143], $tr_fetch);
 check('TR §17.2 resolution has no host keys', array_keys($r), ['entries', 'canonical']);
 check('TR §17.2 entry has no host keys', array_keys($r['entries'][0]),
 	['source_triggerid', 'canonical_triggerid', 'type', 'status', 'inheritance_chain', 'reason']);
-$es = SourceResolver::resolveEventSelection(TS::resolve(['25143']), $r);
+$es = $tx_es(['25143'], [1]);
 check('TR §17.2 event selection carries only objectids (no hostids)', array_keys($es['selectors'][0]), ['objectids']);
 
 // §17.3 多段継承: 2段（Host→Mid→Base）・3段（Host→Upper→Mid→Base）とも最上位の Base が canonical。
@@ -774,13 +811,13 @@ $r = TR::resolve([999], $tr_fetch);
 check('TR §17.8 not found', $tr_entry($r, 0), [null, null, TR::STATUS_INVALID, [999], TR::REASON_NOT_FOUND]);
 check('TR §17.8 not found: no canonical', $r['canonical'], []);
 check('TR §17.8 not found: event selection is empty (no fallback to all)',
-	SourceResolver::resolveEventSelection(TS::resolve(['999']), $r), ['selected' => true, 'selectors' => [], 'error' => null]);
+	SourceResolver::resolveEventSelection(TS::resolve(['999']), $r), ['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
 $r = TR::resolve([600], $tr_fetch);
 check('TR §17.8 broken chain (parent unavailable)', $tr_entry($r, 0),
 	[null, TR::TYPE_TEMPLATE, TR::STATUS_UNRESOLVED, [600, 601], TR::REASON_PARENT_UNAVAILABLE]);
 check('TR §17.8 broken chain -> fail-closed (no source fallback)',
 	SourceResolver::resolveEventSelection(TS::resolve(['600']), $r),
-	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
 $r = TR::resolve([700], $tr_fetch);
 check('TR §17.8 cycle terminates', $tr_entry($r, 0),
 	[null, TR::TYPE_TEMPLATE, TR::STATUS_INVALID, [700, 701, 700], TR::REASON_CYCLE]);
@@ -797,40 +834,36 @@ check('TR §17.8 chain at MAX_DEPTH still resolves', [$r['entries'][0]['canonica
 	count($r['entries'][0]['inheritance_chain'])], [1000, TR::MAX_DEPTH + 1]);
 check('TR §17.8 API failure -> null', TR::resolve([25143], static fn(array $ids) => null), null);
 check('TR §17.8 invalid format -> empty event selection',
-	SourceResolver::resolveEventSelection(TS::resolve(['abc'])), ['selected' => true, 'selectors' => [], 'error' => null]);
+	SourceResolver::resolveEventSelection(TS::resolve(['abc'])), ['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
 // 有効と無効の混在: 有効な source だけで絞り込む（無効分で全体を絞り込みなしにはしない）。
 $ts_mix = TS::resolve(['25143', '999']);
 $r = TR::resolve($ts_mix['triggerids'], $tr_fetch);
 check('TR §17.8 mixed valid/invalid: canonical from valid only', $tr_canon($r),
 	[[23176, TR::TYPE_TEMPLATE, [25143]]]);
 check('TR §17.8 mixed valid/invalid: event selection uses valid source only',
-	SourceResolver::resolveEventSelection($ts_mix, $r), ['selected' => true, 'selectors' => [['objectids' => ['25143']]], 'error' => null]);
+	$tx_es(['25143', '999'], [1]), ['selected' => true, 'selectors' => [['objectids' => ['25143']]], 'error' => null, 'partial' => false]);
 
 // §17.9 Load average + ICMP ping: canonical 2件、Event Selection は両 source の OR（1つの objectids 集合）。
 $ts_two = TS::resolve(['25091', '25143']);
 $r = TR::resolve($ts_two['triggerids'], $tr_fetch);
 check('TR §17.9 two canonicals', $tr_canon($r),
 	[[22381, TR::TYPE_TEMPLATE, [25091]], [23176, TR::TYPE_TEMPLATE, [25143]]]);
-check('TR §17.9 OR kept in event selection', SourceResolver::resolveEventSelection($ts_two, $r),
-	['selected' => true, 'selectors' => [['objectids' => ['25091', '25143']]], 'error' => null]);
+check('TR §17.9 OR kept in event selection', $tx_es(['25091', '25143'], [1]),
+	['selected' => true, 'selectors' => [['objectids' => ['25091', '25143']]], 'error' => null, 'partial' => false]);
 
 // LLD（Discovery）由来: 正規化しない（canonical = null, type = discovered）。Event 抽出は従来どおり source で行う。
 $r = TR::resolve([500], $tr_fetch);
 check('TR LLD discovered not normalized', $tr_entry($r, 0),
 	[null, TR::TYPE_DISCOVERED, TR::STATUS_UNRESOLVED, [500], TR::REASON_DISCOVERED]);
-check('TR LLD event selection keeps source', SourceResolver::resolveEventSelection(TS::resolve(['500']), $r),
-	['selected' => true, 'selectors' => [['objectids' => ['500']]], 'error' => null]);
+check('TR LLD event selection keeps source', $tx_es(['500'], [1]),
+	['selected' => true, 'selectors' => [['objectids' => ['500']]], 'error' => null, 'partial' => false]);
 check('TR empty input', TR::resolve([], $tr_fetch), ['entries' => [], 'canonical' => []]);
 
 
 // ---- Phase 2 追加修正: 継承元Template参照権限不足（parent_unavailable）の fail-closed（追加修正指示書§4〜§9） ----
 // 601 を参照できない継承チェーン（600 → 601 → ?）を「Triggerは参照できるがTemplateを参照できない」状態として使う。
-$sel = static function (array $ids) use ($tr_fetch): array {
-	$ts = TS::resolve($ids);
-	$r = $ts['trigger_filter'] === TS::STATE_ACTIVE ? TR::resolve($ts['triggerids'], $tr_fetch) : null;
-
-	return SourceResolver::resolveEventSelection($ts, $r);
-};
+// 対象Hostは source の所有Host（A/B）とし、Phase 2 の source 直接方式と同じ結果になることも併せて確認する（§22）。
+$sel = static fn(array $ids): array => $tx_es($ids, [1, 2]);
 check('PERM filterError: none for resolved', TR::filterError(TR::resolve([25143, 400], $tr_fetch)), null);
 check('PERM filterError: parent_unavailable detected', TR::filterError(TR::resolve([25143, 600], $tr_fetch)),
 	TR::REASON_PARENT_UNAVAILABLE);
@@ -839,27 +872,116 @@ check('PERM filterError: not_found alone is not a permission error', TR::filterE
 	null);
 // Case A: すべて resolved → 正常（OR）
 check('PERM Case A all resolved', $sel(['25143', '25171']),
-	['selected' => true, 'selectors' => [['objectids' => ['25143', '25171']]], 'error' => null]);
-// Case B: resolved + exact → 正常
+	['selected' => true, 'selectors' => [['objectids' => ['25143', '25171']]], 'error' => null, 'partial' => false]);
+// Case B: resolved + exact → 正常（Phase 3: Template由来は対象Host A/B の両方へ展開、exact は所有Host A のものだけ）
 check('PERM Case B resolved + exact', $sel(['25143', '400']),
-	['selected' => true, 'selectors' => [['objectids' => ['400', '25143']]], 'error' => null]);
+	['selected' => true, 'selectors' => [['objectids' => ['400', '25143', '25171']]], 'error' => null, 'partial' => false]);
 // Case C: resolved + parent_unavailable → Selection全体エラー（解決できた分だけを使わない）
 check('PERM Case C resolved + parent_unavailable', $sel(['25143', '600', '25171']),
-	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
 // Case D: parent_unavailable のみ → エラー
 check('PERM Case D parent_unavailable only', $sel(['600']),
-	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
 // Case E: Selectionなし → 従来どおり絞り込みなし（fail-closedにしない）
-check('PERM Case E no selection', $sel([]), ['selected' => true, 'selectors' => [[]], 'error' => null]);
+check('PERM Case E no selection', $sel([]), ['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false]);
 // Hostローカル（exact）だけならTemplate権限は不要で正常
-check('PERM host-local only', $sel(['400']), ['selected' => true, 'selectors' => [['objectids' => ['400']]], 'error' => null]);
+check('PERM host-local only', $sel(['400']), ['selected' => true, 'selectors' => [['objectids' => ['400']]], 'error' => null, 'partial' => false]);
 // LLD + parent_unavailable の混在もエラー（LLDを名前等で推測して救済しない）
 check('PERM LLD + parent_unavailable', $sel(['500', '600']),
-	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE]);
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
 // Selection変更・解除で前回のエラー状態を持ち越さない（リクエストごとに再解決するだけ）
 check('PERM error -> change to resolvable', $sel(['25143']),
-	['selected' => true, 'selectors' => [['objectids' => ['25143']]], 'error' => null]);
-check('PERM error -> cleared', $sel([]), ['selected' => true, 'selectors' => [[]], 'error' => null]);
+	['selected' => true, 'selectors' => [['objectids' => ['25143', '25171']]], 'error' => null, 'partial' => false]);
+check('PERM error -> cleared', $sel([]), ['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false]);
+
+// ---- v0.2.0 Phase 3: Canonical Trigger の Host Scope への展開（TriggerScopeExpander） ----
+$tx = static function (array $ids, array $hostids) use ($tr_fetch, $tx_fetch_hosts): ?array {
+	$cache = new TC($tr_fetch);
+	$r = TR::resolve(TS::resolve($ids)['triggerids'], [$cache, 'fetch']);
+
+	return TX::expand($r, $hostids, $tx_fetch_hosts, $cache);
+};
+$tx_ids = static fn(array $ids, array $hostids): array => $tx($ids, $hostids)['triggerids'];
+$objectids = static fn(array $es): array => $es['selectors'][0]['objectids'] ?? [];
+
+// §21 基本Host横断: Host A 上の ICMP（25143）を選択、対象 Host = B/C → B/C の実体だけ。A は含めない。
+check('P3 §21 cross-host: A selected, scope B/C', $tx_ids(['25143'], [2, 3]), [25171, 25184]);
+check('P3 §21 canonical is the template trigger', $tx(['25143'], [2, 3])['canonical_triggerids'], [23176]);
+// §22 Navigator Host = 対象Host: source 直接方式と同じ結果。
+check('P3 §22 same host as source', $tx_ids(['25143'], [1]), [25143]);
+check('P3 §22 same host as source (multi)', $tx_ids(['25091', '25143'], [1]), [25091, 25143]);
+// §23 Template 未適用 Host のみ: 0件・警告なし・全Event へ Fallback しない。
+check('P3 §23 template not linked -> empty', $tx_es(['25143'], [5]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
+// §24 混在（B/C は Template あり、E はなし）: B/C だけ。E を理由に警告しない。
+check('P3 §24 mixed scope', $tx_es(['25143'], [2, 3, 5]),
+	['selected' => true, 'selectors' => [['objectids' => ['25171', '25184']]], 'error' => null, 'partial' => false]);
+// §25 複数 Canonical の OR: Load(agent) + ICMP を A で選択、対象 B/C → B の Load・B/C の ICMP。
+check('P3 §25 OR of canonicals', $tx_ids(['25091', '25143'], [2, 3]), [25131, 25171, 25184]);
+// 同名・別Template（agent active の Load average, Host D）は展開に含めない（名前で対応付けない）。
+check('P3 §25 same name other template not projected', $tx_ids(['25091'], [2, 3, 4]), [25131]);
+// 同じ実体が複数経路（A と B の ICMP を両方選択 = 同一 canonical）から解決されても重複しない。
+check('P3 §25 duplicate canonical collapses', $tx_ids(['25143', '25171'], [1, 2, 3]), [25143, 25171, 25184]);
+// §26 Host ローカル exact（Host A の 400）
+check('P3 §26 exact: scope A', $tx_ids(['400'], [1]), [400]);
+check('P3 §26 exact: scope B/C -> empty', $tx_es(['400'], [2, 3]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
+check('P3 §26 exact: scope A/B/C -> A only', $tx_ids(['400'], [1, 2, 3]), [400]);
+// §27 多段 Template 継承: Host A の 300（Host→Mid→Base）を選択し、B の 350（Host→Upper→Mid→Base）へ展開する。
+check('P3 §27 multi-level: A(2 levels) -> B(3 levels)', $tx_ids(['300'], [2]), [350]);
+check('P3 §27 multi-level: scope A/B', $tx_ids(['350'], [1, 2]), [300, 350]);
+// 中間 Template の Trigger（250 = Upper）は最上位 Base（100）へ正規化され、Base 由来の全Host Triggerへ展開される。
+check('P3 §27 middle template trigger expands by top canonical', $tx_ids(['250'], [1, 2]), [300, 350]);
+// Template 上の Trigger そのもの（継承元なし = exact 判定）を選んでも、それを継承する Host Trigger へ展開される。
+check('P3 template-level trigger selected directly', $tx_ids(['23176'], [1, 2, 3, 5]), [25143, 25171, 25184]);
+// §12 / Q1=B: 対象Host上に判定不能な Trigger（Host D の 600: 継承元閲覧不可）があれば、確定できた一致だけで取得し partial。
+check('P3 §28 indeterminate on target -> partial', $tx_es(['25143'], [2, 4]),
+	['selected' => true, 'selectors' => [['objectids' => ['25171']]], 'error' => null, 'partial' => true]);
+check('P3 §28 indeterminate counted', [$tx(['25143'], [2, 4])['indeterminate'], $tx(['25143'], [2, 4])['indeterminate_ids']],
+	[1, [600]]);
+// 一致0件でも判定不能があれば partial（0件だが警告する）。全Eventへは戻さない。
+check('P3 §28 indeterminate only -> empty + partial', $tx_es(['25143'], [4]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
+// Selection 自体が parent_unavailable の場合は Phase 2 どおり fail-closed（展開しない）。
+check('P3 §28 selection-level fail-closed kept', $tx_es(['25143', '600'], [1, 2, 3, 4]),
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
+// §10 Selection なし: 絞り込みなし（展開しない）。
+check('P3 §10 no selection', $tx_es([], [1, 2]), ['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false]);
+// §14 LLD 由来（Q2=A）: 自分自身が対象Host上にあるときだけ。他Hostへ展開しない。
+check('P3 §14 LLD: scope contains owner', $tx_ids(['500'], [1, 2]), [500]);
+check('P3 §14 LLD: scope without owner -> empty', $tx_ids(['500'], [2, 3]), []);
+// 対象Host なし: 何も取得しない（API も呼ばない）。
+$tx_host_calls = [];
+check('P3 empty scope', $tx_ids(['25143'], []), []);
+check('P3 empty scope: no host trigger fetch', $tx_host_calls, []);
+// §29 Selection 変更の追従（リクエストごとに再展開するだけで前回の結果を持ち越さない）。
+check('P3 §29 A -> B', [$tx_ids(['25143'], [2, 3]), $tx_ids(['25091'], [2, 3])], [[25171, 25184], [25131]]);
+check('P3 §29 A -> A+B -> B', [$tx_ids(['25143'], [2]), $tx_ids(['25143', '25091'], [2]), $tx_ids(['25091'], [2])],
+	[[25171], [25131, 25171], [25131]]);
+check('P3 §29 host B -> C -> B+C', [$tx_ids(['25143'], [2]), $tx_ids(['25143'], [3]), $tx_ids(['25143'], [2, 3])],
+	[[25171], [25184], [25171, 25184]]);
+// §16 Batch: 対象Host上の Trigger は Host 数に関係なく1回でまとめて取得し、Selection 解決で取得済みの
+// 継承チェーン（23176 等）は再取得しない。
+$tr_calls = [];
+$tx_host_calls = [];
+$cache = new TC($tr_fetch);
+$r = TR::resolve([25143], [$cache, 'fetch']);
+$x = TX::expand($r, [1, 2, 3, 4, 5], $tx_fetch_hosts, $cache);
+check('P3 §16 host triggers fetched once for all hosts', $tx_host_calls, [[1, 2, 3, 4, 5]]);
+// Selection: [25143] → [23176]。展開: 対象Host Trigger は取得済み、親は未取得の 200・250・22381・22425・601 と 100 だけ（23176 は再取得しない）。
+check('P3 §16 inheritance fetched per level, cached', $tr_calls, [[25143], [23176], [200, 250, 601, 22381, 22425], [100]]);
+check('P3 §16 cache call count', $cache->fetch_calls, 4);
+check('P3 §16 result', $x['triggerids'], [25143, 25171, 25184]);
+// API 失敗は null（呼び出し側で取得失敗表示。部分結果にしない）。
+$cache = new TC($tr_fetch);
+check('P3 host trigger fetch failure -> null', TX::expand(TR::resolve([25143], [$cache, 'fetch']), [1],
+	static fn(array $h) => null, $cache), null);
+$cache = new TC(static fn(array $ids) => null);
+check('P3 inheritance fetch failure -> null', TX::expand(['entries' => [['source_triggerid' => 25143,
+	'canonical_triggerid' => 23176, 'type' => TR::TYPE_TEMPLATE, 'status' => TR::STATUS_RESOLVED,
+	'inheritance_chain' => [25143, 23176], 'reason' => null]], 'canonical' => []], [1], $tx_fetch_hosts, $cache), null);
+// 展開結果に Host 情報を持ち込まない（Event 条件は objectids のみ。Host 範囲は event.get の hostids が別途担う）。
+check('P3 selectors carry only objectids', array_keys($tx_es(['25143'], [2])['selectors'][0]), ['objectids']);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

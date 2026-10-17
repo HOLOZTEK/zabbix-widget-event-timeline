@@ -32,48 +32,52 @@ class SourceResolver {
 
 	/**
 	 * Event Selection の解決。イベント＝Trigger として、固定指定でも Navigator 参照でも、
-	 * TriggerSelection（形式の正規化）と TriggerSelectionResolver（Canonical正規化）を通した結果だけを見る。
+	 * TriggerSelection（形式の正規化）→ TriggerSelectionResolver（Canonical正規化）→ TriggerScopeExpander
+	 * （Host Scope への展開）を通した結果だけを見る（v0.2.0 Phase 3。Source Trigger ID をそのまま Event 条件に使わない）。
 	 *
 	 * - inactive（Trigger指定なし）: 絞り込みなし。対象Hostの期間内の全Eventを扱う（従来どおり）。
-	 * - active: Resolver で実体が確認できた source Trigger（invalid 以外）の Event だけ。1件も残らない場合は
-	 *           絞り込みなしへ戻さず、取得対象なし（selectors = []）とする（Fail-Openにしない）。
+	 * - active: 対象Host上へ展開した expanded_triggerids の Event だけ。1件も一致しない場合は絞り込みなしへ戻さず、
+	 *           取得対象なし（selectors = []）とする（正常な0件。Fail-Openにしない）。
+	 *           展開時に判定不能な Trigger があった場合は 'partial' = true（一致を確定できた分だけで取得し、警告する）。
 	 * - invalid（Trigger ID配列として解釈できない）: 取得対象なし。
-	 * - Trigger filter error（1件でも継承元Templateを参照できず正規化できない Trigger を含む）: Selection 全体を
-	 *   適用不能とし取得対象なし。解決できた Trigger や source Trigger だけでの部分表示はしない。
-	 *   'error' に理由（TriggerSelectionResolver::REASON_PARENT_UNAVAILABLE）を返す。
+	 * - Trigger filter error（選択Triggerに1件でも継承元Templateを参照できず正規化できないものを含む）: Selection 全体を
+	 *   適用不能とし取得対象なし。'error' に理由（TriggerSelectionResolver::REASON_PARENT_UNAVAILABLE）を返す。
 	 *
 	 * Host範囲（resolveTarget）には一切影響しない。選択されたTriggerのHostを対象Hostへ加えることはしない。
 	 *
 	 * @param array      $trigger_selection  TriggerSelection::resolve() の結果
 	 * @param array|null $resolution         TriggerSelectionResolver::resolve() の結果（active のときのみ）
+	 * @param array|null $expansion          TriggerScopeExpander::expand() の結果（active かつ error なしのとき）
 	 *
-	 * @return array{selected: bool, selectors: array[], error: ?string}
+	 * @return array{selected: bool, selectors: array[], error: ?string, partial: bool}
 	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。[[]] は絞り込みなし、[] は取得対象なし。
 	 *   error: Trigger filter error の理由。通常は null（正常な0件とは区別する）。
+	 *   partial: 対象Host上に判定不能な Trigger があり、結果が不完全な可能性がある。
 	 */
-	public static function resolveEventSelection(array $trigger_selection, ?array $resolution = null): array {
+	public static function resolveEventSelection(array $trigger_selection, ?array $resolution = null,
+			?array $expansion = null): array {
 		switch ($trigger_selection['trigger_filter'] ?? TriggerSelection::STATE_INVALID) {
 			case TriggerSelection::STATE_INACTIVE:
-				return ['selected' => true, 'selectors' => [[]], 'error' => null];
+				return ['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false];
 
 			case TriggerSelection::STATE_ACTIVE:
 				$error = $resolution !== null ? TriggerSelectionResolver::filterError($resolution) : null;
 
 				if ($error !== null) {
-					return ['selected' => true, 'selectors' => [], 'error' => $error];
+					return ['selected' => true, 'selectors' => [], 'error' => $error, 'partial' => false];
 				}
 
-				$triggerids = $resolution !== null ? TriggerSelectionResolver::eventTriggerids($resolution) : [];
-				$triggerids = array_values(array_unique(self::normalize($triggerids)));
+				$triggerids = array_values(array_unique(self::normalize($expansion['triggerids'] ?? [])));
 				sort($triggerids, SORT_NUMERIC);
 
 				return ['selected' => true,
 					'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : [],
-					'error' => null
+					'error' => null,
+					'partial' => ($expansion['indeterminate'] ?? 0) > 0
 				];
 
 			default:
-				return ['selected' => true, 'selectors' => [], 'error' => null];
+				return ['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false];
 		}
 	}
 

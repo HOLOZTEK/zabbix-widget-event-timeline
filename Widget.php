@@ -145,6 +145,8 @@ class Widget extends CWidget {
 					=> _et('The selected triggers cannot be resolved.'),
 				'Check access permissions for the inherited templates.'
 					=> _et('Check access permissions for the inherited templates.'),
+				'Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete.'
+					=> _et('Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete.'),
 				'Failed to retrieve events.'
 					=> _et('Failed to retrieve events.'),
 				'Tooltip details: grouped by host (click to sort chronologically)'
