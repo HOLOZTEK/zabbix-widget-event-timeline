@@ -351,11 +351,6 @@ class WidgetView extends CControllerDashboardWidgetView {
 	}
 
 	/**
-	 * 次元集計（By Host / By Host group / By Event）→ Sort → Paging。
-	 *
-	 * @return array|null  失敗時は null
-	 */
-	/**
 	 * デバッグモード用: Trigger Selection の解決・展開結果と、Trigger 展開 / Event 取得の所要時間・API 呼び出し回数。
 	 */
 	private function debugTriggerSelection(array $trigger_selection, float $started, int $trigger_ms,
@@ -480,6 +475,11 @@ class WidgetView extends CControllerDashboardWidgetView {
 		];
 	}
 
+	/**
+	 * 次元集計（By Host / By Host group / By Event）→ Sort → Paging。
+	 *
+	 * @return array|null  失敗時は null
+	 */
 	private function buildCategory(array $events, array $hostids, array $runtime, array $fields, int $page_size,
 			int $page): ?array {
 		$info = $events

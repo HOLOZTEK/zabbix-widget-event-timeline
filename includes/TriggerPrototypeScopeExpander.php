@@ -26,6 +26,8 @@ namespace Modules\EventTimeline\Includes;
  * 辿れない等で Canonical prototype を決定できないもの。一致を確定できた分だけで結果を返し、件数を返す（呼び出し側は
  * Phase 3 と同じ部分結果の警告を表示する）。本 Expander は Canonical prototype の Selection があるときだけ呼ばれるため、
  * Selection がない場合に対象Host上の LLD Trigger を判定不能として数えることはない（Phase 4 指示 Q2）。
+ * 同じ理由で、Selection が Host ローカル prototype（exact）だけのときは、継承元を辿れない prototype（Template 由来であることは
+ * 確定している）の Discovered Trigger も判定不能に数えない。
  *
  * 純粋ロジック（Zabbixフレームワーク非依存）。取得処理は呼び出し側から関数として注入する。
  */
@@ -52,9 +54,11 @@ class TriggerPrototypeScopeExpander {
 	public static function expand(array $resolution, array $target_hostids, callable $fetch_host_triggers,
 			TriggerInheritanceCache $cache): ?array {
 		$canonical = [];
+		$template_canonical = false;
 
 		foreach ($resolution['canonical'] as $row) {
 			$canonical[(int) $row['canonical_prototypeid']] = true;
+			$template_canonical = $template_canonical || $row['type'] === TriggerPrototypeResolver::TYPE_TEMPLATE;
 		}
 
 		$result = [
@@ -107,6 +111,13 @@ class TriggerPrototypeScopeExpander {
 			$entry = $prototypeid > 0 ? ($host_prototypes[$prototypeid] ?? null) : null;
 
 			if ($entry === null || $entry['status'] !== TriggerPrototypeResolver::STATUS_RESOLVED) {
+				if ($entry !== null && $entry['reason'] === TriggerPrototypeResolver::REASON_PARENT_UNAVAILABLE
+						&& !$template_canonical) {
+					// 継承元を持つ（Template 由来の）prototype は、Host ローカル prototype（exact）の Canonical には
+					// 行き着かない。Selection が Host ローカルだけなら、結果は不完全ではない（Phase 4 指示 Q2）。
+					continue;
+				}
+
 				// 生成元 prototype が不明・参照不能、継承元を辿れない、継承関係が不正: 選択 Canonical に行き着くかを判断できない。
 				$indeterminate[$triggerid] = true;
 			}

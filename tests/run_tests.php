@@ -1099,8 +1099,13 @@ check('P4 §36 same name other template: B', $p4_ids(['530'], [1, 4]), [530]);
 check('P4 §36 canonical differs', [$p4_entry(['520'])[1], $p4_entry(['530'])[1]], [2000, 3000]);
 // §37 Host ローカル prototype（Q5）: 所有Hostが Scope にあればその Host の分だけ、なければ0件。
 check('P4 §37 host-local: owner in scope', $p4_ids(['540'], [1, 2]), [540]);
+// Host D の 550（継承元を辿れない = Template 由来）は Host ローカル Canonical に一致し得ないため判定不能に数えない（Q2）。
 check('P4 §37 host-local: owner not in scope', $tx_es(['540'], [2, 4]),
-	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
+check('P4 Q2 host-local only: parent_unavailable not indeterminate', $tx_es(['540'], [1, 6]),
+	['selected' => true, 'selectors' => [['objectids' => ['540']]], 'error' => null, 'partial' => false]);
+check('P4 Q2 host-local + template canonical: parent_unavailable indeterminate', $tx_es(['540', '500'], [1, 6]),
+	['selected' => true, 'selectors' => [['objectids' => ['500', '501', '540']]], 'error' => null, 'partial' => true]);
 check('P4 §37 host-local: owner not in scope (no indeterminate host)', $tx_es(['540'], [2, 3]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
 // §38 複数 Canonical の OR・同一 Canonical の重複排除。
