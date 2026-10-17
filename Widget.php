@@ -147,6 +147,8 @@ class Widget extends CWidget {
 					=> _et('Check access permissions for the inherited templates.'),
 				'Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete.'
 					=> _et('Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete.'),
+				'Some events could not be grouped by their inherited trigger prototype. Some prototype groups may be split by host.'
+					=> _et('Some events could not be grouped by their inherited trigger prototype. Some prototype groups may be split by host.'),
 				'Failed to retrieve events.'
 					=> _et('Failed to retrieve events.'),
 				'Tooltip details: grouped by host (click to sort chronologically)'
