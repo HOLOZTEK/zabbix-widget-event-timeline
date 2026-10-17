@@ -98,7 +98,7 @@ LLD（ディスカバリ）で生成されたトリガー（Discovered Trigger�
 **対象外・既知の挙動**
 
 - **複数Hostのアイテムを参照するトリガープロトタイプ**は正式対応外です。生成されたトリガーは1つのトリガーとして扱われ、第3フェーズの複数Host参照トリガーと同じく、参照先Hostのいずれかが対象Hostに含まれると一致します。
-- Zabbix 8.0 のネストしたLLD（ディスカバリで生成されたプロトタイプ）には個別対応していません。生成されたプロトタイプは継承元（templateid）を持たないため Host ローカルと同じ扱いになり、親のプロトタイプまでは辿りません（実データでの動作は未検証）。
+- Zabbix 8.0 のネストしたLLD（ディスカバリで生成されたプロトタイプ）は**未検証**です（対応済みではありません）。Zabbix 8.0 正式版での実データ確認を v1.0.0 公開前の確認項目としています。
 
 ### Phase 4: expanding LLD triggers (trigger prototypes) to target hosts
 
@@ -121,7 +121,7 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 **Out of scope / known behavior**
 
 - **Trigger prototypes referencing items of multiple hosts** are not officially supported. The generated trigger is treated as one trigger and, like Phase 3 multi-host triggers, matches when any of its hosts is in the target hosts.
-- Nested LLD in Zabbix 8.0 (prototypes created by discovery) is not specifically supported. Such a prototype has no inherited parent (templateid) and is treated like a host-local prototype; its parent prototype is not traced (not verified with real data).
+- Nested LLD in Zabbix 8.0 (prototypes created by discovery) is **not verified** (not supported yet). Verification with real data on the Zabbix 8.0 final release is planned before v1.0.0.
 
 ## トリガー連携の権限
 
