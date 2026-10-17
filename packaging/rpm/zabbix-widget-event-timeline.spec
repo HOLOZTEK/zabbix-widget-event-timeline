@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.3
+Version:        0.2.4
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -97,6 +97,14 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sat Oct 17 2026 claude <noreply> - 0.2.4-0
+- トリガーの対象Host展開（Phase 3）: 選択されたトリガーを正規化した最上位の定義を、
+  Event Timeline の対象Host（固定Host / Host group / 受信Host）へ展開し、対象Host上の
+  同じTemplateトリガーに由来するトリガーのイベントを表示する（選択元のHostには束縛しない）。
+- Hostローカルのトリガーは所属Hostが対象Hostに含まれるときだけ使用し、LLD由来のトリガーは
+  選択されたトリガー自身のみ使用する。展開結果が0件の場合は全イベント表示へ切り替えない。
+- 対象Host上の一部のトリガーを照合できない場合は、照合できた分を表示して部分結果の警告を表示する。
+
 * Sat Oct 17 2026 claude <noreply> - 0.2.3-0
 - トリガー選択の正規化（Phase 2）: 選択されたトリガーをTemplateの継承元（templateid）を
   たどって最上位の定義へ正規化する（多段継承対応・循環検出・最大64段）。Hostローカルの
