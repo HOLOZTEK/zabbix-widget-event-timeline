@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.2
+Version:        0.2.3
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -95,6 +95,14 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sat Oct 17 2026 claude <noreply> - 0.2.3-0
+- トリガー選択の正規化（Phase 2）: 選択されたトリガーをTemplateの継承元（templateid）を
+  たどって最上位の定義へ正規化する（多段継承対応・循環検出・最大64段）。Hostローカルの
+  トリガーはそのまま扱い、LLD由来のトリガーは正規化しない。名前・式による同一判定はしない。
+- 継承元Templateを参照する権限がなく正規化できないトリガーが1件でもある場合は、選択全体を
+  適用できないものとして扱い、全イベント表示や部分結果へフォールバックせず警告を表示する。
+- 正規化結果のデバッグ情報は Zabbix のデバッグモードが有効なユーザーにのみ出力する。
+
 * Sat Oct 03 2026 claude <noreply> - 0.2.2-0
 - Zabbix 8.0（8.0.0rc1以降）対応: ウィジェット設定画面がHTTP 500（8.0で廃止された
   PHP定数 ZBX_STYLE_COLOR_PICKER / クラス CColor の参照）やJSエラー（jQuery colorpicker の廃止、
