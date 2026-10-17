@@ -22,8 +22,12 @@ class CWidgetEventTimeline extends CWidget {
 
 	// Runtime Filter / Count Mode（設定値ではない。設定を書き換えず、設定値を初期値として最初の応答で作る）。
 	// 通常のWidget更新（Refresh）では維持し、ダッシュボードの再表示・Widget再生成で設定値から初期化し直す。
-	// 形式: {severities, ack, count_mode, mode, sort, page}
+	// 形式: {severities, ack, count_mode, mode, sort, page, value_types, item_types}
 	#runtime = null;
+
+	// Item characteristics filter（Phase 5）のドロップダウン（開いている間だけ）。
+	// 形式: {axis, label, options, pending: Set, panel, button, listeners}
+	#dropdown = null;
 
 	// 自動ページ送りのタイマー（表示画面上の状態。設定値ではない）。
 	#auto_timer = null;
@@ -81,12 +85,15 @@ class CWidgetEventTimeline extends CWidget {
 			fields.rt_mode = this.#runtime.mode;
 			fields.rt_sort = this.#runtime.sort;
 			fields.rt_page = this.#runtime.page;
+			fields.rt_value_types = this.#runtime.value_types;
+			fields.rt_item_types = this.#runtime.item_types;
 		}
 
 		return fields;
 	}
 
 	onStop() {
+		this.#closeDropdown(false);
 		this.#stopAutoPage();
 		this.#disposeChart();
 	}
@@ -127,11 +134,13 @@ class CWidgetEventTimeline extends CWidget {
 		this.#disposeChart();
 
 		if (response.error) {
+			this.#closeDropdown(false);
 			this.#renderMessage(response.error, 'et-error');
 			return;
 		}
 
 		if (!response.chart_data) {
+			this.#closeDropdown(false);
 			this.#renderMessage(t('No events'), 'et-empty');
 			return;
 		}
@@ -147,7 +156,9 @@ class CWidgetEventTimeline extends CWidget {
 				count_mode: this.#data.configured.count_mode,
 				mode: this.#data.configured.mode,
 				sort: this.#data.configured.sort,
-				page: 1
+				page: 1,
+				value_types: [...this.#data.configured.value_types],
+				item_types: [...this.#data.configured.item_types]
 			};
 		}
 
@@ -196,6 +207,7 @@ class CWidgetEventTimeline extends CWidget {
 		this._body.innerHTML = '';
 
 		this._body.appendChild(this.#buildToolbar(data));
+		this.#restoreDropdown();
 
 		if (data.truncated) {
 			this._body.appendChild(this.#buildTruncationWarning(data));
@@ -205,6 +217,12 @@ class CWidgetEventTimeline extends CWidget {
 			// 対象Host上に、継承元Templateを参照できず選択Triggerと同じものか判定できないTriggerがある（Phase 3）。
 			// 一致を確定できたTriggerのEventだけを表示しているため、結果が不完全な可能性を示す（表示自体は継続）。
 			this._body.appendChild(this.#buildTriggerPartialWarning());
+		}
+
+		if (data.item_partial) {
+			// Item characteristics filter（Phase 5）: 候補Triggerが参照するItemの一部を確認できず、一致/不一致を判定できない
+			// Triggerがある。判定できたTriggerのEventだけを表示しているため、結果が不完全な可能性を示す（表示は継続）。
+			this._body.appendChild(this.#buildItemPartialWarning());
 		}
 
 		if (data.category?.event_display === 'prototype' && data.category.prototype_partial) {
@@ -616,6 +634,17 @@ class CWidgetEventTimeline extends CWidget {
 			}
 
 			tbody.appendChild(tr);
+
+			if (detail.item_filter && Array.isArray(r.items)) {
+				// Item characteristics filter（Phase 5）: この行の Trigger が条件に一致した理由（一致した参照 Item）。
+				const sub = el('tr', 'et-detail-items-row');
+				const td = el('td');
+
+				td.colSpan = columns.length;
+				td.appendChild(this.#buildMatchedItems(r.items, el));
+				sub.appendChild(td);
+				tbody.appendChild(sub);
+			}
 		}
 
 		table.appendChild(tbody);
@@ -785,6 +814,7 @@ class CWidgetEventTimeline extends CWidget {
 			row1.appendChild(this.#buildTipModeGroup());
 		}
 
+		row1.appendChild(this.#buildItemFilterGroup(data));
 		row1.appendChild(this.#buildResetGroup(data));
 
 		bar.appendChild(row1);
@@ -954,6 +984,8 @@ class CWidgetEventTimeline extends CWidget {
 			&& this.#runtime.mode === configured.mode
 			&& this.#runtime.sort === configured.sort
 			&& this.#runtime.page === 1
+			&& CWidgetEventTimeline.#sameSet(this.#runtime.value_types, configured.value_types)
+			&& CWidgetEventTimeline.#sameSet(this.#runtime.item_types, configured.item_types)
 			&& this.#tip_mode === CWidgetEventTimeline.TIP_MODE_DEFAULT;
 
 		const group = document.createElement('div');
@@ -975,15 +1007,247 @@ class CWidgetEventTimeline extends CWidget {
 				count_mode: configured.count_mode,
 				mode: configured.mode,
 				sort: configured.sort,
-				page: 1
+				page: 1,
+				value_types: [...configured.value_types],
+				item_types: [...configured.item_types]
 			};
 			this.#tip_mode = CWidgetEventTimeline.TIP_MODE_DEFAULT;
+			this.#closeDropdown(false);
 			this.#applyRuntimeChange();
 		});
 
 		group.appendChild(button);
 
 		return group;
+	}
+
+	// Item characteristics filter（Phase 5）: 値の型 / アイテムタイプ。選択肢が多いためボタン群にせず、
+	// 複数選択のドロップダウンにする。未選択 = すべて。選択肢・表示名はサーバーが Zabbix 本体の定義・翻訳から渡す。
+	#buildItemFilterGroup(data) {
+		const group = this.#buildGroup(t('Item filter'));
+		group.classList.add('et-item-filter');
+
+		group.appendChild(this.#buildDropdownButton('value_types', t('Value type'), data.value_type_options ?? []));
+		group.appendChild(this.#buildDropdownButton('item_types', t('Item type'), data.item_type_options ?? []));
+
+		return group;
+	}
+
+	#buildDropdownButton(axis, label, options) {
+		const selected = this.#runtime[axis] ?? [];
+		const names = options.filter(o => selected.includes(o.id)).map(o => o.name);
+		const button = document.createElement('button');
+
+		button.type = 'button';
+		button.className = 'et-btn et-dd' + (names.length > 0 ? ' et-dd-active' : '');
+		button.dataset.axis = axis;
+		button.setAttribute('aria-haspopup', 'true');
+		button.setAttribute('aria-expanded', 'false');
+		button.title = label + ': ' + (names.length > 0 ? names.join(', ') : t('All (item filter)'));
+
+		const text = document.createElement('span');
+		text.className = 'et-dd-text';
+		text.textContent = label + ': ' + (names.length === 0
+			? t('All (item filter)')
+			: (names.length === 1 ? names[0] : sprintf(t('%1$s selected'), names.length)));
+
+		const arrow = document.createElement('span');
+		arrow.className = 'et-dd-arrow';
+		arrow.setAttribute('aria-hidden', 'true');
+
+		button.append(text, arrow);
+		button.addEventListener('click', () => {
+			if (this.#dropdown?.axis === axis) {
+				this.#closeDropdown(true);
+			}
+			else {
+				this.#openDropdown(axis, label, options, button);
+			}
+		});
+
+		return button;
+	}
+
+	// ドロップダウンの選択肢パネル。Widget の表示領域で切れないよう document.body 直下に固定配置する（Zabbix の
+	// menu-popup の外観を使い、Light / Dark テーマに追従する）。チェックの変更はパネルを閉じたとき（パネル外のクリック・
+	// 適用ボタン・同じボタンの再クリック）にまとめて反映し、Esc では取り消す。
+	#openDropdown(axis, label, options, button, pending = null) {
+		this.#closeDropdown(true);
+
+		if (this.#dropdown !== null) {
+			// 直前のドロップダウンの変更を反映して再取得中。
+			return;
+		}
+
+		const state = {axis, label, options, button, pending: new Set(pending ?? this.#runtime[axis]), listeners: []};
+		const panel = document.createElement('div');
+
+		panel.className = 'menu-popup et-dd-panel';
+		panel.setAttribute('role', 'dialog');
+		panel.setAttribute('aria-label', label);
+		state.panel = panel;
+
+		const list = document.createElement('ul');
+		list.className = 'et-dd-list';
+
+		const boxes = [];
+		const id_base = `et-dd-${this._widgetid ?? this._unique_id ?? 'w'}-${axis}`;
+		const addOption = (id, name, checked, onChange, class_name = '') => {
+			const li = document.createElement('li');
+			li.className = class_name;
+
+			const input = document.createElement('input');
+			input.type = 'checkbox';
+			input.className = 'checkbox-radio';
+			input.id = `${id_base}-${id}`;
+			input.checked = checked;
+			input.addEventListener('change', () => onChange(input.checked));
+
+			const lbl = document.createElement('label');
+			lbl.htmlFor = input.id;
+			lbl.append(document.createElement('span'), document.createTextNode(name));
+
+			li.append(input, lbl);
+			list.appendChild(li);
+
+			return input;
+		};
+
+		const all = addOption('all', t('All (item filter)'), state.pending.size === 0, (checked) => {
+			if (checked) {
+				state.pending.clear();
+				boxes.forEach(b => b.checked = false);
+			}
+			else {
+				all.checked = state.pending.size === 0;
+			}
+		}, 'et-dd-all');
+
+		for (const o of options) {
+			boxes.push(addOption(o.id, o.name, state.pending.has(o.id), (checked) => {
+				if (checked) {
+					state.pending.add(o.id);
+				}
+				else {
+					state.pending.delete(o.id);
+				}
+
+				all.checked = state.pending.size === 0;
+			}));
+		}
+
+		const footer = document.createElement('div');
+		footer.className = 'et-dd-footer';
+
+		const apply = document.createElement('button');
+		apply.type = 'button';
+		apply.className = 'btn-alt et-dd-apply';
+		apply.textContent = t('Apply');
+		apply.addEventListener('click', () => this.#closeDropdown(true));
+
+		footer.appendChild(apply);
+		panel.append(list, footer);
+		document.body.appendChild(panel);
+
+		const on = (target, type, fn, capture = false) => {
+			target.addEventListener(type, fn, capture);
+			state.listeners.push(() => target.removeEventListener(type, fn, capture));
+		};
+
+		on(document, 'mousedown', (e) => {
+			if (!panel.contains(e.target) && !state.button.contains(e.target)) {
+				this.#closeDropdown(true);
+			}
+		}, true);
+		on(document, 'keydown', (e) => {
+			if (e.key === 'Escape') {
+				e.stopPropagation();
+				this.#closeDropdown(false);
+			}
+		}, true);
+		on(window, 'resize', () => this.#positionDropdown());
+		on(window, 'scroll', () => this.#positionDropdown(), true);
+
+		this.#dropdown = state;
+		button.setAttribute('aria-expanded', 'true');
+		button.classList.add('et-dd-open');
+		this.#positionDropdown();
+		(boxes.find(b => b.checked) ?? all).focus({preventScroll: true});
+	}
+
+	#positionDropdown() {
+		const dd = this.#dropdown;
+
+		if (dd === null) {
+			return;
+		}
+
+		if (!dd.button.isConnected) {
+			this.#closeDropdown(false);
+			return;
+		}
+
+		const rect = dd.button.getBoundingClientRect();
+		const margin = 8;
+		const panel = dd.panel;
+
+		panel.style.position = 'fixed';
+		panel.style.top = `${Math.round(rect.bottom + 2)}px`;
+		panel.style.maxHeight = `${Math.max(120, window.innerHeight - rect.bottom - 2 - margin)}px`;
+
+		const width = panel.offsetWidth;
+		panel.style.left = `${Math.round(Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)))}px`;
+	}
+
+	// 再描画（自動更新・Runtime 変更）でツールバーが作り直されても、開いているドロップダウンを新しいボタンへ付け替えて維持する。
+	#restoreDropdown() {
+		const dd = this.#dropdown;
+
+		if (dd === null) {
+			return;
+		}
+
+		const button = this._body.querySelector(`.et-dd[data-axis="${dd.axis}"]`);
+
+		if (button === null) {
+			this.#closeDropdown(false);
+			return;
+		}
+
+		dd.button = button;
+		button.setAttribute('aria-expanded', 'true');
+		button.classList.add('et-dd-open');
+		requestAnimationFrame(() => this.#positionDropdown());
+	}
+
+	#closeDropdown(apply) {
+		const dd = this.#dropdown;
+
+		if (dd === null) {
+			return;
+		}
+
+		this.#dropdown = null;
+		dd.listeners.forEach(off => off());
+		dd.panel.remove();
+		dd.button.setAttribute('aria-expanded', 'false');
+		dd.button.classList.remove('et-dd-open');
+
+		if (!apply) {
+			return;
+		}
+
+		// 定義済みの値をすべて選んだ場合は「すべて」と同じ（サーバーと同じ正規化。Reset の比較を一致させる）。
+		let values = dd.options.map(o => o.id).filter(id => dd.pending.has(id));
+
+		if (values.length === dd.options.length) {
+			values = [];
+		}
+
+		if (!CWidgetEventTimeline.#sameSet(values, this.#runtime[dd.axis])) {
+			this.#runtime[dd.axis] = values;
+			this.#applyRuntimeChange();
+		}
 	}
 
 	// 深刻度: Severity Filter 専用行。色付きラベルチップ（ON=Severity色で塗り / OFF=枠のみ・薄く）。
@@ -1065,6 +1329,62 @@ class CWidgetEventTimeline extends CWidget {
 		const sub = document.createElement('div');
 		sub.className = 'et-warning-sub';
 		sub.textContent = t('Check access permissions for the inherited templates.');
+
+		warn.append(title, sub);
+
+		return warn;
+	}
+
+	#buildMatchedItems(items, el) {
+		const details = el('details', 'et-detail-items');
+		details.appendChild(el('summary', null, sprintf(t('Matching items (%1$s)'), items.length)));
+
+		if (items.length === 0) {
+			details.appendChild(el('div', 'et-detail-message', t('No matching data.')));
+			return details;
+		}
+
+		const table = el('table', 'list-table et-detail-items-table');
+		const head = el('tr');
+
+		for (const c of [t('Host'), t('Item name'), t('Item key'), t('Value type'), t('Item type')]) {
+			head.appendChild(el('th', null, c));
+		}
+
+		const thead = el('thead');
+		thead.appendChild(head);
+		table.appendChild(thead);
+
+		const tbody = el('tbody');
+
+		for (const i of items) {
+			const tr = el('tr');
+
+			tr.appendChild(el('td', 'et-detail-wrap', i.host));
+			tr.appendChild(el('td', 'et-detail-wrap', i.name));
+			tr.appendChild(el('td', 'et-detail-wrap et-detail-key', i.key));
+			tr.appendChild(el('td', 'et-detail-nowrap', i.value_type));
+			tr.appendChild(el('td', 'et-detail-nowrap', i.type));
+			tbody.appendChild(tr);
+		}
+
+		table.appendChild(tbody);
+		details.appendChild(table);
+
+		return details;
+	}
+
+	#buildItemPartialWarning() {
+		const warn = document.createElement('div');
+		warn.className = 'et-warning et-item-warning';
+		warn.setAttribute('role', 'alert');
+
+		const title = document.createElement('div');
+		title.textContent = t('Some item information could not be confirmed. The result may be incomplete.');
+
+		const sub = document.createElement('div');
+		sub.className = 'et-warning-sub';
+		sub.textContent = t('Triggers whose referenced items could not be checked are not shown.');
 
 		warn.append(title, sub);
 

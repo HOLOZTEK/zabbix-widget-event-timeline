@@ -162,7 +162,29 @@ class Widget extends CWidget {
 				'%1$s more hosts'
 					=> _et('%1$s more hosts'),
 				'Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph.'
-					=> _et('Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph.')
+					=> _et('Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph.'),
+				'Value type'
+					=> _et('Value type'),
+				'Item type'
+					=> _et('Item type'),
+				'All (item filter)'
+					=> _et('All (item filter)'),
+				'%1$s selected'
+					=> _et('%1$s selected'),
+				'Apply'
+					=> _et('Apply'),
+				'Item filter'
+					=> _et('Item filter'),
+				'Matching items (%1$s)'
+					=> _et('Matching items (%1$s)'),
+				'Item name'
+					=> _et('Item name'),
+				'Item key'
+					=> _et('Item key'),
+				'Some item information could not be confirmed. The result may be incomplete.'
+					=> _et('Some item information could not be confirmed. The result may be incomplete.'),
+				'Triggers whose referenced items could not be checked are not shown.'
+					=> _et('Triggers whose referenced items could not be checked are not shown.')
 			]
 		];
 	}

@@ -190,6 +190,92 @@
 	cursor: default;
 }
 
+/*
+ * Item characteristics filter（Phase 5）: 値の型 / アイテムタイプの複数選択ドロップダウン。
+ * ボタンは他のボタンと同じ外観。狭幅では表示名を省略し、全文は title で確認できる。
+ */
+.et-item-filter {
+	min-width: 0;
+	flex-wrap: wrap;
+}
+
+.et-btn.et-dd {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 220px;
+}
+
+.et-btn.et-dd-active {
+	background: rgba(128, 128, 128, 0.35);
+	border-color: currentColor;
+	font-weight: bold;
+}
+
+.et-btn.et-dd-open {
+	border-color: currentColor;
+}
+
+.et-dd-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.et-dd-arrow {
+	flex: none;
+	width: 0;
+	height: 0;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+	border-top: 5px solid currentColor;
+	opacity: 0.8;
+}
+
+/* 選択肢パネル: document.body 直下に固定配置。背景・枠・影は Zabbix テーマの menu-popup に従う。 */
+.et-dd-panel {
+	z-index: 1100;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	min-width: 180px;
+	max-width: min(320px, calc(100vw - 16px));
+	padding: 6px 0;
+}
+
+.et-dd-panel .et-dd-list {
+	flex: 1 1 auto;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	overflow-y: auto;
+	list-style: none;
+}
+
+.et-dd-panel .et-dd-list li {
+	display: flex;
+	align-items: center;
+	padding: 3px 12px;
+}
+
+.et-dd-panel .et-dd-list li.et-dd-all {
+	margin-bottom: 4px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid rgba(128, 128, 128, 0.45);
+}
+
+.et-dd-panel .et-dd-list label {
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.et-dd-panel .et-dd-footer {
+	display: flex;
+	justify-content: flex-end;
+	padding: 6px 12px 0;
+	border-top: 1px solid rgba(128, 128, 128, 0.45);
+}
+
 /* 2行目: 深刻度。 */
 .et-severity-row {
 	display: flex;
@@ -378,4 +464,26 @@
 	justify-content: flex-end;
 	gap: 8px;
 	margin-top: 8px;
+}
+
+/* Drilldown: 行ごとの「一致したアイテム」（Item characteristics filter 有効時のみ）。列を増やさず折りたたみで表示する。 */
+.et-detail-items-row > td {
+	padding-top: 0;
+}
+
+.et-detail-items summary {
+	cursor: pointer;
+	opacity: 0.85;
+}
+
+.et-detail-items[open] summary {
+	margin-bottom: 4px;
+}
+
+.et-detail-items-table {
+	width: 100%;
+}
+
+.et-detail-key {
+	font-family: monospace;
 }

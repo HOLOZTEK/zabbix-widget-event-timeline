@@ -54,6 +54,8 @@ install -D -m 644 ${SRCDIR}/includes/TriggerInheritanceCache.php ${STAGEDIR}/inc
 install -D -m 644 ${SRCDIR}/includes/TriggerScopeExpander.php ${STAGEDIR}/includes/TriggerScopeExpander.php
 install -D -m 644 ${SRCDIR}/includes/TriggerPrototypeResolver.php ${STAGEDIR}/includes/TriggerPrototypeResolver.php
 install -D -m 644 ${SRCDIR}/includes/TriggerPrototypeScopeExpander.php ${STAGEDIR}/includes/TriggerPrototypeScopeExpander.php
+install -D -m 644 ${SRCDIR}/includes/ItemCharacteristicsFilter.php ${STAGEDIR}/includes/ItemCharacteristicsFilter.php
+install -D -m 644 ${SRCDIR}/includes/ItemMetadataCache.php ${STAGEDIR}/includes/ItemMetadataCache.php
 install -D -m 644 ${SRCDIR}/includes/TriggerSelection.php ${STAGEDIR}/includes/TriggerSelection.php
 install -D -m 644 ${SRCDIR}/includes/TriggerSelectionResolver.php ${STAGEDIR}/includes/TriggerSelectionResolver.php
 install -D -m 644 ${SRCDIR}/includes/WidgetForm.php ${STAGEDIR}/includes/WidgetForm.php
