@@ -127,12 +127,14 @@ class DimensionAggregator {
 
 	/**
 	 * By Event（プロトタイプグループ）のGroup key。Trigger prototype由来（Discovery）であれば
-	 * 'p:'+生成元Trigger prototype ID、そうでない（通常Trigger、またはPrototype情報が解決できない）場合は
+	 * 'p:'+Group化に使う Trigger prototype ID、そうでない（通常Trigger、またはPrototype情報が解決できない）場合は
 	 * 'n:'+Event名にFallbackする。文字列の類推（正規表現・ポート番号除去・桁無視・類似度等）は一切行わず、
-	 * Zabbixの実際の生成関係（$event_proto。EventFetcher::resolvePrototypes() の結果）だけを根拠にする。
+	 * Zabbixの実際の生成関係・継承関係（$event_proto。WidgetView::resolveEventPrototypes() の結果）だけを根拠にする。
+	 * v0.2.0 Phase 4 以降、$event_proto の prototype ID は Template 継承元の Canonical Trigger prototype（Host をまたいで
+	 * 同じ Group になる）。Canonical を解決できない Event だけ、生成元（Host上）の prototype ID のまま分離される。
 	 * 集計（byEventGroup）とDrilldown選定（DetailSelector::byEventGroup）が同じ規則で選ぶよう、共通で使う。
 	 *
-	 * @param array<string, ?string> $event_proto  eventid => 生成元Trigger prototype ID（解決できなければ null）
+	 * @param array<string, ?string> $event_proto  eventid => Group化に使う Trigger prototype ID（解決できなければ null）
 	 * @param array<string, string>  $event_names  eventid => Event名
 	 * @param array<string, string>  $proto_names  Trigger prototype ID => 表示名（解決できたものだけ）
 	 */

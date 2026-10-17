@@ -42,12 +42,16 @@ class SourceResolver {
 	 * - invalid（Trigger ID配列として解釈できない）: 取得対象なし。
 	 * - Trigger filter error（選択Triggerに1件でも継承元Templateを参照できず正規化できないものを含む）: Selection 全体を
 	 *   適用不能とし取得対象なし。'error' に理由（TriggerSelectionResolver::REASON_PARENT_UNAVAILABLE）を返す。
+	 *   v0.2.0 Phase 4: 選択された LLD（Discovery）由来の Trigger の生成元 prototype／Canonical prototype を決定できない場合も
+	 *   同じく適用不能とする（'error' は TriggerPrototypeResolver の理由）。
 	 *
 	 * Host範囲（resolveTarget）には一切影響しない。選択されたTriggerのHostを対象Hostへ加えることはしない。
 	 *
 	 * @param array      $trigger_selection  TriggerSelection::resolve() の結果
 	 * @param array|null $resolution         TriggerSelectionResolver::resolve() の結果（active のときのみ）
-	 * @param array|null $expansion          TriggerScopeExpander::expand() の結果（active かつ error なしのとき）
+	 * @param array|null $expansion          展開結果（active かつ error なしのとき。通常 Trigger と LLD の和集合。
+	 *                                       triggerids / indeterminate を参照する）
+	 * @param array|null $prototype_resolution TriggerPrototypeResolver::resolve() の結果（LLD 由来の選択があるときのみ）
 	 *
 	 * @return array{selected: bool, selectors: array[], error: ?string, partial: bool}
 	 *   selectors: event.get へ追加するオプション集合のリスト（結果はOR統合）。[[]] は絞り込みなし、[] は取得対象なし。
@@ -55,13 +59,17 @@ class SourceResolver {
 	 *   partial: 対象Host上に判定不能な Trigger があり、結果が不完全な可能性がある。
 	 */
 	public static function resolveEventSelection(array $trigger_selection, ?array $resolution = null,
-			?array $expansion = null): array {
+			?array $expansion = null, ?array $prototype_resolution = null): array {
 		switch ($trigger_selection['trigger_filter'] ?? TriggerSelection::STATE_INVALID) {
 			case TriggerSelection::STATE_INACTIVE:
 				return ['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false];
 
 			case TriggerSelection::STATE_ACTIVE:
 				$error = $resolution !== null ? TriggerSelectionResolver::filterError($resolution) : null;
+
+				if ($error === null && $prototype_resolution !== null) {
+					$error = TriggerPrototypeResolver::filterError($prototype_resolution);
+				}
 
 				if ($error !== null) {
 					return ['selected' => true, 'selectors' => [], 'error' => $error, 'partial' => false];

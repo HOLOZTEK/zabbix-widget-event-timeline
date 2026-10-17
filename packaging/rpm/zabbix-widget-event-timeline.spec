@@ -52,6 +52,8 @@ install -D -m 644 ${SRCDIR}/includes/SourceResolver.php ${STAGEDIR}/includes/Sou
 install -D -m 644 ${SRCDIR}/includes/TimeFormatter.php ${STAGEDIR}/includes/TimeFormatter.php
 install -D -m 644 ${SRCDIR}/includes/TriggerInheritanceCache.php ${STAGEDIR}/includes/TriggerInheritanceCache.php
 install -D -m 644 ${SRCDIR}/includes/TriggerScopeExpander.php ${STAGEDIR}/includes/TriggerScopeExpander.php
+install -D -m 644 ${SRCDIR}/includes/TriggerPrototypeResolver.php ${STAGEDIR}/includes/TriggerPrototypeResolver.php
+install -D -m 644 ${SRCDIR}/includes/TriggerPrototypeScopeExpander.php ${STAGEDIR}/includes/TriggerPrototypeScopeExpander.php
 install -D -m 644 ${SRCDIR}/includes/TriggerSelection.php ${STAGEDIR}/includes/TriggerSelection.php
 install -D -m 644 ${SRCDIR}/includes/TriggerSelectionResolver.php ${STAGEDIR}/includes/TriggerSelectionResolver.php
 install -D -m 644 ${SRCDIR}/includes/WidgetForm.php ${STAGEDIR}/includes/WidgetForm.php

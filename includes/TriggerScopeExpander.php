@@ -21,8 +21,9 @@ namespace Modules\EventTimeline\Includes;
  *   ときだけ一致する。他Host上の同名Triggerへは展開されない。
  *   （Template 上の Trigger そのものが選択された場合も継承元がなく exact と判定されるが、canonical = その Template Trigger
  *   となるため、対象Host上でそれを継承する Trigger が同じ規則で一致する。）
- * - LLD 由来（type = discovered）: Phase 3 では Host 横断展開しない。選択された Trigger 自身が対象Host上にあるときだけ使う
- *   （Phase 2 までの挙動の維持）。対象Host上の他の LLD Trigger とは照合しない。
+ * - LLD 由来（type = discovered）: 本 Expander では扱わない。Phase 4 以降、選択された Discovered Trigger は
+ *   TriggerPrototypeResolver / TriggerPrototypeScopeExpander が生成元 Trigger prototype 単位で展開する。対象Host上の
+ *   Discovered Trigger も本 Expander の照合・判定不能の対象にしない（prototype 側の経路で判定する）。
  *
  * 判定不能（indeterminate）: 対象Host上の Trigger のうち、継承元 Template を参照できない（parent_unavailable）等で
  * Canonical を決定できず、選択 Canonical と一致するかを判断できないもの。一致を確定できた Trigger だけで結果を返し、
@@ -51,14 +52,10 @@ class TriggerScopeExpander {
 	public static function expand(array $resolution, array $target_hostids, callable $fetch_host_triggers,
 			TriggerInheritanceCache $cache): ?array {
 		$canonical = [];
-		$discovered = [];
 
 		foreach ($resolution['entries'] as $entry) {
 			if ($entry['status'] === TriggerSelectionResolver::STATUS_RESOLVED) {
 				$canonical[$entry['canonical_triggerid']] = true;
-			}
-			elseif ($entry['type'] === TriggerSelectionResolver::TYPE_DISCOVERED) {
-				$discovered[$entry['source_triggerid']] = true;
 			}
 		}
 
@@ -70,7 +67,7 @@ class TriggerScopeExpander {
 			'canonical_triggerids' => self::sortedKeys($canonical)
 		];
 
-		if ((!$canonical && !$discovered) || !$target_hostids) {
+		if (!$canonical || !$target_hostids) {
 			return $result;
 		}
 
@@ -107,9 +104,8 @@ class TriggerScopeExpander {
 				}
 			}
 			elseif ($entry['type'] === TriggerSelectionResolver::TYPE_DISCOVERED) {
-				if (array_key_exists($id, $discovered)) {
-					$matched[$id] = true;
-				}
+				// LLD 由来は prototype 側の経路（TriggerPrototypeScopeExpander）で照合する。
+				continue;
 			}
 			elseif ($entry['reason'] !== TriggerSelectionResolver::REASON_NOT_FOUND) {
 				// parent_unavailable / cycle / depth_exceeded: 選択 Canonical に行き着くかを判断できない。

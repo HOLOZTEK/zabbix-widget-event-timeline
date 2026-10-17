@@ -15,6 +15,8 @@ require_once __DIR__.'/../includes/TriggerSelection.php';
 require_once __DIR__.'/../includes/TriggerSelectionResolver.php';
 require_once __DIR__.'/../includes/TriggerInheritanceCache.php';
 require_once __DIR__.'/../includes/TriggerScopeExpander.php';
+require_once __DIR__.'/../includes/TriggerPrototypeResolver.php';
+require_once __DIR__.'/../includes/TriggerPrototypeScopeExpander.php';
 
 require_once __DIR__.'/stubs.php';
 
@@ -28,6 +30,8 @@ use Modules\EventTimeline\Includes\TriggerSelection as TS;
 use Modules\EventTimeline\Includes\TriggerSelectionResolver as TR;
 use Modules\EventTimeline\Includes\TriggerInheritanceCache as TC;
 use Modules\EventTimeline\Includes\TriggerScopeExpander as TX;
+use Modules\EventTimeline\Includes\TriggerPrototypeResolver as TPR;
+use Modules\EventTimeline\Includes\TriggerPrototypeScopeExpander as TPX;
 
 $pass = 0;
 $fail = 0;
@@ -702,8 +706,19 @@ $tr_db = [
 	350 => ['templateid' => 250, 'flags' => 0],
 	// Host固有Trigger（継承なし）
 	400 => ['templateid' => 0, 'flags' => 0],
-	// LLD（Discovery）由来
-	500 => ['templateid' => 0, 'flags' => 4],
+	// LLD（Discovery）由来（Phase 4: prototypeid = triggerDiscovery.parent_triggerid。$pp_db 参照）
+	500 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 1010],	// Host A {#IFNAME}=eth0（Mid 継承）
+	501 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 1010],	// Host A eth1
+	510 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 1020],	// Host B ens18（Upper 継承）
+	511 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 1020],	// Host B ens19
+	512 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 1020],	// Host B bond0
+	520 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 2010],	// Host A Template A の同名 prototype
+	530 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 3010],	// Host D Template B の同名 prototype
+	540 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 4000],	// Host A の Host ローカル prototype
+	550 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 5010],	// 継承元 prototype（5000）が閲覧不可
+	560 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 0],	// 生成元 prototype が不明
+	570 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 6000],	// prototype の継承が循環
+	580 => ['templateid' => 0, 'flags' => 4, 'prototypeid' => 7000],	// prototype 自体が閲覧不可
 	// 継承チェーン途中が閲覧不可（601 は返らない）
 	600 => ['templateid' => 601, 'flags' => 0],
 	// 循環（不正データ）
@@ -719,11 +734,12 @@ $tr_fetch = static function (array $ids) use ($tr_db, &$tr_calls): array {
 // Phase 3: 対象Host上の Trigger（hostid => triggerid[]）。$tr_db と同じ継承関係を持つ実体を各Hostに置く。
 // Host 1 = A, 2 = B, 3 = C, 4 = D（agent active / 継承チェーン途中が閲覧不可のTriggerを持つ）, 5 = E（Template未適用）。
 $tx_hosts = [
-	1 => [25143, 25091, 300, 400, 500],
-	2 => [25171, 25131, 350],
+	1 => [25143, 25091, 300, 400, 500, 501, 520, 540],
+	2 => [25171, 25131, 350, 510, 511, 512],
 	3 => [25184],
-	4 => [22395, 600],
-	5 => []
+	4 => [22395, 600, 530, 550],
+	5 => [],
+	6 => [550]	// F: 判定不能な Discovered Trigger だけ
 ];
 $tx_host_calls = [];
 $tx_fetch_hosts = static function (array $hostids) use ($tx_hosts, $tr_db, &$tx_host_calls): array {
@@ -738,15 +754,80 @@ $tx_fetch_hosts = static function (array $hostids) use ($tx_hosts, $tr_db, &$tx_
 
 	return array_intersect_key($tr_db, $ids);
 };
-// Selection → Resolver → Expander → Event Selection（WidgetView と同じ順序。キャッシュも共有する）。
-$tx_es = static function (array $ids, array $hostids) use ($tr_fetch, $tx_fetch_hosts): array {
+// v0.2.0 Phase 4: Trigger prototype（triggerprototype.get の templateid = 継承元 prototype）。
+// 多段: Base(1000) ← Mid(1100) ← Upper(1200)。Host A は Mid、Host B は Upper を適用。
+// 同名 prototype "Interface {#IFNAME}: Link down" が Template A(2000) と Template B(3000) にある（名前はデータに持たせない）。
+$pp_db = [
+	1000 => ['templateid' => 0], 1100 => ['templateid' => 1000], 1200 => ['templateid' => 1100],
+	1010 => ['templateid' => 1100],	// Host A 上の prototype
+	1020 => ['templateid' => 1200],	// Host B 上の prototype
+	2000 => ['templateid' => 0], 2010 => ['templateid' => 2000],
+	3000 => ['templateid' => 0], 3010 => ['templateid' => 3000],
+	4000 => ['templateid' => 0],	// Host A 上で直接定義
+	5010 => ['templateid' => 5000],	// 5000 は返らない
+	6000 => ['templateid' => 6001], 6001 => ['templateid' => 6000]
+];
+$pp_calls = [];
+$pp_fetch = static function (array $ids) use ($pp_db, &$pp_calls): array {
+	$pp_calls[] = $ids;
+
+	return array_intersect_key($pp_db, array_flip($ids));
+};
+// Selection → Resolver（通常 / prototype）→ Expander（通常 + LLD）→ Event Selection。WidgetView と同じ順序で、
+// キャッシュ（通常 Trigger 用と prototype 用は別インスタンス）と対象Host上の Trigger 取得（1回）を共有する。
+$p4 = static function (array $ids, array $hostids) use ($tr_fetch, $tx_fetch_hosts, $pp_fetch): array {
 	$ts = TS::resolve($ids);
 	$cache = new TC($tr_fetch);
+	$pcache = new TC($pp_fetch);
 	$r = $ts['trigger_filter'] === TS::STATE_ACTIVE ? TR::resolve($ts['triggerids'], [$cache, 'fetch']) : null;
-	$x = $r !== null && TR::filterError($r) === null ? TX::expand($r, $hostids, $tx_fetch_hosts, $cache) : null;
+	$pr = null;
 
-	return SourceResolver::resolveEventSelection($ts, $r, $x);
+	if ($r !== null) {
+		$discovered = [];
+
+		foreach ($r['entries'] as $entry) {
+			if ($entry['type'] === TR::TYPE_DISCOVERED) {
+				$discovered[] = $entry['source_triggerid'];
+			}
+		}
+
+		if ($discovered) {
+			$rows = $cache->fetch($discovered);
+			$sources = [];
+
+			foreach ($discovered as $triggerid) {
+				$sources[$triggerid] = (int) ($rows[$triggerid]['prototypeid'] ?? 0);
+			}
+
+			$pr = TPR::resolve($sources, [$pcache, 'fetch']);
+		}
+	}
+
+	$x = null;
+
+	if ($r !== null && TR::filterError($r) === null && ($pr === null || TPR::filterError($pr) === null)) {
+		$host_triggers = false;
+		$fetch = static function (array $h) use (&$host_triggers, $tx_fetch_hosts): ?array {
+			if ($host_triggers === false) {
+				$host_triggers = $tx_fetch_hosts($h);
+			}
+
+			return $host_triggers;
+		};
+		$normal = TX::expand($r, $hostids, $fetch, $cache);
+		$lld = $pr !== null && $pr['canonical'] ? TPX::expand($pr, $hostids, $fetch, $pcache) : null;
+		$triggerids = array_values(array_unique(array_merge($normal['triggerids'], $lld['triggerids'] ?? [])));
+		sort($triggerids, SORT_NUMERIC);
+		$x = ['triggerids' => $triggerids, 'indeterminate' => $normal['indeterminate'] + ($lld['indeterminate'] ?? 0),
+			'normal' => $normal, 'lld' => $lld
+		];
+	}
+
+	return ['es' => SourceResolver::resolveEventSelection($ts, $r, $x, $pr), 'x' => $x, 'pr' => $pr,
+		'pcache' => $pcache
+	];
 };
+$tx_es = static fn(array $ids, array $hostids): array => $p4($ids, $hostids)['es'];
 $tr_canon = static fn(array $r): array => array_map(
 	static fn(array $c): array => [$c['canonical_triggerid'], $c['type'], $c['source_triggerids']], $r['canonical']
 );
@@ -855,8 +936,9 @@ check('TR §17.9 OR kept in event selection', $tx_es(['25091', '25143'], [1]),
 $r = TR::resolve([500], $tr_fetch);
 check('TR LLD discovered not normalized', $tr_entry($r, 0),
 	[null, TR::TYPE_DISCOVERED, TR::STATUS_UNRESOLVED, [500], TR::REASON_DISCOVERED]);
-check('TR LLD event selection keeps source', $tx_es(['500'], [1]),
-	['selected' => true, 'selectors' => [['objectids' => ['500']]], 'error' => null, 'partial' => false]);
+// Phase 4: Event 抽出は Canonical Trigger prototype 経由で、同じ prototype から生成された Host 上のすべての Discovered Trigger。
+check('TR LLD event selection via canonical prototype', $tx_es(['500'], [1]),
+	['selected' => true, 'selectors' => [['objectids' => ['500', '501']]], 'error' => null, 'partial' => false]);
 check('TR empty input', TR::resolve([], $tr_fetch), ['entries' => [], 'canonical' => []]);
 
 
@@ -947,9 +1029,8 @@ check('P3 §28 selection-level fail-closed kept', $tx_es(['25143', '600'], [1, 2
 	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
 // §10 Selection なし: 絞り込みなし（展開しない）。
 check('P3 §10 no selection', $tx_es([], [1, 2]), ['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false]);
-// §14 LLD 由来（Q2=A）: 自分自身が対象Host上にあるときだけ。他Hostへ展開しない。
-check('P3 §14 LLD: scope contains owner', $tx_ids(['500'], [1, 2]), [500]);
-check('P3 §14 LLD: scope without owner -> empty', $tx_ids(['500'], [2, 3]), []);
+// LLD 由来は通常 Trigger の展開（TriggerScopeExpander）では扱わない（Phase 4 で prototype 経由に置き換え）。
+check('P3 LLD not handled by normal expander', $tx_ids(['500'], [1, 2]), []);
 // 対象Host なし: 何も取得しない（API も呼ばない）。
 $tx_host_calls = [];
 check('P3 empty scope', $tx_ids(['25143'], []), []);
@@ -982,6 +1063,123 @@ check('P3 inheritance fetch failure -> null', TX::expand(['entries' => [['source
 	'inheritance_chain' => [25143, 23176], 'reason' => null]], 'canonical' => []], [1], $tx_fetch_hosts, $cache), null);
 // 展開結果に Host 情報を持ち込まない（Event 条件は objectids のみ。Host 範囲は event.get の hostids が別途担う）。
 check('P3 selectors carry only objectids', array_keys($tx_es(['25143'], [2])['selectors'][0]), ['objectids']);
+
+// ---- v0.2.0 Phase 4: LLD / Trigger prototype の Canonical 化と対象Host展開 ----
+$p4_ids = static fn(array $ids, array $hostids): array => $p4($ids, $hostids)['x']['triggerids'];
+$p4_entry = static function (array $ids, int $i = 0) use ($p4): array {
+	$e = $p4($ids, [1])['pr']['entries'][$i];
+
+	return [$e['source_prototypeid'], $e['canonical_prototypeid'], $e['type'], $e['status'], $e['inheritance_chain'],
+		$e['reason']];
+};
+
+// §32 Source 側の正規化: Discovered → Host 上の prototype → 継承元 → Canonical（多段）。
+check('P4 §32 source discovered -> canonical (Mid)', $p4_entry(['500']),
+	[1010, 1000, TPR::TYPE_TEMPLATE, TPR::STATUS_RESOLVED, [1010, 1100, 1000], null]);
+check('P4 §32 source discovered -> canonical (Upper, 3 levels)', $p4_entry(['510']),
+	[1020, 1000, TPR::TYPE_TEMPLATE, TPR::STATUS_RESOLVED, [1020, 1200, 1100, 1000], null]);
+check('P4 §32 host-local prototype is exact', $p4_entry(['540']),
+	[4000, 4000, TPR::TYPE_EXACT, TPR::STATUS_RESOLVED, [4000], null]);
+// §33 同一 Host（Source Host = 対象Host）: 同じ prototype の Discovered Trigger すべて（macro 値で絞らない）。
+check('P4 §33 same host: all discovered of the prototype', $p4_ids(['500'], [1]), [500, 501]);
+// §34 Host 横断・多段（A: Mid / B: Upper → 同じ Canonical Base）。Source Host（A）は対象に含めない。
+check('P4 §34 cross-host multi-level: A -> B', $p4_ids(['500'], [2]), [510, 511, 512]);
+check('P4 §34 cross-host multi-level: B -> A', $p4_ids(['511'], [1]), [500, 501]);
+// §35 Discovery 0件（C）・Template 未適用（E）: 正常な0件。警告しない。全Eventへ戻さない。
+check('P4 §35 zero discovery host', $tx_es(['500'], [3]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
+check('P4 §35 template not linked', $tx_es(['500'], [5]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
+check('P4 §35 mixed scope A/B/C/E', $tx_es(['500'], [1, 2, 3, 5]),
+	['selected' => true, 'selectors' => [['objectids' => ['500', '501', '510', '511', '512']]], 'error' => null,
+		'partial' => false]);
+// §36 同名・別 Template の prototype は別 Canonical（名前で対応付けない）。
+check('P4 §36 same name other template: A', $p4_ids(['520'], [1, 4]), [520]);
+check('P4 §36 same name other template: B', $p4_ids(['530'], [1, 4]), [530]);
+check('P4 §36 canonical differs', [$p4_entry(['520'])[1], $p4_entry(['530'])[1]], [2000, 3000]);
+// §37 Host ローカル prototype（Q5）: 所有Hostが Scope にあればその Host の分だけ、なければ0件。
+check('P4 §37 host-local: owner in scope', $p4_ids(['540'], [1, 2]), [540]);
+check('P4 §37 host-local: owner not in scope', $tx_es(['540'], [2, 4]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
+check('P4 §37 host-local: owner not in scope (no indeterminate host)', $tx_es(['540'], [2, 3]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
+// §38 複数 Canonical の OR・同一 Canonical の重複排除。
+check('P4 §38 OR of canonical prototypes', $p4_ids(['500', '520'], [1, 2]), [500, 501, 510, 511, 512, 520]);
+$r = $p4(['500', '510', '501'], [1, 2]);
+check('P4 §38 duplicate canonical collapses', array_column($r['pr']['canonical'], 'canonical_prototypeid'), [1000]);
+check('P4 §38 duplicate canonical sources', $r['pr']['canonical'][0]['source_triggerids'], [500, 501, 510]);
+check('P4 §38 duplicate canonical: no duplicate triggers', $r['x']['triggerids'], [500, 501, 510, 511, 512]);
+// §39 通常 Trigger + LLD の和集合。
+check('P4 §39 normal + LLD union', $tx_es(['25143', '500'], [1, 2]),
+	['selected' => true, 'selectors' => [['objectids' => ['500', '501', '510', '511', '512', '25143', '25171']]],
+		'error' => null, 'partial' => false]);
+// §40 Source 側 fail-closed: 1件でも Canonical を決定できなければ Selection 全体をエラーにする。
+check('P4 §40 source prototype unknown', $tx_es(['560'], [1]),
+	['selected' => true, 'selectors' => [], 'error' => TPR::REASON_PROTOTYPE_UNAVAILABLE, 'partial' => false]);
+check('P4 §40 source prototype not visible', $tx_es(['580'], [1]),
+	['selected' => true, 'selectors' => [], 'error' => TPR::REASON_PROTOTYPE_UNAVAILABLE, 'partial' => false]);
+check('P4 §40 source parent prototype not visible', $tx_es(['550'], [6]),
+	['selected' => true, 'selectors' => [], 'error' => TPR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
+check('P4 §40 source prototype cycle', $tx_es(['570'], [1]),
+	['selected' => true, 'selectors' => [], 'error' => TPR::REASON_CYCLE, 'partial' => false]);
+check('P4 §40 resolvable + unresolvable -> whole error', $tx_es(['500', '550'], [1, 2]),
+	['selected' => true, 'selectors' => [], 'error' => TPR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
+check('P4 §40 normal + unresolvable LLD -> whole error', $tx_es(['25143', '560'], [1, 2]),
+	['selected' => true, 'selectors' => [], 'error' => TPR::REASON_PROTOTYPE_UNAVAILABLE, 'partial' => false]);
+check('P4 §40 normal-side error has priority', $tx_es(['600', '560'], [1]),
+	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
+// §41 対象Host側の判定不能は PARTIAL（確定した分だけで取得）。
+check('P4 §41 target indeterminate -> partial', $tx_es(['500'], [2, 4]),
+	['selected' => true, 'selectors' => [['objectids' => ['510', '511', '512']]], 'error' => null, 'partial' => true]);
+check('P4 §41 indeterminate ids', $p4(['500'], [2, 4])['x']['lld']['indeterminate_ids'], [550]);
+check('P4 §41 indeterminate only -> empty + partial', $tx_es(['500'], [6]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
+// Q2=A: Canonical prototype の Selection がないときは、対象Host上の LLD の判定不能を数えない。
+check('P4 Q2 normal-only selection ignores LLD indeterminate', $tx_es(['25143'], [6]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
+check('P4 Q2 normal-only selection ignores LLD indeterminate (with match)', $tx_es(['25143'], [2, 6]),
+	['selected' => true, 'selectors' => [['objectids' => ['25171']]], 'error' => null, 'partial' => false]);
+check('P4 Q2 no selection', $tx_es([], [6]), ['selected' => true, 'selectors' => [[]], 'error' => null, 'partial' => false]);
+// §43 Batch / N+1 なし: 対象Host上の Trigger は通常 + LLD で1回、prototype は継承の段ごと（キャッシュ共有）。
+$tx_host_calls = [];
+$pp_calls = [];
+$r = $p4(['25143', '500'], [1, 2, 3, 4, 5, 6]);
+check('P4 §43 host triggers fetched once (normal + LLD)', $tx_host_calls, [[1, 2, 3, 4, 5, 6]]);
+check('P4 §43 prototype fetched per level, cached', $pp_calls,
+	[[1010], [1100], [1000], [1020, 2010, 3010, 4000, 5010], [1200, 2000, 3000, 5000]]);
+check('P4 §43 prototype cache call count', $r['pcache']->fetch_calls, 5);
+check('P4 §43 result', $r['x']['triggerids'], [500, 501, 510, 511, 512, 25143, 25171, 25184]);
+check('P4 §43 partial from target indeterminate', $r['es']['partial'], true);
+// 取得失敗は null（部分結果にしない）。
+check('P4 prototype fetch failure (source)', TPR::resolve([500 => 1010], static fn(array $ids) => null), null);
+$pcache = new TC(static fn(array $ids) => null);
+check('P4 prototype fetch failure (target)', TPX::expand(['entries' => [], 'canonical' => [
+	['canonical_prototypeid' => 1000, 'type' => TPR::TYPE_TEMPLATE, 'source_triggerids' => [500]]]], [1],
+	$tx_fetch_hosts, $pcache), null);
+check('P4 host trigger fetch failure', TPX::expand(['entries' => [], 'canonical' => [
+	['canonical_prototypeid' => 1000, 'type' => TPR::TYPE_TEMPLATE, 'source_triggerids' => [500]]]], [1],
+	static fn(array $h) => null, new TC($pp_fetch)), null);
+check('P4 empty canonical: no fetch', TPX::expand(['entries' => [], 'canonical' => []], [1],
+	static fn(array $h) => null, new TC($pp_fetch))['triggerids'], []);
+// 深すぎる継承は invalid（depth_exceeded）。
+$deep = [];
+for ($i = 1; $i <= TPR::MAX_DEPTH + 2; $i++) {
+	$deep[9000 + $i] = ['templateid' => 9000 + $i + 1];
+}
+$deep[9000 + TPR::MAX_DEPTH + 3] = ['templateid' => 0];
+$r = TPR::resolvePrototypes([9001], static fn(array $ids) => array_intersect_key($deep, array_flip($ids)));
+check('P4 depth exceeded', [$r[9001]['status'], $r[9001]['reason']], [TPR::STATUS_INVALID, TPR::REASON_DEPTH_EXCEEDED]);
+// §44 Prototype group（Q1=B）: 表示グループは Canonical prototype 単位。Host 上の prototype が違っても Canonical が同じなら1つ。
+$r = TPR::resolvePrototypes([1010, 1020, 2010, 3010, 4000, 5010], $pp_fetch);
+check('P4 §44 group key = canonical', array_map(static fn(array $e) => $e['canonical_prototypeid'], $r),
+	[1010 => 1000, 1020 => 1000, 2010 => 2000, 3010 => 3000, 4000 => 4000, 5010 => null]);
+check('P4 §44 unresolved stays separate (partial)', [$r[5010]['status'], $r[5010]['reason']],
+	[TPR::STATUS_UNRESOLVED, TPR::REASON_PARENT_UNAVAILABLE]);
+// Canonical キーでのグループ化（eventGroupKey は map の値でグループ化するため、Host 別 prototype が1グループになる）。
+check('P4 §44 canonical key groups hosts', [D::eventGroupKey('1', ['1' => '1000', '2' => '1000', '3' => '3000'], [], ['1000' => 'X', '3000' => 'X']),
+	D::eventGroupKey('2', ['1' => '1000', '2' => '1000', '3' => '3000'], [], ['1000' => 'X', '3000' => 'X']),
+	D::eventGroupKey('3', ['1' => '1000', '2' => '1000', '3' => '3000'], [], ['1000' => 'X', '3000' => 'X'])],
+	['p:1000', 'p:1000', 'p:3000']);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

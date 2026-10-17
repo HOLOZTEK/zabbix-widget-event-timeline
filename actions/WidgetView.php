@@ -16,6 +16,8 @@ use Modules\EventTimeline\Includes\{
 	SourceResolver,
 	TimeFormatter,
 	TriggerInheritanceCache,
+	TriggerPrototypeResolver,
+	TriggerPrototypeScopeExpander,
 	TriggerScopeExpander,
 	TriggerSelection,
 	TriggerSelectionResolver,
@@ -33,6 +35,10 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 	// Drilldown（詳細一覧）で返す最大行数。超えた場合は新しい順に切り、切り詰めを明示する。
 	private const DRILLDOWN_MAX_ROWS = 5000;
+
+	// Trigger prototype の継承情報のリクエスト内キャッシュ（v0.2.0 Phase 4）。Trigger Selection の LLD 展開と
+	// プロトタイプグループ表示の Canonical 化で共有する（通常 Trigger 用のキャッシュとは別インスタンス）。
+	private ?TriggerInheritanceCache $prototype_cache = null;
 
 	protected function doAction(): void {
 		$fields = $this->fields_values;
@@ -103,33 +109,42 @@ class WidgetView extends CControllerDashboardWidgetView {
 		// Trigger Selection（v0.2.0）: Phase 1 で triggerids の形式を正規化（inactive/active/invalid）し、
 		// Phase 2 で TriggerSelectionResolver によりテンプレート継承を辿って Canonical Trigger へ正規化し、
 		// Phase 3 で TriggerScopeExpander により Canonical を Host Scope（$target）上の Trigger へ展開して Event 抽出に使う。
+		// Phase 4 で LLD（Discovery）由来の Trigger は TriggerPrototypeResolver により生成元 Trigger prototype の
+		// Canonical prototype へ正規化し、TriggerPrototypeScopeExpander で Host Scope 上の Discovered Trigger へ展開する
+		// （通常 Trigger の展開結果と和集合）。
 		// 固定指定・Navigator 参照のどちらも同じ経路を通る。Source Trigger ID をそのまま Event 条件には使わない。
 		// 選択TriggerのHostを対象Hostへ加えることはしない（Host範囲は resolveTarget だけが決める）。
 		$started = microtime(true);
 		EventFetcher::$api_calls = [];
 		TriggerSelectionResolver::$calls = 0;
+		TriggerPrototypeResolver::$calls = 0;
 		$inheritance = new TriggerInheritanceCache([EventFetcher::class, 'fetchTriggerInheritance']);
+		$this->prototype_cache = new TriggerInheritanceCache([EventFetcher::class, 'fetchPrototypeInheritance']);
 
 		$trigger_selection = TriggerSelection::resolve($fields['triggerids'] ?? []);
 		$trigger_resolution = null;
+		$prototype_resolution = null;
 		$trigger_expansion = null;
 
 		if ($trigger_selection['trigger_filter'] === TriggerSelection::STATE_ACTIVE) {
 			$trigger_resolution = TriggerSelectionResolver::resolve($trigger_selection['triggerids'],
 				[$inheritance, 'fetch']
 			);
+			$failed = $trigger_resolution === null;
+
+			if (!$failed) {
+				$prototype_resolution = $this->resolveSourcePrototypes($trigger_resolution, $inheritance);
+				$failed = $prototype_resolution === false;
+			}
 
 			// Selection 自体が fail-closed（filterError）の場合と、対象Hostがない場合は展開しない。
-			if ($trigger_resolution !== null && TriggerSelectionResolver::filterError($trigger_resolution) === null
+			if (!$failed && self::selectionError($trigger_resolution, $prototype_resolution) === null
 					&& $target['hostids']) {
-				$trigger_expansion = TriggerScopeExpander::expand($trigger_resolution, $target['hostids'],
-					[EventFetcher::class, 'fetchHostTriggers'], $inheritance
+				$trigger_expansion = $this->expandSelection($trigger_resolution, $prototype_resolution,
+					$target['hostids'], $inheritance
 				);
 
 				$failed = $trigger_expansion === null;
-			}
-			else {
-				$failed = $trigger_resolution === null;
 			}
 
 			if ($failed) {
@@ -146,7 +161,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$trigger_ms = (int) round((microtime(true) - $started) * 1000);
 
 		$event_selection = SourceResolver::resolveEventSelection($trigger_selection, $trigger_resolution,
-			$trigger_expansion
+			$trigger_expansion, $prototype_resolution ?: null
 		);
 
 		// Trigger filter error（継承元Templateを参照できず正規化できないTriggerを含む）: Selection 全体を適用不能とし、
@@ -155,6 +170,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$trigger_selection['trigger_filter_error'] = $event_selection['error'];
 		$trigger_selection['trigger_filter_partial'] = $event_selection['partial'];
 		$trigger_selection['resolution'] = $trigger_resolution;
+		$trigger_selection['prototype_resolution'] = $prototype_resolution ?: null;
 		$trigger_selection['expansion'] = $trigger_expansion;
 
 		// 解決結果（source / canonical / type / chain / status）・展開結果・API統計はデバッグ専用。Zabbix のユーザー設定で
@@ -351,12 +367,117 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'api_calls' => EventFetcher::$api_calls,
 			'resolver_calls' => TriggerSelectionResolver::$calls,
 			'inheritance_fetches' => $inheritance->fetch_calls,
+			'prototype_resolver_calls' => TriggerPrototypeResolver::$calls,
+			'prototype_fetches' => $this->prototype_cache !== null ? $this->prototype_cache->fetch_calls : 0,
 			'expanded_triggers' => $trigger_selection['expansion'] !== null
 				? count($trigger_selection['expansion']['triggerids'])
+				: null,
+			'expanded_lld_triggers' => ($trigger_selection['expansion']['lld'] ?? null) !== null
+				? count($trigger_selection['expansion']['lld']['triggerids'])
+				: null,
+			'matched_prototypes' => ($trigger_selection['expansion']['lld'] ?? null) !== null
+				? count($trigger_selection['expansion']['lld']['matched_prototypeids'])
 				: null
 		];
 
 		return $trigger_selection;
+	}
+
+	/**
+	 * Phase 4: Selection のうち LLD（Discovery）由来の Trigger を、生成元 Trigger prototype から Canonical Trigger prototype へ
+	 * 正規化する。生成元 prototype は TriggerSelectionResolver が取得した行（trigger.get の triggerDiscovery）を使う。
+	 *
+	 * @return array|false|null  TriggerPrototypeResolver::resolve() の結果。LLD 由来の Trigger がなければ null、
+	 *                           取得失敗時は false
+	 */
+	private function resolveSourcePrototypes(array $trigger_resolution, TriggerInheritanceCache $inheritance) {
+		$discovered = [];
+
+		foreach ($trigger_resolution['entries'] as $entry) {
+			if ($entry['type'] === TriggerSelectionResolver::TYPE_DISCOVERED) {
+				$discovered[] = $entry['source_triggerid'];
+			}
+		}
+
+		if (!$discovered) {
+			return null;
+		}
+
+		// 解決時に取得済み（キャッシュ済み）のため、ここで API は呼ばれない。
+		$rows = $inheritance->fetch($discovered);
+
+		if ($rows === null) {
+			return false;
+		}
+
+		$sources = [];
+
+		foreach ($discovered as $triggerid) {
+			$sources[$triggerid] = (int) ($rows[$triggerid]['prototypeid'] ?? 0);
+		}
+
+		return TriggerPrototypeResolver::resolve($sources, [$this->prototype_cache, 'fetch']) ?? false;
+	}
+
+	/**
+	 * Selection 全体を適用できない（fail-closed）理由。通常 Trigger 側（継承元 Template を参照できない）を優先し、
+	 * 次に LLD 側（生成元 prototype / 継承元 prototype を参照できない）を見る。
+	 */
+	private static function selectionError(array $trigger_resolution, $prototype_resolution): ?string {
+		$error = TriggerSelectionResolver::filterError($trigger_resolution);
+
+		if ($error === null && is_array($prototype_resolution)) {
+			$error = TriggerPrototypeResolver::filterError($prototype_resolution);
+		}
+
+		return $error;
+	}
+
+	/**
+	 * 通常 Trigger（Phase 3）と LLD（Phase 4）の展開を行い、expanded_triggerids を和集合にする。
+	 * 対象Host上の Trigger は1回だけ取得して両方の展開で共有する（LLD の Selection があるときだけ生成元 prototype も取得）。
+	 *
+	 * @return array|null  ['triggerids', 'indeterminate', 'normal', 'lld']。取得失敗時は null
+	 */
+	private function expandSelection(array $trigger_resolution, $prototype_resolution, array $hostids,
+			TriggerInheritanceCache $inheritance): ?array {
+		$with_prototype = is_array($prototype_resolution) && $prototype_resolution['canonical'];
+		$host_triggers = false;
+		$fetch_host_triggers = static function (array $ids) use (&$host_triggers, $with_prototype): ?array {
+			if ($host_triggers === false) {
+				$host_triggers = EventFetcher::fetchHostTriggers($ids, $with_prototype);
+			}
+
+			return $host_triggers;
+		};
+
+		$normal = TriggerScopeExpander::expand($trigger_resolution, $hostids, $fetch_host_triggers, $inheritance);
+
+		if ($normal === null) {
+			return null;
+		}
+
+		$lld = null;
+
+		if ($with_prototype) {
+			$lld = TriggerPrototypeScopeExpander::expand($prototype_resolution, $hostids, $fetch_host_triggers,
+				$this->prototype_cache
+			);
+
+			if ($lld === null) {
+				return null;
+			}
+		}
+
+		$triggerids = array_values(array_unique(array_merge($normal['triggerids'], $lld['triggerids'] ?? [])));
+		sort($triggerids, SORT_NUMERIC);
+
+		return [
+			'triggerids' => $triggerids,
+			'indeterminate' => $normal['indeterminate'] + ($lld['indeterminate'] ?? 0),
+			'normal' => $normal,
+			'lld' => $lld
+		];
 	}
 
 	private function buildCategory(array $events, array $hostids, array $runtime, array $fields, int $page_size,
@@ -370,6 +491,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		}
 
 		$event_display = null;
+		$prototype_partial = false;
 
 		switch ($runtime['mode']) {
 			case WidgetForm::MODE_HOST:
@@ -393,10 +515,11 @@ class WidgetView extends CControllerDashboardWidgetView {
 					$rows = DimensionAggregator::byEvent($events, $info['hosts'], $info['names']);
 				}
 				else {
-					$event_proto = self::resolveEventPrototypes($events, $info['triggers']);
+					$event_proto = $this->resolveEventPrototypes($events, $info['triggers']);
 					$rows = DimensionAggregator::byEventGroup($events, $info['hosts'], $info['names'],
 						$event_proto['map'], $event_proto['names']
 					);
+					$prototype_partial = $event_proto['partial'];
 				}
 
 				// Popup（Hover Tooltip）用のHost名一覧。Timeline / Host / Host group は対象外（§35）。
@@ -418,7 +541,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'rows' => $pager['rows'],
 			'pager' => array_diff_key($pager, ['rows' => 1]),
 			'event_display' => $event_display === null ? null
-				: ($event_display === WidgetForm::EVENT_DISPLAY_INDIVIDUAL ? 'individual' : 'prototype')
+				: ($event_display === WidgetForm::EVENT_DISPLAY_INDIVIDUAL ? 'individual' : 'prototype'),
+			// Canonical Trigger prototype を解決できず、生成元 prototype の単位で分離した Group がある（Phase 4 Q1）。
+			'prototype_partial' => $prototype_partial
 		];
 	}
 
@@ -436,26 +561,75 @@ class WidgetView extends CControllerDashboardWidgetView {
 
 	/**
 	 * プロトタイプグループ表示のための、Event単位のTrigger prototype解決。$triggers（eventid => triggerid）を
-	 * まとめて resolvePrototypes() へ渡すことで、Event件数分のAPI呼び出しにはならない（1回のRenderにつき1回）。
+	 * まとめて取得することで、Event件数分のAPI呼び出しにはならない（1回のRenderにつき trigger.get 1回＋
+	 * triggerprototype.get を継承の段数分。prototype 用のリクエスト内キャッシュを Trigger Selection の LLD 展開と共有する）。
+	 *
+	 * v0.2.0 Phase 4（Q1 = B）: Group 化の単位を、生成元（Host上）の prototype ではなく Template 継承元の
+	 * Canonical Trigger prototype とする。同じ Canonical prototype に由来する Event は Host をまたいで1つの Group になり、
+	 * 表示名が同じでも Canonical が異なれば別 Group になる（名前による推測・統合はしない）。Host ローカルの prototype は
+	 * canonical = 自身のため他Hostとは統合されない。Event 集合そのものは変えない（Grouping だけ）。
+	 * 権限等で Canonical を解決できない prototype の Event は、生成元 prototype の単位で分離したまま Group 化し、
+	 * partial = true を返す（Prototype group 表示が部分的である旨を警告する）。
 	 *
 	 * @param array<string, string> $triggers  eventid => triggerid（EventFetcher::fetchDimensionInfo() の結果）
 	 *
-	 * @return array{map: array<string, ?string>, names: array<string, string>}
-	 *   map: eventid => 生成元Trigger prototype ID（解決できなければ null）。names: Trigger prototype ID => 表示名。
+	 * @return array{map: array<string, ?string>, names: array<string, string>, partial: bool}
+	 *   map: eventid => Group 化に使う Trigger prototype ID（解決できなければ null）。names: Trigger prototype ID => 表示名。
+	 *   partial: Canonical prototype を解決できず生成元 prototype の単位で分離した Event がある。
 	 */
-	private static function resolveEventPrototypes(array $events, array $triggers): array {
+	private function resolveEventPrototypes(array $events, array $triggers): array {
 		if (!$events) {
-			return ['map' => [], 'names' => []];
+			return ['map' => [], 'names' => [], 'partial' => false];
 		}
 
-		$proto = EventFetcher::resolvePrototypes(array_values($triggers));
+		$parent = EventFetcher::fetchTriggerParents(array_values($triggers));
+		$cache = $this->prototype_cache
+			?? new TriggerInheritanceCache([EventFetcher::class, 'fetchPrototypeInheritance']);
+		$resolved = $parent ? TriggerPrototypeResolver::resolvePrototypes(array_values($parent), [$cache, 'fetch']) : [];
+
+		if ($resolved === null) {
+			// 失敗しても個別Event表示へFallbackするだけなので、Widget全体は止めない（従来どおり）。
+			$resolved = [];
+		}
+
+		$rows = $resolved ? ($cache->fetch(array_merge(array_keys($resolved), array_filter(array_column(
+			$resolved, 'canonical_prototypeid'
+		)))) ?? []) : [];
+		$names = [];
+
+		foreach ($rows as $id => $row) {
+			if (array_key_exists('description', $row)) {
+				$names[(string) $id] = $row['description'];
+			}
+		}
+
+		$group = [];
+		$partial_protos = [];
+
+		foreach ($resolved as $id => $entry) {
+			if ($entry['status'] === TriggerPrototypeResolver::STATUS_RESOLVED) {
+				$group[(string) $id] = (string) $entry['canonical_prototypeid'];
+			}
+			elseif (isset($names[(string) $id])) {
+				// 生成元 prototype は参照できるが Canonical を解決できない: 生成元 prototype の単位で分離する。
+				$group[(string) $id] = (string) $id;
+				$partial_protos[(string) $id] = true;
+			}
+		}
+
 		$map = [];
+		$partial = false;
 
 		foreach ($triggers as $eventid => $triggerid) {
-			$map[$eventid] = $proto['parent'][$triggerid] ?? null;
+			$proto = $parent[$triggerid] ?? null;
+			$map[$eventid] = $proto !== null ? ($group[$proto] ?? null) : null;
+
+			if ($proto !== null && isset($partial_protos[$proto])) {
+				$partial = true;
+			}
 		}
 
-		return ['map' => $map, 'names' => $proto['names']];
+		return ['map' => $map, 'names' => $names, 'partial' => $partial];
 	}
 
 	/**
@@ -518,7 +692,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			if ($mode === WidgetForm::MODE_EVENT) {
 				// プロトタイプグループ: Group（Prototype、またはFallback先のEvent名）に属する実Eventの一覧を返す
 				// （個別イベント表示のHost一覧とは異なり、Host単位に集約しない。§25〜27）。
-				$event_proto = self::resolveEventPrototypes($events, $info['triggers']);
+				$event_proto = $this->resolveEventPrototypes($events, $info['triggers']);
 
 				// 影響Host数（該当Severityの棒の値と一致させる。§41）は、集計と同じ byEventGroup() から
 				// 該当Group行を引いて求める（Drilldown選定 DetailSelector::byEventGroup とは独立した経路だが、

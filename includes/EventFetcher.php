@@ -350,7 +350,7 @@ class EventFetcher {
 	/**
 	 * 次元集計（By Host / By Host group / By Event）用に、Event名と関連Host（ID・名前）を取得する。
 	 * 関連Hostは対象Host集合（$target_hostids）との交差だけを返す。
-	 * triggers（eventid => triggerid）は、プロトタイプグループ表示（resolvePrototypes()）の入力にする
+	 * triggers（eventid => triggerid）は、プロトタイプグループ表示（fetchTriggerParents()）の入力にする
 	 * ためのもので、追加のAPI呼び出しは発生しない（event.get の output に objectid を足すだけ）。
 	 *
 	 * @param string[] $eventids
@@ -398,28 +398,26 @@ class EventFetcher {
 	}
 
 	/**
-	 * Trigger prototype 解決（プロトタイプグループ表示用）: 指定Trigger群のうちLLD（Discovery）由来のものについて、
-	 * 生成元のTrigger prototype ID と、その表示名（description。{#MACRO} 等は未解決のまま）を返す。
-	 * 通常Trigger（Prototype由来でない）は parent に現れない。
+	 * プロトタイプグループ表示用: 指定Trigger群のうちLLD（Discovery）由来のものについて、生成元の Trigger prototype ID
+	 * （対象Host上の prototype。triggerDiscovery.parent_triggerid）を返す。通常Trigger（Prototype由来でない）は現れない。
+	 * prototype の表示名と Canonical prototype への正規化は呼び出し側（TriggerPrototypeResolver ＋ prototype 用キャッシュ）で行う。
 	 *
-	 * Event件数分のAPI呼び出しにはならないよう、triggerid をまとめて trigger.get / triggerprototype.get する
-	 * （呼び出し側で同一Renderingにつき1回だけ呼び、eventid => triggerid の解決結果はここでキャッシュしない
-	 * － 呼び出し元がRender単位で1回だけ呼ぶことでキャッシュに相当する）。
+	 * Event件数分のAPI呼び出しにはならないよう、triggerid をまとめて trigger.get する（呼び出し側で同一Renderingにつき1回）。
 	 * API失敗時も他のメソッドと異なりnullを返さない: プロトタイプ情報が無くてもWidget全体をエラーにはせず、
 	 * 解決できなかった分は呼び出し側で個別Event表示へFallbackする（仕様上、Prototype解決失敗は握りつぶしてよい）。
 	 *
 	 * @param string[] $triggerids
 	 *
-	 * @return array{parent: array<string, string>, names: array<string, string>}
-	 *   parent: Discovery由来のtriggerid => 生成元Trigger prototype ID。names: Trigger prototype ID => 表示名。
+	 * @return array<string, string>  Discovery由来のtriggerid => 生成元Trigger prototype ID
 	 */
-	public static function resolvePrototypes(array $triggerids): array {
+	public static function fetchTriggerParents(array $triggerids): array {
 		$ids = array_values(array_unique(array_filter(array_map('strval', $triggerids),
 			static fn(string $id): bool => $id !== '0'
 		)));
 		$parent = [];
 
 		foreach (array_chunk($ids, 500) as $chunk) {
+			self::countCall('trigger.get');
 			$rows = API::Trigger()->get([
 				'output' => ['triggerid'],
 				'selectTriggerDiscovery' => ['parent_triggerid'],
@@ -440,43 +438,24 @@ class EventFetcher {
 			}
 		}
 
-		$proto_ids = array_values(array_unique(array_values($parent)));
-		$names = [];
-
-		foreach (array_chunk($proto_ids, 500) as $chunk) {
-			if (!$chunk) {
-				continue;
-			}
-
-			$rows = API::TriggerPrototype()->get(['output' => ['triggerid', 'description'], 'triggerids' => $chunk]);
-
-			if (!is_array($rows)) {
-				continue;
-			}
-
-			foreach ($rows as $row) {
-				$names[(string) $row['triggerid']] = (string) $row['description'];
-			}
-		}
-
-		return ['parent' => $parent, 'names' => $names];
+		return $parent;
 	}
 
 	/**
-	 * TriggerSelectionResolver 用: Triggerの継承情報（templateid / flags）。Host上のTriggerもテンプレート上の
-	 * Triggerも対象にする（trigger.get は templated 未指定で両方を返す）。閲覧権限のないTriggerは返らない。
+	 * TriggerPrototypeResolver 用: Trigger prototype の継承情報（templateid / flags）と表示名（description。{#MACRO} は
+	 * 未解決のまま）。Host 上の prototype も Template 上の prototype も対象にする。閲覧権限のない prototype は返らない。
 	 *
-	 * @param int[] $triggerids
+	 * @param int[] $prototypeids
 	 *
-	 * @return array<int, array{templateid: int, flags: int}>|null  API失敗時は null
+	 * @return array<int, array{templateid: int, flags: int, description: string}>|null  API失敗時は null
 	 */
-	public static function fetchTriggerInheritance(array $triggerids): ?array {
+	public static function fetchPrototypeInheritance(array $prototypeids): ?array {
 		$result = [];
 
-		foreach (array_chunk(array_values(array_map('strval', $triggerids)), 500) as $chunk) {
-			self::countCall('trigger.get');
-			$rows = API::Trigger()->get([
-				'output' => ['triggerid', 'templateid', 'flags'],
+		foreach (array_chunk(array_values(array_map('strval', $prototypeids)), 500) as $chunk) {
+			self::countCall('triggerprototype.get');
+			$rows = API::TriggerPrototype()->get([
+				'output' => ['triggerid', 'templateid', 'flags', 'description'],
 				'triggerids' => $chunk
 			]);
 
@@ -487,9 +466,63 @@ class EventFetcher {
 			foreach ($rows as $row) {
 				$result[(int) $row['triggerid']] = [
 					'templateid' => (int) $row['templateid'],
-					'flags' => (int) $row['flags']
+					'flags' => (int) $row['flags'],
+					'description' => (string) $row['description']
 				];
 			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * TriggerSelectionResolver 用: Triggerの継承情報（templateid / flags）。Host上のTriggerもテンプレート上の
+	 * Triggerも対象にする（trigger.get は templated 未指定で両方を返す）。閲覧権限のないTriggerは返らない。
+	 *
+	 * @param int[] $triggerids
+	 *
+	 * Phase 4: LLD（Discovery）由来の Trigger は生成元 Trigger prototype（triggerDiscovery.parent_triggerid）も同じ呼び出しで
+	 * 取得し、prototypeid として返す（Source の Discovered Trigger → prototype の解決に追加の呼び出しをしない）。
+	 *
+	 * @return array<int, array{templateid: int, flags: int, prototypeid: int}>|null  API失敗時は null
+	 */
+	public static function fetchTriggerInheritance(array $triggerids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_map('strval', $triggerids)), 500) as $chunk) {
+			self::countCall('trigger.get');
+			$rows = API::Trigger()->get([
+				'output' => ['triggerid', 'templateid', 'flags'],
+				'selectTriggerDiscovery' => ['parent_triggerid'],
+				'triggerids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$result[(int) $row['triggerid']] = self::inheritanceRow($row);
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * trigger.get の1行を継承情報の行へ変換する（prototypeid は triggerDiscovery を取得したときだけ。無ければ 0）。
+	 */
+	private static function inheritanceRow(array $row): array {
+		$result = [
+			'templateid' => (int) $row['templateid'],
+			'flags' => (int) $row['flags']
+		];
+
+		if (array_key_exists('triggerDiscovery', $row)) {
+			$discovery = $row['triggerDiscovery'];
+			$result['prototypeid'] = is_array($discovery) && isset($discovery['parent_triggerid'])
+				? (int) $discovery['parent_triggerid']
+				: 0;
 		}
 
 		return $result;
@@ -500,29 +533,37 @@ class EventFetcher {
 	 * （Host 1台ごとの呼び出しはしない）。複数Hostの Item を参照する Trigger は、参照先のいずれかが対象Hostなら返る。
 	 * 閲覧権限のない Trigger は返らない。Trigger prototype は trigger.get の対象外。
 	 *
-	 * @param int[] $hostids
+	 * Phase 4: $with_prototype のとき（LLD の Canonical prototype が選択されているとき）は、Discovered Trigger の生成元
+	 * prototype（triggerDiscovery.parent_triggerid）も同じ呼び出しで取得し prototypeid として返す。通常 Trigger の展開と
+	 * LLD の展開はこの1回の取得結果を共有する。
 	 *
-	 * @return array<int, array{templateid: int, flags: int}>|null  API失敗時は null
+	 * @param int[] $hostids
+	 * @param bool  $with_prototype
+	 *
+	 * @return array<int, array{templateid: int, flags: int, prototypeid?: int}>|null  API失敗時は null
 	 */
-	public static function fetchHostTriggers(array $hostids): ?array {
+	public static function fetchHostTriggers(array $hostids, bool $with_prototype = false): ?array {
 		$result = [];
 
 		foreach (array_chunk(array_values(array_unique(array_map('strval', $hostids))), 500) as $chunk) {
 			self::countCall('trigger.get');
-			$rows = API::Trigger()->get([
+			$options = [
 				'output' => ['triggerid', 'templateid', 'flags'],
 				'hostids' => $chunk
-			]);
+			];
+
+			if ($with_prototype) {
+				$options['selectTriggerDiscovery'] = ['parent_triggerid'];
+			}
+
+			$rows = API::Trigger()->get($options);
 
 			if (!is_array($rows)) {
 				return null;
 			}
 
 			foreach ($rows as $row) {
-				$result[(int) $row['triggerid']] = [
-					'templateid' => (int) $row['templateid'],
-					'flags' => (int) $row['flags']
-				];
+				$result[(int) $row['triggerid']] = self::inheritanceRow($row);
 			}
 		}
 

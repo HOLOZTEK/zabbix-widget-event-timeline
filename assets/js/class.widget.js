@@ -207,6 +207,12 @@ class CWidgetEventTimeline extends CWidget {
 			this._body.appendChild(this.#buildTriggerPartialWarning());
 		}
 
+		if (data.category?.event_display === 'prototype' && data.category.prototype_partial) {
+			// プロトタイプグループの一部の Event について、継承元の Canonical Trigger prototype を解決できず、生成元（Host上）の
+			// prototype の単位で分離して表示している（Phase 4）。Event 集合は変わらないため、表示は継続する。
+			this._body.appendChild(this.#buildPrototypePartialWarning());
+		}
+
 		if (data.empty_reason === 'trigger_unresolvable') {
 			// Trigger Selection を適用できない（継承元Templateの参照権限不足）。正常な0件（No events）とは区別し、
 			// 既存の警告表示（取得上限警告と同じ et-warning）で原因を示す。Event は表示しない（fail-closed）。
@@ -1055,6 +1061,23 @@ class CWidgetEventTimeline extends CWidget {
 
 		const title = document.createElement('div');
 		title.textContent = t('Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete.');
+
+		const sub = document.createElement('div');
+		sub.className = 'et-warning-sub';
+		sub.textContent = t('Check access permissions for the inherited templates.');
+
+		warn.append(title, sub);
+
+		return warn;
+	}
+
+	#buildPrototypePartialWarning() {
+		const warn = document.createElement('div');
+		warn.className = 'et-warning et-prototype-warning';
+		warn.setAttribute('role', 'alert');
+
+		const title = document.createElement('div');
+		title.textContent = t('Some events could not be grouped by their inherited trigger prototype. Some prototype groups may be split by host.');
 
 		const sub = document.createElement('div');
 		sub.className = 'et-warning-sub';
