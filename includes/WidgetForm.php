@@ -65,6 +65,8 @@ class WidgetForm extends CWidgetForm {
 
 	// Popup（Hover Tooltip）に列挙するHost名の上限。超えた分は「ほか N台」（§21）。設定項目ではない。
 	public const POPUP_HOST_LIMIT = 5;
+	// Host View の Tooltip に出すインターフェースの最大数（UI Polish §16）。
+	public const POPUP_INTERFACE_LIMIT = 3;
 
 	// ページング（グラフ）。
 	public const PAGE_SIZES         = [10, 20, 50];
@@ -80,9 +82,9 @@ class WidgetForm extends CWidgetForm {
 	public const MAX_EVENTS_DEFAULT = 100000;
 
 	/**
-	 * 値の型（Item の value_type）の選択肢。現在の Zabbix が定義する ITEM_VALUE_TYPE_* 定数すべて（定義順）と、
+	 * 値の型（Item の value_type）の選択肢。現在の Zabbix が定義する ITEM_VALUE_TYPE_* 定数すべてと、
 	 * Zabbix 本体の表示名・翻訳（itemValueTypeString()）。Event Timeline 側で一覧・翻訳を持たない（Phase 5 Q3）。
-	 * Zabbix 7.0: Numeric (float) / Character / Log / Numeric (unsigned) / Text / Binary。8.0 では JSON が加わる。
+	 * 並びは ItemCharacteristicsFilter::VALUE_TYPE_ORDER（UI Polish §3）。8.0 では JSON が加わる。
 	 *
 	 * @return array<int, string>  value_type => 表示名
 	 */
@@ -95,17 +97,20 @@ class WidgetForm extends CWidgetForm {
 			}
 		}
 
-		return $options;
+		return ItemCharacteristicsFilter::orderOptions($options, ItemCharacteristicsFilter::VALUE_TYPE_ORDER);
 	}
 
 	/**
 	 * アイテムタイプ（Item の type）の選択肢。Zabbix 本体の定義・表示名・翻訳（item_type2str()）をそのまま使う
-	 * （Phase 5 Q3）。Zabbix 8.0 では Nested / Telemetry query が加わる。
+	 * （Phase 5 Q3）。並びは ItemCharacteristicsFilter::ITEM_TYPE_ORDER（UI Polish §4）。
+	 * 8.0 では Nested / Telemetry query が加わる。
 	 *
 	 * @return array<int, string>  type => 表示名
 	 */
 	public static function itemTypeOptions(): array {
-		return item_type2str();
+		return ItemCharacteristicsFilter::orderOptions(item_type2str(),
+			ItemCharacteristicsFilter::ITEM_TYPE_ORDER
+		);
 	}
 
 	public function addFields(): self {

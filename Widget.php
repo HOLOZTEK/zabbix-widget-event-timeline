@@ -77,22 +77,16 @@ class Widget extends CWidget {
 					=> _et('Z-A'),
 				'Affected hosts'
 					=> _et('Affected hosts'),
-				'No target host groups.'
-					=> _et('No target host groups.'),
 				'Targets: %1$s (showing %2$s–%3$s)'
 					=> _et('Targets: %1$s (showing %2$s–%3$s)'),
 				'Page %1$s / %2$s'
 					=> _et('Page %1$s / %2$s'),
 				'No target selected'
 					=> _et('No target selected'),
-				'All events are excluded by the current filters.'
-					=> _et('All events are excluded by the current filters.'),
 				'Count mode: continuing events (click for occurred events)'
 					=> _et('Count mode: continuing events (click for occurred events)'),
 				'Count mode: occurred events (click for continuing events)'
 					=> _et('Count mode: occurred events (click for continuing events)'),
-				'Reset filters to the configured values'
-					=> _et('Reset filters to the configured values'),
 				'Continuing events'
 					=> _et('Continuing events'),
 				'Ongoing'
@@ -107,10 +101,6 @@ class Widget extends CWidget {
 					=> _et('Occurred count'),
 				'Continuing count'
 					=> _et('Continuing count'),
-				'Number of events that started in each bucket'
-					=> _et('Number of events that started in each bucket'),
-				'Number of events overlapping each bucket'
-					=> _et('Number of events overlapping each bucket'),
 				'Ack status'
 					=> _et('Ack status'),
 				'All'
@@ -192,7 +182,87 @@ class Widget extends CWidget {
 				'Some item information could not be confirmed. The result may be incomplete.'
 					=> _et('Some item information could not be confirmed. The result may be incomplete.'),
 				'Triggers whose referenced items could not be checked are not shown.'
-					=> _et('Triggers whose referenced items could not be checked are not shown.')
+					=> _et('Triggers whose referenced items could not be checked are not shown.'),
+				'%1$s more interfaces'
+					=> _et('%1$s more interfaces'),
+				'Active conditions: %1$s'
+					=> _et('Active conditions: %1$s'),
+				'Affected hosts by severity'
+					=> _et('Affected hosts by severity'),
+				'Aggregates events by host group.'
+					=> _et('Aggregates events by host group.'),
+				'Aggregates events by host.'
+					=> _et('Aggregates events by host.'),
+				'Aggregates events by trigger / event type.'
+					=> _et('Aggregates events by trigger / event type.'),
+				'Change the filters or display conditions.'
+					=> _et('Change the filters or display conditions.'),
+				'Click to show or hide.'
+					=> _et('Click to show or hide.'),
+				'Counts events for each target, including events continuing in the displayed period.'
+					=> _et('Counts events for each target, including events continuing in the displayed period.'),
+				'Counts events in each time bucket, including events that are still continuing.'
+					=> _et('Counts events in each time bucket, including events that are still continuing.'),
+				'Counts events that newly occurred in each time bucket.'
+					=> _et('Counts events that newly occurred in each time bucket.'),
+				'Counts events that occurred in the displayed period for each target.'
+					=> _et('Counts events that occurred in the displayed period for each target.'),
+				'Events by severity'
+					=> _et('Events by severity'),
+				'Filters events by the item type of the items referenced by the trigger. When several are selected, items matching any of them are used.'
+					=> _et('Filters events by the item type of the items referenced by the trigger. When several are selected, items matching any of them are used.'),
+				'Filters events by the value type of the items referenced by the trigger. When several are selected, items matching any of them are used.'
+					=> _et('Filters events by the value type of the items referenced by the trigger. When several are selected, items matching any of them are used.'),
+				'Groups the events shown in the details by host. The aggregated graph does not change.'
+					=> _et('Groups the events shown in the details by host. The aggregated graph does not change.'),
+				'Host name'
+					=> _et('Host name'),
+				'Interfaces'
+					=> _et('Interfaces'),
+				'Last occurred'
+					=> _et('Last occurred'),
+				'Matching items'
+					=> _et('Matching items'),
+				'No events in the target period'
+					=> _et('No events in the target period'),
+				'No events match the current conditions'
+					=> _et('No events match the current conditions'),
+				'Restores the filters and display conditions to the initial state set in the widget configuration.'
+					=> _et('Restores the filters and display conditions to the initial state set in the widget configuration.'),
+				'Shows all events regardless of acknowledgement status.'
+					=> _et('Shows all events regardless of acknowledgement status.'),
+				'Shows only acknowledged events.'
+					=> _et('Shows only acknowledged events.'),
+				'Shows only unacknowledged events.'
+					=> _et('Shows only unacknowledged events.'),
+				'Shows the events shown in the details in order of occurrence. The aggregated graph does not change.'
+					=> _et('Shows the events shown in the details in order of occurrence. The aggregated graph does not change.'),
+				'Shows when events occurred along the time axis.'
+					=> _et('Shows when events occurred along the time axis.'),
+				'Sorts by name in ascending order.'
+					=> _et('Sorts by name in ascending order.'),
+				'Sorts by name in descending order.'
+					=> _et('Sorts by name in descending order.'),
+				'Sorts events by name in ascending order.'
+					=> _et('Sorts events by name in ascending order.'),
+				'Sorts events by name in descending order.'
+					=> _et('Sorts events by name in descending order.'),
+				'Sorts events by the number of affected hosts, highest first. The bar height also shows the number of affected hosts.'
+					=> _et('Sorts events by the number of affected hosts, highest first. The bar height also shows the number of affected hosts.'),
+				'Sorts events by the number of occurrences, highest first. The bar height still shows the number of affected hosts.'
+					=> _et('Sorts events by the number of occurrences, highest first. The bar height still shows the number of affected hosts.'),
+				'Sorts targets by event count, highest first.'
+					=> _et('Sorts targets by event count, highest first.'),
+				'Target hosts (current scope)'
+					=> _et('Target hosts (current scope)'),
+				'Trigger'
+					=> _et('Trigger'),
+				'Use "Reset conditions" to restore the initial state.'
+					=> _et('Use "Reset conditions" to restore the initial state.'),
+				'Visible name'
+					=> _et('Visible name'),
+				'When both value type and item type are set, the same item must match both.'
+					=> _et('When both value type and item type are set, the same item must match both.')
 			]
 		];
 	}

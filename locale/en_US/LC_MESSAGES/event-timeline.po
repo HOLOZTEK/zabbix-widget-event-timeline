@@ -214,17 +214,11 @@ msgstr "Continuing events (add to every bucket)"
 msgid "No target selected"
 msgstr "No target selected"
 
-msgid "All events are excluded by the current filters."
-msgstr "All events are excluded by the current filters."
-
 msgid "Count mode: continuing events (click for occurred events)"
 msgstr "Count mode: continuing events (click for occurred events)"
 
 msgid "Count mode: occurred events (click for continuing events)"
 msgstr "Count mode: occurred events (click for continuing events)"
-
-msgid "Reset filters to the configured values"
-msgstr "Reset filters to the configured values"
 
 msgid "Continuing events"
 msgstr "Continuing events"
@@ -240,12 +234,6 @@ msgstr "Occurred"
 
 msgid "Continuing count"
 msgstr "Continuing"
-
-msgid "Number of events that started in each bucket"
-msgstr "Number of events that started in each bucket"
-
-msgid "Number of events overlapping each bucket"
-msgstr "Number of events overlapping each bucket"
 
 msgid "Ack status"
 msgstr "Ack"
@@ -351,9 +339,6 @@ msgstr "Z to A"
 
 msgid "Affected hosts"
 msgstr "Affected hosts"
-
-msgid "No target host groups."
-msgstr "No target host groups."
 
 msgid "Targets: %1$s (showing %2$s–%3$s)"
 msgstr "Targets: %1$s (showing %2$s–%3$s)"
@@ -503,3 +488,120 @@ msgstr "Some item information could not be confirmed. The result may be incomple
 
 msgid "Triggers whose referenced items could not be checked are not shown."
 msgstr "Triggers whose referenced items could not be checked are not shown."
+
+msgid "%1$s more interfaces"
+msgstr "%1$s more interfaces"
+
+msgid "Active conditions: %1$s"
+msgstr "Active conditions: %1$s"
+
+msgid "Affected hosts by severity"
+msgstr "Affected hosts by severity"
+
+msgid "Aggregates events by host group."
+msgstr "Aggregates events by host group."
+
+msgid "Aggregates events by host."
+msgstr "Aggregates events by host."
+
+msgid "Aggregates events by trigger / event type."
+msgstr "Aggregates events by trigger / event type."
+
+msgid "Change the filters or display conditions."
+msgstr "Change the filters or display conditions."
+
+msgid "Click to show or hide."
+msgstr "Click to show or hide."
+
+msgid "Counts events for each target, including events continuing in the displayed period."
+msgstr "Counts events for each target, including events continuing in the displayed period."
+
+msgid "Counts events in each time bucket, including events that are still continuing."
+msgstr "Counts events in each time bucket, including events that are still continuing."
+
+msgid "Counts events that newly occurred in each time bucket."
+msgstr "Counts events that newly occurred in each time bucket."
+
+msgid "Counts events that occurred in the displayed period for each target."
+msgstr "Counts events that occurred in the displayed period for each target."
+
+msgid "Events by severity"
+msgstr "Events by severity"
+
+msgid "Filters events by the item type of the items referenced by the trigger. When several are selected, items matching any of them are used."
+msgstr "Filters events by the item type of the items referenced by the trigger. When several are selected, items matching any of them are used."
+
+msgid "Filters events by the value type of the items referenced by the trigger. When several are selected, items matching any of them are used."
+msgstr "Filters events by the value type of the items referenced by the trigger. When several are selected, items matching any of them are used."
+
+msgid "Groups the events shown in the details by host. The aggregated graph does not change."
+msgstr "Groups the events shown in the details by host. The aggregated graph does not change."
+
+msgid "Host name"
+msgstr "Host name"
+
+msgid "Interfaces"
+msgstr "Interfaces"
+
+msgid "Last occurred"
+msgstr "Last occurred"
+
+msgid "Matching items"
+msgstr "Matching items"
+
+msgid "No events in the target period"
+msgstr "No events in the target period"
+
+msgid "No events match the current conditions"
+msgstr "No events match the current conditions"
+
+msgid "Restores the filters and display conditions to the initial state set in the widget configuration."
+msgstr "Restores the filters and display conditions to the initial state set in the widget configuration."
+
+msgid "Shows all events regardless of acknowledgement status."
+msgstr "Shows all events regardless of acknowledgement status."
+
+msgid "Shows only acknowledged events."
+msgstr "Shows only acknowledged events."
+
+msgid "Shows only unacknowledged events."
+msgstr "Shows only unacknowledged events."
+
+msgid "Shows the events shown in the details in order of occurrence. The aggregated graph does not change."
+msgstr "Shows the events shown in the details in order of occurrence. The aggregated graph does not change."
+
+msgid "Shows when events occurred along the time axis."
+msgstr "Shows when events occurred along the time axis."
+
+msgid "Sorts by name in ascending order."
+msgstr "Sorts by name in ascending order."
+
+msgid "Sorts by name in descending order."
+msgstr "Sorts by name in descending order."
+
+msgid "Sorts events by name in ascending order."
+msgstr "Sorts events by name in ascending order."
+
+msgid "Sorts events by name in descending order."
+msgstr "Sorts events by name in descending order."
+
+msgid "Sorts events by the number of affected hosts, highest first. The bar height also shows the number of affected hosts."
+msgstr "Sorts events by the number of affected hosts, highest first. The bar height also shows the number of affected hosts."
+
+msgid "Sorts events by the number of occurrences, highest first. The bar height still shows the number of affected hosts."
+msgstr "Sorts events by the number of occurrences, highest first. The bar height still shows the number of affected hosts."
+
+msgid "Sorts targets by event count, highest first."
+msgstr "Sorts targets by event count, highest first."
+
+msgid "Target hosts (current scope)"
+msgstr "Target hosts (current scope)"
+
+msgid "Use \"Reset conditions\" to restore the initial state."
+msgstr "Use \"Reset conditions\" to restore the initial state."
+
+msgid "Visible name"
+msgstr "Visible name"
+
+msgid "When both value type and item type are set, the same item must match both."
+msgstr "When both value type and item type are set, the same item must match both."

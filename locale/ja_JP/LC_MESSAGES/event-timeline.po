@@ -214,17 +214,11 @@ msgstr "継続イベント数"
 msgid "No target selected"
 msgstr "対象が選択されていません"
 
-msgid "All events are excluded by the current filters."
-msgstr "現在のフィルターにより、すべてのイベントが除外されています。"
-
 msgid "Count mode: continuing events (click for occurred events)"
 msgstr "カウント方式: 継続イベント加算（クリックで発生イベント数へ）"
 
 msgid "Count mode: occurred events (click for continuing events)"
 msgstr "カウント方式: 発生イベント数（クリックで継続イベント加算へ）"
-
-msgid "Reset filters to the configured values"
-msgstr "フィルターを設定値に戻す"
 
 msgid "Continuing events"
 msgstr "継続中イベント"
@@ -240,12 +234,6 @@ msgstr "発生数"
 
 msgid "Continuing count"
 msgstr "継続数"
-
-msgid "Number of events that started in each bucket"
-msgstr "各Bucketで新規に発生したEventの数"
-
-msgid "Number of events overlapping each bucket"
-msgstr "各Bucketと継続期間が重なるEventの数"
 
 msgid "Ack status"
 msgstr "確認状態"
@@ -351,9 +339,6 @@ msgstr "Z→A"
 
 msgid "Affected hosts"
 msgstr "影響ホスト数"
-
-msgid "No target host groups."
-msgstr "対象のホストグループがありません。"
 
 msgid "Targets: %1$s (showing %2$s–%3$s)"
 msgstr "対象: %1$s件（%2$s–%3$s件を表示）"
@@ -503,3 +488,120 @@ msgstr "一部のアイテム情報を確認できないため、結果が不完
 
 msgid "Triggers whose referenced items could not be checked are not shown."
 msgstr "参照するアイテムを確認できないトリガーのイベントは表示していません。"
+
+msgid "%1$s more interfaces"
+msgstr "ほか %1$s 件"
+
+msgid "Active conditions: %1$s"
+msgstr "有効な条件: %1$s"
+
+msgid "Affected hosts by severity"
+msgstr "深刻度別の影響ホスト数"
+
+msgid "Aggregates events by host group."
+msgstr "イベントをホストグループ単位で集計して表示します。"
+
+msgid "Aggregates events by host."
+msgstr "イベントをホスト単位で集計して表示します。"
+
+msgid "Aggregates events by trigger / event type."
+msgstr "イベントをトリガー／イベント種別単位で集計して表示します。"
+
+msgid "Change the filters or display conditions."
+msgstr "フィルターまたは表示条件を変更してください。"
+
+msgid "Click to show or hide."
+msgstr "クリックして表示／非表示を切り替えます。"
+
+msgid "Counts events for each target, including events continuing in the displayed period."
+msgstr "表示期間内で継続しているイベントも含めて対象ごとに集計します。"
+
+msgid "Counts events in each time bucket, including events that are still continuing."
+msgstr "各時間Bucket内で継続しているイベントも含めて集計します。"
+
+msgid "Counts events that newly occurred in each time bucket."
+msgstr "各時間Bucket内で新しく発生したイベントを集計します。"
+
+msgid "Counts events that occurred in the displayed period for each target."
+msgstr "表示期間内に発生したイベントを対象ごとに集計します。"
+
+msgid "Events by severity"
+msgstr "深刻度別のイベント数"
+
+msgid "Filters events by the item type of the items referenced by the trigger. When several are selected, items matching any of them are used."
+msgstr "トリガーが参照するアイテムのアイテムタイプでイベントを絞り込みます。複数選択した場合は、いずれかに一致するアイテムを対象とします。"
+
+msgid "Filters events by the value type of the items referenced by the trigger. When several are selected, items matching any of them are used."
+msgstr "トリガーが参照するアイテムの値の型でイベントを絞り込みます。複数選択した場合は、いずれかに一致するアイテムを対象とします。"
+
+msgid "Groups the events shown in the details by host. The aggregated graph does not change."
+msgstr "詳細に表示するイベントをホストごとにまとめて表示します。グラフの集計結果は変更しません。"
+
+msgid "Host name"
+msgstr "ホスト名"
+
+msgid "Interfaces"
+msgstr "インターフェース"
+
+msgid "Last occurred"
+msgstr "最新発生時刻"
+
+msgid "Matching items"
+msgstr "一致アイテム数"
+
+msgid "No events in the target period"
+msgstr "対象期間にイベントはありません"
+
+msgid "No events match the current conditions"
+msgstr "現在の条件に一致するイベントはありません"
+
+msgid "Restores the filters and display conditions to the initial state set in the widget configuration."
+msgstr "フィルターと表示条件をウィジェット設定で指定された初期状態に戻します。"
+
+msgid "Shows all events regardless of acknowledgement status."
+msgstr "確認状態に関係なくすべてのイベントを表示します。"
+
+msgid "Shows only acknowledged events."
+msgstr "確認済みのイベントだけを表示します。"
+
+msgid "Shows only unacknowledged events."
+msgstr "未確認のイベントだけを表示します。"
+
+msgid "Shows the events shown in the details in order of occurrence. The aggregated graph does not change."
+msgstr "詳細に表示するイベントを発生時刻順に表示します。グラフの集計結果は変更しません。"
+
+msgid "Shows when events occurred along the time axis."
+msgstr "イベントの発生状況を時間軸で表示します。"
+
+msgid "Sorts by name in ascending order."
+msgstr "名前の昇順で並べます。"
+
+msgid "Sorts by name in descending order."
+msgstr "名前の降順で並べます。"
+
+msgid "Sorts events by name in ascending order."
+msgstr "イベント名を昇順で並べます。"
+
+msgid "Sorts events by name in descending order."
+msgstr "イベント名を降順で並べます。"
+
+msgid "Sorts events by the number of affected hosts, highest first. The bar height also shows the number of affected hosts."
+msgstr "影響を受けたホスト数が多いイベントから並べます。棒の高さも影響ホスト数を表します。"
+
+msgid "Sorts events by the number of occurrences, highest first. The bar height still shows the number of affected hosts."
+msgstr "イベント発生数が多い順に並べます。棒の高さは影響ホスト数のままです。"
+
+msgid "Sorts targets by event count, highest first."
+msgstr "イベント件数が多い対象から並べます。"
+
+msgid "Target hosts (current scope)"
+msgstr "対象ホスト数（現在の対象範囲）"
+
+msgid "Use \"Reset conditions\" to restore the initial state."
+msgstr "『条件リセット』で初期状態に戻せます。"
+
+msgid "Visible name"
+msgstr "表示名"
+
+msgid "When both value type and item type are set, the same item must match both."
+msgstr "値の型とアイテムタイプを両方指定した場合は、同じアイテムが両方に一致する必要があります。"

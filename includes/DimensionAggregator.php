@@ -98,13 +98,16 @@ class DimensionAggregator {
 	 *
 	 * @param array<string, string> $event_names  eventid => Event名
 	 */
-	public static function byEvent(array $events, array $event_hosts, array $event_names): array {
+	public static function byEvent(array $events, array $event_hosts, array $event_names,
+			array $event_triggers = []): array {
 		$best = [];
 		$seen_events = [];
+		$extra = [];
 
 		foreach ($events as $e) {
 			$name = (string) ($event_names[$e['eventid']] ?? '');
 			$seen_events[$name][$e['eventid']] = true;
+			self::collectExtra($extra[$name], $e, $event_triggers);
 
 			foreach (array_unique($event_hosts[$e['eventid']] ?? []) as $hostid) {
 				$severity = (int) $e['severity'];
@@ -119,7 +122,7 @@ class DimensionAggregator {
 
 		foreach ($best as $name => $hosts) {
 			$row = ['id' => (string) $name, 'label' => (string) $name, 'counts' => self::emptyCounts(), 'total' => 0,
-				'event_count' => count($seen_events[$name] ?? []), 'hostids' => array_keys($hosts)];
+				'event_count' => count($seen_events[$name] ?? []), 'hostids' => array_keys($hosts)] + $extra[$name];
 
 			foreach ($hosts as $severity) {
 				$row['counts'][$severity]++;
@@ -180,16 +183,18 @@ class DimensionAggregator {
 	 *         event_count: int, hostids: string[]}>
 	 */
 	public static function byEventGroup(array $events, array $event_hosts, array $event_names, array $event_proto,
-			array $proto_names): array {
+			array $proto_names, array $event_triggers = []): array {
 		$best = [];
 		$seen_events = [];
 		$labels = [];
+		$extra = [];
 
 		foreach ($events as $e) {
 			$eventid = $e['eventid'];
 			$key = self::eventGroupKey($eventid, $event_proto, $event_names, $proto_names);
 			$labels[$key] ??= self::eventGroupLabel($key, $proto_names);
 			$seen_events[$key][$eventid] = true;
+			self::collectExtra($extra[$key], $e, $event_triggers);
 			$severity = (int) $e['severity'];
 
 			foreach (array_unique($event_hosts[$eventid] ?? []) as $hostid) {
@@ -204,7 +209,7 @@ class DimensionAggregator {
 		foreach ($best as $key => $hosts) {
 			$row = ['id' => $key, 'label' => $labels[$key], 'is_prototype' => strncmp($key, 'p:', 2) === 0,
 				'counts' => self::emptyCounts(), 'total' => 0, 'event_count' => count($seen_events[$key] ?? []),
-				'hostids' => array_keys($hosts)];
+				'hostids' => array_keys($hosts)] + $extra[$key];
 
 			foreach ($hosts as $severity) {
 				$row['counts'][$severity]++;
@@ -303,6 +308,99 @@ class DimensionAggregator {
 		sort($names, SORT_NATURAL | SORT_FLAG_CASE);
 
 		return ['hosts' => array_slice($names, 0, $limit), 'hosts_more' => max(0, count($names) - $limit)];
+	}
+
+	/**
+	 * Event 行の Tooltip 用の付帯情報（UI Polish §19）: 最新発生時刻（last_clock）と、$event_triggers
+	 * （eventid => triggerid）が渡されたときは行に含まれる Trigger（triggerids）。集計値・棒高には使わない。
+	 */
+	private static function collectExtra(?array &$extra, array $e, array $event_triggers): void {
+		$extra ??= ['last_clock' => 0];
+		$extra['last_clock'] = max($extra['last_clock'], (int) ($e['clock'] ?? 0));
+
+		if ($event_triggers) {
+			$extra['triggerids'] ??= [];
+
+			if (isset($event_triggers[$e['eventid']])) {
+				$extra['triggerids'][$event_triggers[$e['eventid']]] = true;
+			}
+		}
+	}
+
+	/**
+	 * Host group 行の Tooltip 用の母数（UI Polish §18 / Q3）。どちらも同じ母集団（現在の対象 Host のうち閲覧可能なもの）で、
+	 * Host が直接所属する Group だけを数える（サブグループの合算はしない）。
+	 *   target_hosts   : Group に直接所属する対象 Host の数（$host_groups に現れる Host = 対象 Host）
+	 *   affected_hosts : そのうち集計対象の Event がある Host の数
+	 * 集計（byHostGroup）とは独立した参考値で、件数・棒高・並び順には使わない。
+	 *
+	 * @param array<string, array<string, string>> $host_groups  対象 Host の hostid => [groupid => group名]
+	 *
+	 * @return array<string, array{target_hosts: int, affected_hosts: int}>  groupid => 母数
+	 */
+	public static function groupHostCounts(array $events, array $event_hosts, array $host_groups): array {
+		$affected = [];
+
+		foreach ($events as $e) {
+			foreach ($event_hosts[$e['eventid']] ?? [] as $hostid) {
+				$affected[(string) $hostid] = true;
+			}
+		}
+
+		$counts = [];
+
+		foreach ($host_groups as $hostid => $groups) {
+			foreach ($groups as $groupid => $name) {
+				$counts[(string) $groupid] ??= ['target_hosts' => 0, 'affected_hosts' => 0];
+				$counts[(string) $groupid]['target_hosts']++;
+
+				if (isset($affected[(string) $hostid])) {
+					$counts[(string) $groupid]['affected_hosts']++;
+				}
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Host 行の Tooltip 用インターフェース一覧（UI Polish §16）。main インターフェースを先に、種別（Agent / SNMP /
+	 * IPMI / JMX）の順で並べ、$limit 件まで。接続先は useip に従い IP または DNS（推測した IP は出さない）。
+	 * 接続先が空のインターフェースは出さない。
+	 *
+	 * @param array[] $interfaces  host.get の interfaces（type, main, useip, ip, dns, port）
+	 * @param array<int, string> $type_names  type => 表示名
+	 *
+	 * @return array{list: array<int, array{type: string, address: string, port: string, main: bool}>, more: int}
+	 */
+	public static function interfaceList(array $interfaces, array $type_names, int $limit): array {
+		$list = [];
+
+		foreach ($interfaces as $i) {
+			$ip = (string) ($i['ip'] ?? '');
+			$dns = (string) ($i['dns'] ?? '');
+			// 接続に使う側を優先し、空ならもう一方（IP が無ければ DNS）。
+			$address = (int) ($i['useip'] ?? 1) === 1 ? ($ip !== '' ? $ip : $dns) : ($dns !== '' ? $dns : $ip);
+
+			if ($address === '') {
+				continue;
+			}
+
+			$list[] = [
+				'type' => $type_names[(int) $i['type']] ?? (string) $i['type'],
+				'address' => $address,
+				'port' => (string) ($i['port'] ?? ''),
+				'main' => (int) ($i['main'] ?? 0) === 1,
+				'order' => (int) $i['type']
+			];
+		}
+
+		usort($list, static fn(array $a, array $b): int => $b['main'] <=> $a['main'] ?: $a['order'] <=> $b['order']
+			?: strnatcasecmp($a['address'], $b['address']));
+
+		$list = array_map(static fn(array $i): array => array_diff_key($i, ['order' => 1]), $list);
+
+		return ['list' => array_slice($list, 0, $limit), 'more' => max(0, count($list) - $limit)];
 	}
 
 	/**
