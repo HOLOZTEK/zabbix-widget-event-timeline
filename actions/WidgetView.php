@@ -130,6 +130,16 @@ class WidgetView extends CControllerDashboardWidgetView {
 		// 1. Source config → Fixed/Widget Selection resolve → Host set resolve → Event Selection resolve
 		$target = SourceResolver::resolveTarget($fields);
 
+		if ($target === null) {
+			$this->setResponse(new CControllerResponseData([
+				'name' => $this->getInput('name', $this->widget->getDefaultName()),
+				'error' => _et('Failed to retrieve events.'),
+				'user' => ['debug_mode' => $this->getDebugMode()]
+			]));
+
+			return;
+		}
+
 		// Trigger Selection（v0.2.0）: Phase 1 で triggerids の形式を正規化（inactive/active/invalid）し、
 		// Phase 2 で TriggerSelectionResolver によりテンプレート継承を辿って Canonical Trigger へ正規化し、
 		// Phase 3 で TriggerScopeExpander により Canonical を Host Scope（$target）上の Trigger へ展開して Event 抽出に使う。
@@ -687,7 +697,12 @@ class WidgetView extends CControllerDashboardWidgetView {
 					$rows = DimensionAggregator::byEvent($events, $info['hosts'], $info['names']);
 				}
 				else {
-					$event_proto = $this->resolveEventPrototypes($events, $info['triggers']);
+					$event_proto = $this->resolveEventPrototypes($events, $info['triggers'], $info['names']);
+
+					if ($event_proto === null) {
+						return null;
+					}
+
 					$rows = DimensionAggregator::byEventGroup($events, $info['hosts'], $info['names'],
 						$event_proto['map'], $event_proto['names']
 					);
@@ -741,32 +756,44 @@ class WidgetView extends CControllerDashboardWidgetView {
 	 * 表示名が同じでも Canonical が異なれば別 Group になる（名前による推測・統合はしない）。Host ローカルの prototype は
 	 * canonical = 自身のため他Hostとは統合されない。Event 集合そのものは変えない（Grouping だけ）。
 	 * 権限等で Canonical を解決できない prototype の Event は、生成元 prototype の単位で分離したまま Group 化し、
-	 * partial = true を返す（Prototype group 表示が部分的である旨を警告する）。
+	 * partial = true を返す（Prototype group 表示が部分的である旨を警告する）。生成元 prototype 自体を参照できない
+	 * 場合も Event 名では統合しない（DimensionAggregator::prototypeMap()）。
 	 *
-	 * @param array<string, string> $triggers  eventid => triggerid（EventFetcher::fetchDimensionInfo() の結果）
+	 * @param array<string, string> $triggers     eventid => triggerid（EventFetcher::fetchDimensionInfo() の結果）
+	 * @param array<string, string> $event_names  eventid => Event名（同上）
 	 *
-	 * @return array{map: array<string, ?string>, names: array<string, string>, partial: bool}
+	 * @return array{map: array<string, ?string>, names: array<string, string>, partial: bool}|null  API失敗時は null
 	 *   map: eventid => Group 化に使う Trigger prototype ID（解決できなければ null）。names: Trigger prototype ID => 表示名。
 	 *   partial: Canonical prototype を解決できず生成元 prototype の単位で分離した Event がある。
 	 */
-	private function resolveEventPrototypes(array $events, array $triggers): array {
+	private function resolveEventPrototypes(array $events, array $triggers, array $event_names): ?array {
 		if (!$events) {
 			return ['map' => [], 'names' => [], 'partial' => false];
 		}
 
+		// API 失敗時は Event 名での Group 化へ落とさず、他の取得失敗と同じくエラーにする（Phase 6 §6）。
 		$parent = EventFetcher::fetchTriggerParents(array_values($triggers));
+
+		if ($parent === null) {
+			return null;
+		}
+
 		$cache = $this->prototype_cache
 			?? new TriggerInheritanceCache([EventFetcher::class, 'fetchPrototypeInheritance']);
 		$resolved = $parent ? TriggerPrototypeResolver::resolvePrototypes(array_values($parent), [$cache, 'fetch']) : [];
 
 		if ($resolved === null) {
-			// 失敗しても個別Event表示へFallbackするだけなので、Widget全体は止めない（従来どおり）。
-			$resolved = [];
+			return null;
 		}
 
-		$rows = $resolved ? ($cache->fetch(array_merge(array_keys($resolved), array_filter(array_column(
+		$rows = $resolved ? $cache->fetch(array_merge(array_keys($resolved), array_filter(array_column(
 			$resolved, 'canonical_prototypeid'
-		)))) ?? []) : [];
+		)))) : [];
+
+		if ($rows === null) {
+			return null;
+		}
+
 		$names = [];
 
 		foreach ($rows as $id => $row) {
@@ -775,33 +802,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			}
 		}
 
-		$group = [];
-		$partial_protos = [];
-
-		foreach ($resolved as $id => $entry) {
-			if ($entry['status'] === TriggerPrototypeResolver::STATUS_RESOLVED) {
-				$group[(string) $id] = (string) $entry['canonical_prototypeid'];
-			}
-			elseif (isset($names[(string) $id])) {
-				// 生成元 prototype は参照できるが Canonical を解決できない: 生成元 prototype の単位で分離する。
-				$group[(string) $id] = (string) $id;
-				$partial_protos[(string) $id] = true;
-			}
-		}
-
-		$map = [];
-		$partial = false;
-
-		foreach ($triggers as $eventid => $triggerid) {
-			$proto = $parent[$triggerid] ?? null;
-			$map[$eventid] = $proto !== null ? ($group[$proto] ?? null) : null;
-
-			if ($proto !== null && isset($partial_protos[$proto])) {
-				$partial = true;
-			}
-		}
-
-		return ['map' => $map, 'names' => $names, 'partial' => $partial];
+		return DimensionAggregator::prototypeMap($triggers, $parent, $resolved, $names, $event_names);
 	}
 
 	/**
@@ -873,7 +874,11 @@ class WidgetView extends CControllerDashboardWidgetView {
 			if ($mode === WidgetForm::MODE_EVENT) {
 				// プロトタイプグループ: Group（Prototype、またはFallback先のEvent名）に属する実Eventの一覧を返す
 				// （個別イベント表示のHost一覧とは異なり、Host単位に集約しない。§25〜27）。
-				$event_proto = $this->resolveEventPrototypes($events, $info['triggers']);
+				$event_proto = $this->resolveEventPrototypes($events, $info['triggers'], $info['names']);
+
+				if ($event_proto === null) {
+					return null;
+				}
 
 				// 影響Host数（該当Severityの棒の値と一致させる。§41）は、集計と同じ byEventGroup() から
 				// 該当Group行を引いて求める（Drilldown選定 DetailSelector::byEventGroup とは独立した経路だが、

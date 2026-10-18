@@ -1308,7 +1308,7 @@ class CWidgetEventTimeline extends CWidget {
 		return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#1f2c33' : '#fff';
 	}
 
-	// Event取得上限に達した場合、グラフは実際より少ない件数を示す。目立つ警告を常時表示する。
+	// Trigger Selection を適用できない（ERROR。Event は表示しない）。
 	#buildTriggerPermissionWarning() {
 		const warn = document.createElement('div');
 		warn.className = 'et-warning et-trigger-warning';
@@ -1416,6 +1416,7 @@ class CWidgetEventTimeline extends CWidget {
 		return warn;
 	}
 
+	// Event取得上限に達した場合、グラフは実際より少ない件数を示す。目立つ警告を常時表示する。
 	#buildTruncationWarning(data) {
 		const warn = document.createElement('div');
 		warn.className = 'et-warning';

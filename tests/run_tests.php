@@ -530,8 +530,32 @@ check('eventGroupKey unresolved prototype falls back to name',
 check('eventGroupKey no prototype falls back to name',
 	D::eventGroupKey('3', ['3' => null], ['3' => 'Disk full'], $proto_names), 'n:Disk full');
 
+// prototypeMap（Phase 6 §6）: Canonical を解決できない LLD Event は生成元 prototype の単位で分離し partial。
+// 生成元 prototype の表示名を取得できなくても Event 名で統合しない（同名の通常 Trigger とも別 Group）。
+$res_ok = ['status' => TPR::STATUS_RESOLVED, 'canonical_prototypeid' => '900'];
+$res_ng = ['status' => TPR::STATUS_UNRESOLVED, 'canonical_prototypeid' => null];
+$pm = D::prototypeMap(
+	['1' => '501', '2' => '502', '3' => '503', '4' => '504', '5' => '601', '6' => '602'],
+	['501' => '701', '502' => '702', '503' => '703', '504' => '703', '505' => '705'],
+	['701' => $res_ok, '702' => $res_ok, '703' => $res_ng],
+	['900' => 'Disk {#FS}', '701' => 'Disk {#FS}', '702' => 'Disk {#FS}'],
+	['1' => 'Disk /', '2' => 'Disk /var', '3' => 'Disk /tmp', '4' => 'Disk /tmp2', '5' => 'Disk /tmp', '6' => 'X']
+);
+check('P6 prototypeMap canonical groups across hosts', [$pm['map']['1'], $pm['map']['2']], ['900', '900']);
+check('P6 prototypeMap unresolved prototype stays separate', [$pm['map']['3'], $pm['map']['4']], ['703', '703']);
+check('P6 prototypeMap normal triggers are null', [$pm['map']['5'], $pm['map']['6']], [null, null]);
+check('P6 prototypeMap partial', $pm['partial'], true);
+check('P6 prototypeMap fallback label = smallest eventid name', $pm['names']['703'], 'Disk /tmp');
+$r = D::byEventGroup([$ev('3', 3), $ev('4', 3), $ev('5', 3)], ['3' => ['10'], '4' => ['11'], '5' => ['12']],
+	['3' => 'Disk /tmp', '4' => 'Disk /tmp2', '5' => 'Disk /tmp'], $pm['map'], $pm['names']);
+check('P6 unresolved prototype not merged with same-named normal event', array_column($r, 'id'), ['p:703', 'n:Disk /tmp']);
+$pm = D::prototypeMap(['1' => '501'], ['501' => '701'], ['701' => $res_ok], ['900' => 'A', '701' => 'B'], []);
+check('P6 prototypeMap all resolved -> not partial', [$pm['map']['1'], $pm['partial']], ['900', false]);
+$pm = D::prototypeMap(['1' => '501'], [], [], [], ['1' => 'n']);
+check('P6 prototypeMap no LLD -> not partial', [$pm['map']['1'], $pm['partial'], $pm['names']], [null, false, []]);
+
 // byEventGroup: 同一Prototype起点の複数Trigger（=別eventid・別Host）は1つのGroupへ収束する（§5〜9）。
-$eh100 = ['1' => ['10'], '2' => ['11']];
+$eh100 =['1' => ['10'], '2' => ['11']];
 $names100 = ['1' => 'CPU load on /', '2' => 'CPU load on /var'];
 $r = D::byEventGroup([$ev('1', 3), $ev('2', 4)], $eh100, $names100, ['1' => '100', '2' => '100'], $proto_names);
 check('byEventGroup same prototype collapses to one group', count($r), 1);
@@ -1053,6 +1077,15 @@ check('P3 §28 indeterminate counted', [$tx(['25143'], [2, 4])['indeterminate'],
 // 一致0件でも判定不能があれば partial（0件だが警告する）。全Eventへは戻さない。
 check('P3 §28 indeterminate only -> empty + partial', $tx_es(['25143'], [4]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
+// Phase 6 §15: 選択 Canonical がすべて対象Host上の Host ローカル Trigger なら、継承元閲覧不可の Trigger は行き着かない
+// ため判定不能に数えない（過大計上の解消）。所有Host が対象外・Template 上の Trigger の場合は従来どおり partial。
+check('P6 §15 host-local canonical on target: no over-count', $tx_es(['400'], [1, 4]),
+	['selected' => true, 'selectors' => [['objectids' => ['400']]], 'error' => null, 'partial' => false]);
+check('P6 §15 host-local canonical on target: indeterminate 0', $tx(['400'], [1, 4])['indeterminate'], 0);
+check('P6 §15 host-local canonical outside scope: still partial', $tx_es(['400'], [4]),
+	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
+check('P6 §15 host-local + template canonical: still partial', $tx_es(['400', '25143'], [1, 4])['partial'], true);
+check('P6 §15 template-level canonical: still partial', $tx_es(['23176'], [1, 4])['partial'], true);
 // Selection 自体が parent_unavailable の場合は Phase 2 どおり fail-closed（展開しない）。
 check('P3 §28 selection-level fail-closed kept', $tx_es(['25143', '600'], [1, 2, 3, 4]),
 	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);

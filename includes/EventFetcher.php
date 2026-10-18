@@ -404,14 +404,13 @@ class EventFetcher {
 	 * prototype の表示名と Canonical prototype への正規化は呼び出し側（TriggerPrototypeResolver ＋ prototype 用キャッシュ）で行う。
 	 *
 	 * Event件数分のAPI呼び出しにはならないよう、triggerid をまとめて trigger.get する（呼び出し側で同一Renderingにつき1回）。
-	 * API失敗時も他のメソッドと異なりnullを返さない: プロトタイプ情報が無くてもWidget全体をエラーにはせず、
-	 * 解決できなかった分は呼び出し側で個別Event表示へFallbackする（仕様上、Prototype解決失敗は握りつぶしてよい）。
+	 * API失敗時は null（Phase 6 §6: 生成元 prototype が分からないまま Event 名で Group 化しない。呼び出し側はエラーにする）。
 	 *
 	 * @param string[] $triggerids
 	 *
-	 * @return array<string, string>  Discovery由来のtriggerid => 生成元Trigger prototype ID
+	 * @return array<string, string>|null  Discovery由来のtriggerid => 生成元Trigger prototype ID。API失敗時は null
 	 */
-	public static function fetchTriggerParents(array $triggerids): array {
+	public static function fetchTriggerParents(array $triggerids): ?array {
 		$ids = array_values(array_unique(array_filter(array_map('strval', $triggerids),
 			static fn(string $id): bool => $id !== '0'
 		)));
@@ -426,8 +425,7 @@ class EventFetcher {
 			]);
 
 			if (!is_array($rows)) {
-				// 失敗しても個別Event表示へFallbackするだけなので、Widget全体は止めない。
-				continue;
+				return null;
 			}
 
 			foreach ($rows as $row) {
