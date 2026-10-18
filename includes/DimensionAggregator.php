@@ -134,7 +134,7 @@ class DimensionAggregator {
 
 	/**
 	 * By Event（プロトタイプグループ）のGroup key。Trigger prototype由来（Discovery）であれば
-	 * 'p:'+Group化に使う Trigger prototype ID、そうでない（通常Trigger、またはPrototype情報が解決できない）場合は
+	 * 'p:'+Group化に使う Trigger prototype ID、そうでない（通常Trigger）場合は
 	 * 'n:'+Event名にFallbackする。文字列の類推（正規表現・ポート番号除去・桁無視・類似度等）は一切行わず、
 	 * Zabbixの実際の生成関係・継承関係（$event_proto。WidgetView::resolveEventPrototypes() の結果）だけを根拠にする。
 	 * v0.2.0 Phase 4 以降、$event_proto の prototype ID は Template 継承元の Canonical Trigger prototype（Host をまたいで
@@ -167,8 +167,9 @@ class DimensionAggregator {
 	/**
 	 * By Event（プロトタイプグループ）: Trigger prototype由来のEventを生成元Prototype単位でGroup化し、
 	 * 影響Host数（Measure。Prototype × Host のユニーク数。byEvent と同じ考え方）と、そのGroupに属する
-	 * 該当Event数（event_count）を集計する。Prototype情報が無い/解決できないEventは、Event名単位の
-	 * Group（byEventと同じ粒度）へ個別にFallbackする（§37〜39: 特別な警告表示はせず、通常のEventとして扱う）。
+	 * 該当Event数（event_count）を集計する。通常 Trigger（Prototype由来でない）のEventは、Event名単位の
+	 * Group（byEventと同じ粒度）として扱う（§37〜39: 特別な警告表示はせず、通常のEventとして扱う）。
+	 * Prototype由来で Canonical を解決できない Event は、prototypeMap() が生成元 prototype の単位で分離する。
 	 * Severityは byEvent と同じく、Host×Groupにつき現在のFilterを通ったEventのうち最も高いものを1回だけ割り当てる
 	 * （Stack合計 = 影響Host数を常に保証する）。
 	 *
@@ -214,6 +215,72 @@ class DimensionAggregator {
 		}
 
 		return $rows;
+	}
+
+	/**
+	 * プロトタイプグループ（Phase 6 §6）: Event ごとの Group 化に使う Trigger prototype ID を決める
+	 * （WidgetView::resolveEventPrototypes() の判定部分。API を呼ばない純粋ロジック）。
+	 *
+	 *   - 生成元 prototype の Canonical を解決できた: Canonical prototype の単位（Host をまたいで1つの Group）
+	 *   - 解決できない（継承元を参照できない・循環・生成元 prototype 自体を参照できない）: 生成元 prototype の単位で
+	 *     分離し partial = true。Event 名による統合（'n:'）へは落とさない。生成元 prototype の表示名を取得できない
+	 *     場合は、その Group に属する Event のうち eventid が最小の Event 名を表示名にする
+	 *   - 通常 Trigger（生成元 prototype なし）: null（Event 名単位。従来どおり）
+	 *
+	 * @param array<string, string> $triggers     eventid => triggerid
+	 * @param array<string, string> $parent       Discovered triggerid => 生成元 Trigger prototype ID
+	 * @param array<string, array>  $resolved     生成元 prototype ID => TriggerPrototypeResolver::resolvePrototypes() の要素
+	 * @param array<string, string> $proto_names  Trigger prototype ID => 表示名（参照できたものだけ）
+	 * @param array<string, string> $event_names  eventid => Event名
+	 *
+	 * @return array{map: array<string, ?string>, names: array<string, string>, partial: bool}
+	 */
+	public static function prototypeMap(array $triggers, array $parent, array $resolved, array $proto_names,
+			array $event_names): array {
+		$group = [];
+		$partial_protos = [];
+
+		foreach ($resolved as $id => $entry) {
+			$id = (string) $id;
+
+			if ($entry['status'] === TriggerPrototypeResolver::STATUS_RESOLVED
+					&& isset($proto_names[(string) $entry['canonical_prototypeid']])) {
+				$group[$id] = (string) $entry['canonical_prototypeid'];
+			}
+			else {
+				$group[$id] = $id;
+				$partial_protos[$id] = true;
+			}
+		}
+
+		$map = [];
+		$partial = false;
+		$fallback_names = [];
+		$eventids = array_map('strval', array_keys($triggers));
+		usort($eventids, [Ids::class, 'compare']);
+
+		foreach ($eventids as $eventid) {
+			$proto = $parent[(string) $triggers[$eventid]] ?? null;
+
+			if ($proto === null) {
+				$map[$eventid] = null;
+				continue;
+			}
+
+			// resolvePrototypes() へ渡していない生成元 prototype は、未解決として同じく分離する。
+			$key = $group[$proto] ?? $proto;
+			$map[$eventid] = $key;
+
+			if (!isset($group[$proto]) || isset($partial_protos[$proto])) {
+				$partial = true;
+			}
+
+			if (!isset($proto_names[$key]) && !isset($fallback_names[$key])) {
+				$fallback_names[$key] = (string) ($event_names[$eventid] ?? '');
+			}
+		}
+
+		return ['map' => $map, 'names' => $proto_names + $fallback_names, 'partial' => $partial];
 	}
 
 	/**

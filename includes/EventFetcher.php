@@ -404,14 +404,13 @@ class EventFetcher {
 	 * prototype の表示名と Canonical prototype への正規化は呼び出し側（TriggerPrototypeResolver ＋ prototype 用キャッシュ）で行う。
 	 *
 	 * Event件数分のAPI呼び出しにはならないよう、triggerid をまとめて trigger.get する（呼び出し側で同一Renderingにつき1回）。
-	 * API失敗時も他のメソッドと異なりnullを返さない: プロトタイプ情報が無くてもWidget全体をエラーにはせず、
-	 * 解決できなかった分は呼び出し側で個別Event表示へFallbackする（仕様上、Prototype解決失敗は握りつぶしてよい）。
+	 * API失敗時は null（Phase 6 §6: 生成元 prototype が分からないまま Event 名で Group 化しない。呼び出し側はエラーにする）。
 	 *
 	 * @param string[] $triggerids
 	 *
-	 * @return array<string, string>  Discovery由来のtriggerid => 生成元Trigger prototype ID
+	 * @return array<string, string>|null  Discovery由来のtriggerid => 生成元Trigger prototype ID。API失敗時は null
 	 */
-	public static function fetchTriggerParents(array $triggerids): array {
+	public static function fetchTriggerParents(array $triggerids): ?array {
 		$ids = array_values(array_unique(array_filter(array_map('strval', $triggerids),
 			static fn(string $id): bool => $id !== '0'
 		)));
@@ -421,17 +420,16 @@ class EventFetcher {
 			self::countCall('trigger.get');
 			$rows = API::Trigger()->get([
 				'output' => ['triggerid'],
-				'selectTriggerDiscovery' => ['parent_triggerid'],
+				self::discoverySelect() => ['parent_triggerid'],
 				'triggerids' => $chunk
 			]);
 
 			if (!is_array($rows)) {
-				// 失敗しても個別Event表示へFallbackするだけなので、Widget全体は止めない。
-				continue;
+				return null;
 			}
 
 			foreach ($rows as $row) {
-				$discovery = $row['triggerDiscovery'] ?? null;
+				$discovery = self::discoveryOf($row);
 
 				if (is_array($discovery) && isset($discovery['parent_triggerid'])) {
 					$parent[(string) $row['triggerid']] = (string) $discovery['parent_triggerid'];
@@ -494,7 +492,7 @@ class EventFetcher {
 			self::countCall('trigger.get');
 			$rows = API::Trigger()->get([
 				'output' => ['triggerid', 'templateid', 'flags'],
-				'selectTriggerDiscovery' => ['parent_triggerid'],
+				self::discoverySelect() => ['parent_triggerid'],
 				'triggerids' => $chunk
 			]);
 
@@ -511,6 +509,22 @@ class EventFetcher {
 	}
 
 	/**
+	 * trigger.get で生成元 prototype（parent_triggerid）を取るパラメータ名。Zabbix 8.0 では selectTriggerDiscovery が
+	 * 廃止予定（API_DEPRECATED）となり、E_USER_DEPRECATED が技術的エラーとして一般ユーザーに「システムエラー」と
+	 * 表示されるため、8.0 以降は後継の selectDiscoveryData を使う（7.0 には selectDiscoveryData が無い）。
+	 */
+	private static function discoverySelect(): string {
+		return version_compare(ZABBIX_API_VERSION, '8.0.0', '>=') ? 'selectDiscoveryData' : 'selectTriggerDiscovery';
+	}
+
+	/**
+	 * trigger.get の1行から Discovery 情報（discoveryData または triggerDiscovery）を取り出す。無ければ null。
+	 */
+	private static function discoveryOf(array $row) {
+		return $row['discoveryData'] ?? $row['triggerDiscovery'] ?? null;
+	}
+
+	/**
 	 * trigger.get の1行を継承情報の行へ変換する（prototypeid は triggerDiscovery を取得したときだけ。無ければ '0'）。
 	 * ID は10進文字列のまま保つ（issue #34）。flags は列挙値なので int。
 	 */
@@ -520,8 +534,8 @@ class EventFetcher {
 			'flags' => (int) $row['flags']
 		];
 
-		if (array_key_exists('triggerDiscovery', $row)) {
-			$discovery = $row['triggerDiscovery'];
+		if (array_key_exists('triggerDiscovery', $row) || array_key_exists('discoveryData', $row)) {
+			$discovery = self::discoveryOf($row);
 			$result['prototypeid'] = is_array($discovery) && isset($discovery['parent_triggerid'])
 				? Ids::ref($discovery['parent_triggerid'])
 				: '0';
@@ -561,7 +575,7 @@ class EventFetcher {
 			];
 
 			if ($with_prototype) {
-				$options['selectTriggerDiscovery'] = ['parent_triggerid'];
+				$options[self::discoverySelect()] = ['parent_triggerid'];
 			}
 
 			if ($with_functions) {

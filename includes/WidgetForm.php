@@ -31,7 +31,8 @@ class WidgetForm extends CWidgetForm {
 
 	// Drilldown（詳細一覧）の対象。dd_severity の DETAIL_SEVERITY_ALL は「Severityを限定しない」。
 	public const DETAIL_SEVERITY_ALL = 6;
-	public const DETAIL_KEY_MAX_LENGTH = 2048;
+	// Event名（Zabbix の events.name は最大2048文字）＋プロトタイプグループの Group key の接頭辞（'n:' / 'p:'）。
+	public const DETAIL_KEY_MAX_LENGTH = 2050;
 
 	public const XLABEL_AUTO = 0;
 	public const XLABEL_HORIZONTAL = 1;

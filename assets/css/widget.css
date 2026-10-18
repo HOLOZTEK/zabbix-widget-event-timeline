@@ -132,10 +132,14 @@
 }
 
 
+/* 狭幅（約290px未満）ではグループ内のボタンも折り返し、Widget の横幅を超えない（Phase 6 §16）。 */
 .et-group {
 	display: inline-flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 4px;
+	box-sizing: border-box;
+	max-width: 100%;
 	padding: 0 12px;
 	border-left: 1px solid rgba(128, 128, 128, 0.45);
 }
@@ -203,7 +207,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	max-width: 220px;
+	max-width: min(220px, 100%);
 }
 
 .et-btn.et-dd-active {

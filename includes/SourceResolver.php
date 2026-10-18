@@ -16,10 +16,11 @@ class SourceResolver {
 	/**
 	 * Monitoring target の解決。固定指定でもWidget参照でも、解決済みの hostids / groupids だけを見る（Source種別は持ち込まない）。
 	 *
-	 * @return array{selected: bool, hostids: int[]}
+	 * @return array{selected: bool, hostids: string[]}|null
 	 *   selected: Selection（Fixed設定 / Widget Selection）が存在するか。false のとき hostids は空。
+	 *   Host の取得（API）に失敗した場合は null（空の Host Scope・一部の Host だけの結果として扱わない。Phase 6）。
 	 */
-	public static function resolveTarget(array $fields): array {
+	public static function resolveTarget(array $fields): ?array {
 		$hostids = self::normalize((array) ($fields['hostids'] ?? []));
 		$groupids = self::normalize((array) ($fields['groupids'] ?? []));
 
@@ -27,7 +28,9 @@ class SourceResolver {
 			return ['selected' => false, 'hostids' => []];
 		}
 
-		return ['selected' => true, 'hostids' => self::resolve($hostids, $groupids)];
+		$resolved = self::resolve($hostids, $groupids);
+
+		return $resolved !== null ? ['selected' => true, 'hostids' => $resolved] : null;
 	}
 
 	/**
@@ -92,9 +95,9 @@ class SourceResolver {
 	 * @param string[] $hostids   直接指定されたHost ID
 	 * @param string[] $groupids  指定されたHost group ID（サブグループを含めて展開する）
 	 *
-	 * @return string[]  重複のないHost ID（10進文字列・昇順）。閲覧権限のないHostは含まれない。
+	 * @return string[]|null  重複のないHost ID（10進文字列・昇順）。閲覧権限のないHostは含まれない。API失敗時は null
 	 */
-	public static function resolve(array $hostids, array $groupids): array {
+	public static function resolve(array $hostids, array $groupids): ?array {
 		$from_hosts = [];
 		$from_groups = [];
 
@@ -108,9 +111,11 @@ class SourceResolver {
 				'preservekeys' => true
 			]);
 
-			if (is_array($hosts)) {
-				$from_hosts = array_keys($hosts);
+			if (!is_array($hosts)) {
+				return null;
 			}
+
+			$from_hosts = array_keys($hosts);
 		}
 
 		if ($groupids) {
@@ -123,9 +128,11 @@ class SourceResolver {
 				'preservekeys' => true
 			]);
 
-			if (is_array($hosts)) {
-				$from_groups = array_keys($hosts);
+			if (!is_array($hosts)) {
+				return null;
 			}
+
+			$from_groups = array_keys($hosts);
 		}
 
 		return self::mergeUnique($from_hosts, $from_groups);

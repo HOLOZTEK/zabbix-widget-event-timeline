@@ -92,6 +92,21 @@ class TriggerScopeExpander {
 			return null;
 		}
 
+		// Phase 6 §15: 選択 Canonical がすべて対象Host上の Host ローカル Trigger（継承元なし）なら、継承元を持つ
+		// Trigger（判定不能になるのはこれだけ）は選択 Canonical に行き着かない（Host 上の Trigger は継承されない）。
+		// その場合は判定不能として数えない。Canonical の所有者を確認できない場合（対象Host外・Template 上の Trigger）は
+		// 従来どおり判定不能として数える（過大計上は残るが fail-open にはしない）。
+		$host_local_only = true;
+
+		foreach ($canonical as $cid => $unused) {
+			$cid = (string) $cid;
+
+			if (!array_key_exists($cid, $host_triggers) || Ids::ref($host_triggers[$cid]['templateid'] ?? '0') !== '0') {
+				$host_local_only = false;
+				break;
+			}
+		}
+
 		$matched = [];
 		$indeterminate = [];
 
@@ -105,6 +120,9 @@ class TriggerScopeExpander {
 			}
 			elseif ($entry['type'] === TriggerSelectionResolver::TYPE_DISCOVERED) {
 				// LLD 由来は prototype 側の経路（TriggerPrototypeScopeExpander）で照合する。
+				continue;
+			}
+			elseif ($host_local_only) {
 				continue;
 			}
 			elseif ($entry['reason'] !== TriggerSelectionResolver::REASON_NOT_FOUND) {
