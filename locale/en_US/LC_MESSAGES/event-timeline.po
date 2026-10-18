@@ -331,6 +331,18 @@ msgstr "Sort order"
 msgid "By count"
 msgstr "By count"
 
+msgid "Sort by affected hosts"
+msgstr "Affected hosts"
+
+msgid "Sort by event count"
+msgstr "Event count"
+
+msgid "A-Z"
+msgstr "A-Z"
+
+msgid "Z-A"
+msgstr "Z-A"
+
 msgid "A to Z"
 msgstr "A to Z"
 
@@ -453,3 +465,41 @@ msgstr "Friday"
 
 msgid "Saturday"
 msgstr "Saturday"
+
+# Phase 5: Item characteristics filter
+
+msgid "Value type"
+msgstr "Value type"
+
+msgid "Item type"
+msgstr "Item type"
+
+msgid "If nothing is selected, all are included."
+msgstr "If nothing is selected, all are included."
+
+msgid "All (item filter)"
+msgstr "All"
+
+msgid "%1$s selected"
+msgstr "%1$s selected"
+
+msgid "Apply"
+msgstr "Apply"
+
+msgid "Item filter"
+msgstr "Item filter"
+
+msgid "Matching items (%1$s)"
+msgstr "Matching items (%1$s)"
+
+msgid "Item name"
+msgstr "Item name"
+
+msgid "Item key"
+msgstr "Item key"
+
+msgid "Some item information could not be confirmed. The result may be incomplete."
+msgstr "Some item information could not be confirmed. The result may be incomplete."
+
+msgid "Triggers whose referenced items could not be checked are not shown."
+msgstr "Triggers whose referenced items could not be checked are not shown."

@@ -39,6 +39,16 @@ use Modules\EventTimeline\Includes\CWidgetFieldWeekStartView;
 			->addField(
 				new CWidgetFieldCheckBoxListView($data['fields']['ack_states'])
 			)
+			->addField(
+				(new CWidgetFieldCheckBoxListView($data['fields']['value_types']))
+					->setColumns(2)
+					->setFieldHint(makeHelpIcon(_et('If nothing is selected, all are included.')))
+			)
+			->addField(
+				(new CWidgetFieldCheckBoxListView($data['fields']['item_types']))
+					->setColumns(2)
+					->setFieldHint(makeHelpIcon(_et('If nothing is selected, all are included.')))
+			)
 	)
 	->addFieldset(
 		(new CWidgetFormFieldsetCollapsibleView(_et('Paging')))

@@ -78,6 +78,35 @@ class WidgetForm extends CWidgetForm {
 	public const MAX_EVENTS_MAX     = 1000000;
 	public const MAX_EVENTS_DEFAULT = 100000;
 
+	/**
+	 * 値の型（Item の value_type）の選択肢。現在の Zabbix が定義する ITEM_VALUE_TYPE_* 定数すべて（定義順）と、
+	 * Zabbix 本体の表示名・翻訳（itemValueTypeString()）。Event Timeline 側で一覧・翻訳を持たない（Phase 5 Q3）。
+	 * Zabbix 7.0: Numeric (float) / Character / Log / Numeric (unsigned) / Text / Binary。8.0 では JSON が加わる。
+	 *
+	 * @return array<int, string>  value_type => 表示名
+	 */
+	public static function valueTypeOptions(): array {
+		$options = [];
+
+		foreach (get_defined_constants(true)['user'] ?? [] as $name => $value) {
+			if (strncmp($name, 'ITEM_VALUE_TYPE_', 16) === 0 && is_int($value)) {
+				$options[$value] = itemValueTypeString($value);
+			}
+		}
+
+		return $options;
+	}
+
+	/**
+	 * アイテムタイプ（Item の type）の選択肢。Zabbix 本体の定義・表示名・翻訳（item_type2str()）をそのまま使う
+	 * （Phase 5 Q3）。Zabbix 8.0 では Nested / Telemetry query が加わる。
+	 *
+	 * @return array<int, string>  type => 表示名
+	 */
+	public static function itemTypeOptions(): array {
+		return item_type2str();
+	}
+
 	public function addFields(): self {
 		$severities = [];
 
@@ -118,6 +147,15 @@ class WidgetForm extends CWidgetForm {
 					->setDefault([self::ACK_ACKNOWLEDGED, self::ACK_UNACKNOWLEDGED])
 					->setFlags(CWidgetField::FLAG_NOT_EMPTY | CWidgetField::FLAG_LABEL_ASTERISK)
 			)
+			// Item characteristics filter（Phase 5）の初期値。未選択 = すべて（条件なし）。選択肢は Zabbix 本体の定義・翻訳。
+			->addField(
+				(new CWidgetFieldCheckBoxList('value_types', _et('Value type'), self::valueTypeOptions()))
+					->setDefault([])
+			)
+			->addField(
+				(new CWidgetFieldCheckBoxList('item_types', _et('Item type'), self::itemTypeOptions()))
+					->setDefault([])
+			)
 			// Event Count Mode の初期値（表示画面から切り替え可能）。
 			->addField(
 				(new CWidgetFieldSelect('count_mode', _et('Aggregation method'), [
@@ -147,7 +185,9 @@ class WidgetForm extends CWidgetForm {
 				(new CWidgetFieldSelect('sort_order', _et('Sort order'), [
 					DimensionAggregator::SORT_COUNT => _et('By count'),
 					DimensionAggregator::SORT_ASC => _et('A to Z'),
-					DimensionAggregator::SORT_DESC => _et('Z to A')
+					DimensionAggregator::SORT_DESC => _et('Z to A'),
+					// Event mode でのみ意味を持つ（Host / Host group では件数順と同じ並び）。
+					DimensionAggregator::SORT_EVENTS => _et('Sort by event count')
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			// ページング（Host / Host group / Event の各モードで使う）。
@@ -180,7 +220,7 @@ class WidgetForm extends CWidgetForm {
 			->addField(
 				(new CWidgetFieldSelect('rt_sort', '', [
 					DimensionAggregator::SORT_COUNT => '', DimensionAggregator::SORT_ASC => '',
-					DimensionAggregator::SORT_DESC => ''
+					DimensionAggregator::SORT_DESC => '', DimensionAggregator::SORT_EVENTS => ''
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			->addField((new CWidgetFieldIntegerBox('rt_page', '', 1, 1000000))->setDefault(1))
@@ -199,6 +239,12 @@ class WidgetForm extends CWidgetForm {
 				(new CWidgetFieldCheckBoxList('rt_ack', '', [
 					self::ACK_ACKNOWLEDGED => '', self::ACK_UNACKNOWLEDGED => ''
 				]))->setDefault([])
+			)
+			->addField(
+				(new CWidgetFieldCheckBoxList('rt_value_types', '', self::valueTypeOptions()))->setDefault([])
+			)
+			->addField(
+				(new CWidgetFieldCheckBoxList('rt_item_types', '', self::itemTypeOptions()))->setDefault([])
 			)
 			->addField(
 				(new CWidgetFieldSelect('rt_count_mode', '', [

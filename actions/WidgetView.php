@@ -13,6 +13,8 @@ use Modules\EventTimeline\Includes\{
 	DimensionAggregator,
 	BucketPlanner,
 	EventFetcher,
+	ItemCharacteristicsFilter,
+	ItemMetadataCache,
 	SourceResolver,
 	TimeFormatter,
 	TriggerInheritanceCache,
@@ -40,6 +42,17 @@ class WidgetView extends CControllerDashboardWidgetView {
 	// プロトタイプグループ表示の Canonical 化で共有する（通常 Trigger 用のキャッシュとは別インスタンス）。
 	private ?TriggerInheritanceCache $prototype_cache = null;
 
+	// Item characteristics filter（v0.2.0 Phase 5）のリクエスト内キャッシュ（triggerid → itemids、itemid → metadata）。
+	// Phase 2〜4 の継承情報キャッシュとは別。Filter が無効なリクエストでは使わない。
+	private ?ItemMetadataCache $item_cache = null;
+
+	// 対象Host上の Trigger（Trigger Selection の展開で取得したもの）。Item characteristics filter 有効時は
+	// Trigger → Item の関連（itemids）も同じ呼び出しで取得しており、Filter の候補判定で再取得しない。
+	private ?array $host_triggers = null;
+
+	// Item characteristics filter の結果（Filter 無効時は null）。Drilldown の一致 Item 表示に使う。
+	private ?array $item_filter = null;
+
 	protected function doAction(): void {
 		$fields = $this->fields_values;
 
@@ -51,6 +64,12 @@ class WidgetView extends CControllerDashboardWidgetView {
 			min(WidgetForm::MAX_EVENTS_MAX, (int) ($fields['max_events'] ?? WidgetForm::MAX_EVENTS_DEFAULT))
 		);
 
+		// Item characteristics filter（Phase 5）の選択肢: 現在の Zabbix が定義する値の型・アイテムタイプ（表示名は Zabbix の翻訳）。
+		$value_type_options = WidgetForm::valueTypeOptions();
+		$item_type_options = WidgetForm::itemTypeOptions();
+		$value_type_ids = array_keys($value_type_options);
+		$item_type_ids = array_keys($item_type_options);
+
 		// Filter / Count Mode: 設定値（configured）が初期値。表示画面から runtime 値が届いていればそちらを使う。
 		// runtime 値は設定を書き換えない（リクエストごとにJSが送る一時的な値）。
 		$configured = [
@@ -58,7 +77,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'ack' => self::ints($fields['ack_states'] ?? [WidgetForm::ACK_ACKNOWLEDGED, WidgetForm::ACK_UNACKNOWLEDGED]),
 			'count_mode' => (int) ($fields['count_mode'] ?? WidgetForm::COUNT_OCCURRENCE),
 			'mode' => self::mode($fields['display_mode'] ?? WidgetForm::MODE_TIMELINE),
-			'sort' => self::sortKey($fields['sort_order'] ?? DimensionAggregator::SORT_COUNT)
+			'sort' => self::sortKey($fields['sort_order'] ?? DimensionAggregator::SORT_COUNT),
+			'value_types' => ItemCharacteristicsFilter::normalize($fields['value_types'] ?? [], $value_type_ids),
+			'item_types' => ItemCharacteristicsFilter::normalize($fields['item_types'] ?? [], $item_type_ids)
 		];
 
 		if (!empty($fields['rt_active'])) {
@@ -67,7 +88,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'ack' => self::ints($fields['rt_ack'] ?? []),
 				'count_mode' => (int) ($fields['rt_count_mode'] ?? WidgetForm::COUNT_OCCURRENCE),
 				'mode' => self::mode($fields['rt_mode'] ?? WidgetForm::MODE_TIMELINE),
-				'sort' => self::sortKey($fields['rt_sort'] ?? DimensionAggregator::SORT_COUNT)
+				'sort' => self::sortKey($fields['rt_sort'] ?? DimensionAggregator::SORT_COUNT),
+				'value_types' => ItemCharacteristicsFilter::normalize($fields['rt_value_types'] ?? [], $value_type_ids),
+				'item_types' => ItemCharacteristicsFilter::normalize($fields['rt_item_types'] ?? [], $item_type_ids)
 			];
 		}
 		else {
@@ -120,6 +143,10 @@ class WidgetView extends CControllerDashboardWidgetView {
 		TriggerPrototypeResolver::$calls = 0;
 		$inheritance = new TriggerInheritanceCache([EventFetcher::class, 'fetchTriggerInheritance']);
 		$this->prototype_cache = new TriggerInheritanceCache([EventFetcher::class, 'fetchPrototypeInheritance']);
+		$item_filter_active = ItemCharacteristicsFilter::isActive($runtime['value_types'], $runtime['item_types']);
+		$this->item_cache = $item_filter_active
+			? new ItemMetadataCache([EventFetcher::class, 'fetchTriggerItems'], [EventFetcher::class, 'fetchItemMetadata'])
+			: null;
 
 		$trigger_selection = TriggerSelection::resolve($fields['triggerids'] ?? []);
 		$trigger_resolution = null;
@@ -141,7 +168,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			if (!$failed && self::selectionError($trigger_resolution, $prototype_resolution) === null
 					&& $target['hostids']) {
 				$trigger_expansion = $this->expandSelection($trigger_resolution, $prototype_resolution,
-					$target['hostids'], $inheritance
+					$target['hostids'], $inheritance, $item_filter_active
 				);
 
 				$failed = $trigger_expansion === null;
@@ -172,6 +199,38 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$trigger_selection['resolution'] = $trigger_resolution;
 		$trigger_selection['prototype_resolution'] = $prototype_resolution ?: null;
 		$trigger_selection['expansion'] = $trigger_expansion;
+
+		// Item characteristics filter（Phase 5）: Trigger Selection に追加する AND 条件。Event 取得の前に候補 Trigger を
+		// 絞り込み、Event Selection を一致 Trigger だけにする（Event を取得してから捨てない）。Filter 無効時は何もしない
+		// （追加の API 呼び出しなし。Phase 4 までと同じ経路）。Selection がない場合は Host Scope 上の Trigger が候補。
+		// Host Scope・Selection 自体が空・エラーの場合は Event を取得しないため判定もしない。
+		$item_ms = null;
+
+		if ($item_filter_active && $target['selected'] && $event_selection['selected']
+				&& $event_selection['error'] === null && $target['hostids'] && $event_selection['selectors']) {
+			$item_started = microtime(true);
+			$this->item_filter = $this->applyItemFilter($runtime,
+				$trigger_selection['trigger_filter'] === TriggerSelection::STATE_ACTIVE ? $trigger_expansion : null,
+				$target['hostids']
+			);
+
+			if ($this->item_filter === null) {
+				$this->setResponse(new CControllerResponseData([
+					'name' => $this->getInput('name', $this->widget->getDefaultName()),
+					'error' => _et('Failed to retrieve events.'),
+					'user' => ['debug_mode' => $this->getDebugMode()]
+				]));
+
+				return;
+			}
+
+			$event_selection['selectors'] = $this->item_filter['triggerids']
+				? [['objectids' => array_map('strval', $this->item_filter['triggerids'])]]
+				: [];
+			$item_ms = (int) round((microtime(true) - $item_started) * 1000);
+		}
+
+		$item_partial = $this->item_filter !== null && $this->item_filter['indeterminate'] > 0;
 
 		// 解決結果（source / canonical / type / chain / status）・展開結果・API統計はデバッグ専用。Zabbix のユーザー設定で
 		// デバッグモードが有効なときだけ応答へ含め、JS 側で console.debug に出す（正式UIには表示しない）。
@@ -285,9 +344,11 @@ class WidgetView extends CControllerDashboardWidgetView {
 			$this->setResponse(new CControllerResponseData([
 				'name' => $this->getInput('name', $this->widget->getDefaultName()),
 				'detail' => $detail ?? ['kind' => 'events', 'rows' => [], 'total' => 0, 'rows_truncated' => false,
-					'period' => null, 'source_truncated' => $truncated, 'covered_from' => null],
+					'period' => null, 'source_truncated' => $truncated, 'covered_from' => null,
+					'item_filter' => $this->item_filter !== null],
 				'trigger_selection' => $debug
-					? $this->debugTriggerSelection($trigger_selection, $started, $trigger_ms, $event_ms, $inheritance)
+					? $this->debugTriggerSelection($trigger_selection, $started, $trigger_ms, $event_ms, $inheritance,
+						$item_ms)
 					: null,
 				'user' => ['debug_mode' => $this->getDebugMode()]
 			]));
@@ -327,7 +388,8 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$this->setResponse(new CControllerResponseData([
 			'name' => $this->getInput('name', $this->widget->getDefaultName()),
 			'trigger_selection' => $debug
-					? $this->debugTriggerSelection($trigger_selection, $started, $trigger_ms, $event_ms, $inheritance)
+					? $this->debugTriggerSelection($trigger_selection, $started, $trigger_ms, $event_ms, $inheritance,
+						$item_ms)
 					: null,
 			'chart_data' => $this->buildChartData($rows, $plan, $tz, $runtime, $configured, $fields, $picked,
 				$event_details ?? [], $continuous, [
@@ -343,6 +405,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'auto_page' => $auto_page,
 				'detail_page_size' => $detail_page_size,
 				'trigger_partial' => $event_selection['partial'],
+				'item_partial' => $item_partial,
+				'value_type_options' => self::optionList($value_type_options),
+				'item_type_options' => self::optionList($item_type_options),
 				'empty_reason' => $shown > 0 ? null
 					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events'))
 			], $week_start),
@@ -354,7 +419,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 	 * デバッグモード用: Trigger Selection の解決・展開結果と、Trigger 展開 / Event 取得の所要時間・API 呼び出し回数。
 	 */
 	private function debugTriggerSelection(array $trigger_selection, float $started, int $trigger_ms,
-			?int $event_ms, TriggerInheritanceCache $inheritance): array {
+			?int $event_ms, TriggerInheritanceCache $inheritance, ?int $item_ms = null): array {
 		$trigger_selection['stats'] = [
 			'trigger_ms' => $trigger_ms,
 			'event_ms' => $event_ms,
@@ -372,7 +437,17 @@ class WidgetView extends CControllerDashboardWidgetView {
 				: null,
 			'matched_prototypes' => ($trigger_selection['expansion']['lld'] ?? null) !== null
 				? count($trigger_selection['expansion']['lld']['matched_prototypeids'])
-				: null
+				: null,
+			// Item characteristics filter（Phase 5）。Filter 無効時は null。
+			'item_ms' => $item_ms,
+			'item_candidate_triggers' => $this->item_filter['candidate_count'] ?? null,
+			'item_referenced_items' => $this->item_filter['item_count'] ?? null,
+			'item_missing_items' => $this->item_filter['missing_items'] ?? null,
+			'item_filtered_triggers' => $this->item_filter !== null ? count($this->item_filter['triggerids']) : null,
+			'item_indeterminate' => $this->item_filter['indeterminate'] ?? null,
+			'item_indeterminate_ids' => $this->item_filter['indeterminate_ids'] ?? null,
+			'item_relation_fetches' => $this->item_cache !== null ? $this->item_cache->relation_fetch_calls : null,
+			'item_metadata_fetches' => $this->item_cache !== null ? $this->item_cache->item_fetch_calls : null
 		];
 
 		return $trigger_selection;
@@ -435,12 +510,13 @@ class WidgetView extends CControllerDashboardWidgetView {
 	 * @return array|null  ['triggerids', 'indeterminate', 'normal', 'lld']。取得失敗時は null
 	 */
 	private function expandSelection(array $trigger_resolution, $prototype_resolution, array $hostids,
-			TriggerInheritanceCache $inheritance): ?array {
+			TriggerInheritanceCache $inheritance, bool $with_functions = false): ?array {
 		$with_prototype = is_array($prototype_resolution) && $prototype_resolution['canonical'];
 		$host_triggers = false;
-		$fetch_host_triggers = static function (array $ids) use (&$host_triggers, $with_prototype): ?array {
+		$fetch_host_triggers = function (array $ids) use (&$host_triggers, $with_prototype, $with_functions): ?array {
 			if ($host_triggers === false) {
-				$host_triggers = EventFetcher::fetchHostTriggers($ids, $with_prototype);
+				$host_triggers = EventFetcher::fetchHostTriggers($ids, $with_prototype, $with_functions);
+				$this->host_triggers = $host_triggers;
 			}
 
 			return $host_triggers;
@@ -473,6 +549,102 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'normal' => $normal,
 			'lld' => $lld
 		];
+	}
+
+	/**
+	 * Item characteristics filter（Phase 5）: 候補 Trigger → Trigger が直接参照する Item（Batch）→ Item metadata（Batch）→
+	 * 値の型 / アイテムタイプで判定し、一致 Trigger を返す。Trigger / Item ごとの API 呼び出しはしない。
+	 *
+	 * 候補: Trigger Selection あり = Phase 4 までの expanded_triggerids（通常 Trigger + Discovered Trigger）。
+	 * Selection なし = Host Scope 上の Trigger（Host をまとめて1回の trigger.get。関連も同じ呼び出しで取得）。
+	 * Discovered Trigger は実体の Discovered Item で判定し、Canonical Trigger / prototype の metadata は使わない。
+	 *
+	 * @param array|null $expansion  Trigger Selection の展開結果（Selection なしは null）
+	 *
+	 * @return array|null  ItemCharacteristicsFilter::apply() の結果 + items（itemid => metadata）。
+	 *                     候補 Trigger の取得に失敗した場合は null
+	 */
+	private function applyItemFilter(array $runtime, ?array $expansion, array $hostids): ?array {
+		if ($expansion !== null) {
+			$candidates = $expansion['triggerids'];
+
+			if (is_array($this->host_triggers)) {
+				$this->item_cache->seedRelations($this->host_triggers);
+			}
+		}
+		else {
+			$rows = EventFetcher::fetchHostTriggers($hostids, false, true);
+
+			if ($rows === null) {
+				return null;
+			}
+
+			$this->item_cache->seedRelations($rows);
+			$candidates = array_keys($rows);
+		}
+
+		$relations = $this->item_cache->relations($candidates);
+		$items = $this->item_cache->items(ItemCharacteristicsFilter::referencedItemids($candidates, $relations));
+
+		return ItemCharacteristicsFilter::apply($candidates, $relations, $items, $runtime['value_types'],
+			$runtime['item_types']
+		) + ['items' => $items];
+	}
+
+	/**
+	 * Drilldown 用: Trigger ごとの一致 Item（Host・Item 名・key・値の型・アイテムタイプ）。Filter 無効時は null。
+	 *
+	 * @param string[] $triggerids
+	 *
+	 * @return array[]|null
+	 */
+	private function matchedItems(array $triggerids): ?array {
+		if ($this->item_filter === null) {
+			return null;
+		}
+
+		$value_types = WidgetForm::valueTypeOptions();
+		$list = [];
+
+		foreach (array_unique(array_map('intval', $triggerids)) as $triggerid) {
+			foreach ($this->item_filter['matched'][$triggerid] ?? [] as $itemid) {
+				$item = $this->item_filter['items'][$itemid] ?? null;
+
+				if ($item === null || array_key_exists($itemid, $list)) {
+					continue;
+				}
+
+				$list[$itemid] = [
+					'itemid' => (string) $itemid,
+					'host' => $item['host'],
+					'name' => $item['name'],
+					'key' => $item['key'],
+					'value_type' => $value_types[$item['value_type']] ?? itemValueTypeString($item['value_type']),
+					'type' => item_type2str($item['type'])
+				];
+			}
+		}
+
+		$list = array_values($list);
+		usort($list, static fn(array $a, array $b): int => strnatcasecmp($a['host'], $b['host'])
+			?: strnatcasecmp($a['name'], $b['name']) ?: strcmp($a['key'], $b['key']));
+
+		return $list;
+	}
+
+	/**
+	 * @param array<int, string> $options  値 => 表示名
+	 *
+	 * @return array<int, array{id: int, name: string}>  表示順を保つためリストで渡す
+	 */
+	private static function optionList(array $options): array {
+		$list = [];
+
+		foreach ($options as $id => $name) {
+			$list[] = ['id' => (int) $id, 'name' => (string) $name];
+		}
+
+		return $list;
 	}
 
 	/**
@@ -674,19 +846,28 @@ class WidgetView extends CControllerDashboardWidgetView {
 				$rows = [];
 
 				foreach ($hosts as $h) {
-					$rows[] = [
+					$row = [
 						'id' => $h['hostid'],
 						'name' => (string) ($info['host_names'][$h['hostid']] ?? $h['hostid']),
 						'severity' => $h['severity'],
 						'count' => $h['count']
 					];
+
+					if ($this->item_filter !== null) {
+						// このHostの該当Eventを発生させた Trigger の一致 Item（Phase 5 §24）。
+						$row['items'] = $this->matchedItems(array_values(array_intersect_key($info['triggers'],
+							array_flip($h['eventids'])
+						)));
+					}
+
+					$rows[] = $row;
 				}
 
 				usort($rows, static fn(array $a, array $b): int => $b['count'] <=> $a['count']
 					?: strnatcasecmp($a['name'], $b['name']));
 
 				return ['kind' => 'hosts', 'rows' => $rows, 'total' => count($rows), 'rows_truncated' => false,
-					'period' => $period];
+					'period' => $period, 'item_filter' => $this->item_filter !== null];
 			}
 
 			if ($mode === WidgetForm::MODE_EVENT) {
@@ -756,11 +937,11 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'severity' => (int) $e['severity'],
 				'acknowledged' => (int) $e['acknowledged'] === 1,
 				'ongoing' => $x['end'] === null
-			];
+			] + ($this->item_filter !== null ? ['items' => $this->matchedItems([$x['triggerid']])] : []);
 		}
 
 		$result = ['kind' => 'events', 'rows' => $rows, 'total' => $total, 'rows_truncated' => $total > count($rows),
-			'period' => $mode === WidgetForm::MODE_TIMELINE ? null : $period];
+			'period' => $mode === WidgetForm::MODE_TIMELINE ? null : $period, 'item_filter' => $this->item_filter !== null];
 
 		if ($host_count !== null) {
 			// プロトタイプグループのみ: 影響ホスト数（総Event数=$total とは別に、Popup/棒と同じ規則で数えたHost数）。
@@ -891,14 +1072,18 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'ack' => $configured['ack'],
 				'count_mode' => $configured['count_mode'],
 				'mode' => $configured['mode'],
-				'sort' => $configured['sort']
+				'sort' => $configured['sort'],
+				'value_types' => $configured['value_types'],
+				'item_types' => $configured['item_types']
 			],
 			'runtime' => [
 				'severities' => $runtime['severities'],
 				'ack' => $runtime['ack'],
 				'count_mode' => $runtime['count_mode'],
 				'mode' => $runtime['mode'],
-				'sort' => $runtime['sort']
+				'sort' => $runtime['sort'],
+				'value_types' => $runtime['value_types'],
+				'item_types' => $runtime['item_types']
 			],
 			'category' => $meta['category'],
 			'page_size' => $meta['page_size'],
@@ -908,6 +1093,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'severity_counts' => $meta['severity_counts'],
 			'empty_reason' => $meta['empty_reason'],
 			'trigger_partial' => $meta['trigger_partial'],
+			'item_partial' => $meta['item_partial'],
+			'value_type_options' => $meta['value_type_options'],
+			'item_type_options' => $meta['item_type_options'],
 			'truncated' => $meta['truncated'],
 			'covered_from' => $meta['covered_from'],
 			'max_events' => $meta['max_events'],

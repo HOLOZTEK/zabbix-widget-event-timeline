@@ -331,6 +331,18 @@ msgstr "並び順"
 msgid "By count"
 msgstr "件数順"
 
+msgid "Sort by affected hosts"
+msgstr "影響ホスト数順"
+
+msgid "Sort by event count"
+msgstr "イベント発生数順"
+
+msgid "A-Z"
+msgstr "A-Z"
+
+msgid "Z-A"
+msgstr "Z-A"
+
 msgid "A to Z"
 msgstr "A→Z"
 
@@ -453,3 +465,41 @@ msgstr "金曜日"
 
 msgid "Saturday"
 msgstr "土曜日"
+
+# Phase 5: Item characteristics filter
+
+msgid "Value type"
+msgstr "値の型"
+
+msgid "Item type"
+msgstr "アイテムタイプ"
+
+msgid "If nothing is selected, all are included."
+msgstr "未選択の場合はすべてが対象になります。"
+
+msgid "All (item filter)"
+msgstr "すべて"
+
+msgid "%1$s selected"
+msgstr "%1$s 件選択"
+
+msgid "Apply"
+msgstr "適用"
+
+msgid "Item filter"
+msgstr "アイテム条件"
+
+msgid "Matching items (%1$s)"
+msgstr "一致したアイテム (%1$s)"
+
+msgid "Item name"
+msgstr "アイテム名"
+
+msgid "Item key"
+msgstr "アイテムキー"
+
+msgid "Some item information could not be confirmed. The result may be incomplete."
+msgstr "一部のアイテム情報を確認できないため、結果が不完全な可能性があります。"
+
+msgid "Triggers whose referenced items could not be checked are not shown."
+msgstr "参照するアイテムを確認できないトリガーのイベントは表示していません。"

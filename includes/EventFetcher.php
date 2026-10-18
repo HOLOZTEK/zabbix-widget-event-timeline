@@ -21,7 +21,7 @@ class EventFetcher {
 
 	/**
 	 * 取得系 API の呼び出し回数（method => 回数）。1リクエスト内の統計で、デバッグモード時の応答と性能試験の記録に使う。
-	 * Event 取得（event.get）と Trigger 展開（trigger.get）の経路だけを数える。
+	 * Event 取得（event.get）・Trigger 展開（trigger.get）・Item characteristics filter（trigger.get / item.get）の経路だけを数える。
 	 */
 	public static array $api_calls = [];
 
@@ -537,12 +537,17 @@ class EventFetcher {
 	 * prototype（triggerDiscovery.parent_triggerid）も同じ呼び出しで取得し prototypeid として返す。通常 Trigger の展開と
 	 * LLD の展開はこの1回の取得結果を共有する。
 	 *
+	 * Phase 5: $with_functions のとき（Item characteristics filter が有効なとき）は、Trigger が直接参照する Item
+	 * （functions の itemid）も同じ呼び出しで取得し itemids として返す。
+	 *
 	 * @param int[] $hostids
 	 * @param bool  $with_prototype
+	 * @param bool  $with_functions
 	 *
-	 * @return array<int, array{templateid: int, flags: int, prototypeid?: int}>|null  API失敗時は null
+	 * @return array<int, array{templateid: int, flags: int, prototypeid?: int, itemids?: int[]}>|null  API失敗時は null
 	 */
-	public static function fetchHostTriggers(array $hostids, bool $with_prototype = false): ?array {
+	public static function fetchHostTriggers(array $hostids, bool $with_prototype = false,
+			bool $with_functions = false): ?array {
 		$result = [];
 
 		foreach (array_chunk(array_values(array_unique(array_map('strval', $hostids))), 500) as $chunk) {
@@ -556,6 +561,10 @@ class EventFetcher {
 				$options['selectTriggerDiscovery'] = ['parent_triggerid'];
 			}
 
+			if ($with_functions) {
+				$options['selectFunctions'] = ['itemid'];
+			}
+
 			$rows = API::Trigger()->get($options);
 
 			if (!is_array($rows)) {
@@ -564,6 +573,99 @@ class EventFetcher {
 
 			foreach ($rows as $row) {
 				$result[(int) $row['triggerid']] = self::inheritanceRow($row);
+
+				if ($with_functions) {
+					$result[(int) $row['triggerid']]['itemids'] = self::functionItemids($row);
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Item characteristics filter（Phase 5）用: Trigger が直接参照する Item（trigger.get の functions = Zabbix が保持する
+	 * Trigger → Item の構造情報。式の文字列解析はしない）。Trigger をまとめて取得する（Trigger 1件ごとの呼び出しはしない）。
+	 * 閲覧権限のない Trigger は返らない。
+	 *
+	 * @param int[] $triggerids
+	 *
+	 * @return array<int, int[]>|null  triggerid => itemid[]。API失敗時は null
+	 */
+	public static function fetchTriggerItems(array $triggerids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_map('strval', $triggerids)), 500) as $chunk) {
+			self::countCall('trigger.get');
+			$rows = API::Trigger()->get([
+				'output' => ['triggerid'],
+				'selectFunctions' => ['itemid'],
+				'triggerids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$result[(int) $row['triggerid']] = self::functionItemids($row);
+			}
+		}
+
+		return $result;
+	}
+
+	private static function functionItemids(array $row): array {
+		$ids = [];
+
+		foreach ($row['functions'] ?? [] as $function) {
+			if (isset($function['itemid'])) {
+				$ids[(int) $function['itemid']] = true;
+			}
+		}
+
+		$ids = array_keys($ids);
+		sort($ids, SORT_NUMERIC);
+
+		return $ids;
+	}
+
+	/**
+	 * Item characteristics filter（Phase 5）用: Item の metadata。ログインユーザーの通常の権限で取得する（権限を迂回しない）。
+	 * Item の status（Disabled 等）では絞り込まない。Web monitoring の Item も対象にする。
+	 * Item をまとめて取得する（Item 1件ごとの呼び出しはしない）。閲覧できない・存在しない Item は返らない。
+	 *
+	 * @param int[] $itemids
+	 *
+	 * @return array<int, array{type: int, value_type: int, name: string, key: string, hostid: string,
+	 *         host: string}>|null  API失敗時は null
+	 */
+	public static function fetchItemMetadata(array $itemids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_map('strval', $itemids)), 1000) as $chunk) {
+			self::countCall('item.get');
+			$rows = API::Item()->get([
+				'output' => ['itemid', 'type', 'value_type', 'name', 'name_resolved', 'key_', 'hostid'],
+				'selectHosts' => ['hostid', 'name'],
+				'itemids' => $chunk,
+				'webitems' => true
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$host = $row['hosts'][0] ?? null;
+				$result[(int) $row['itemid']] = [
+					'type' => (int) $row['type'],
+					'value_type' => (int) $row['value_type'],
+					'name' => (string) (($row['name_resolved'] ?? '') !== '' ? $row['name_resolved'] : $row['name']),
+					'key' => (string) $row['key_'],
+					'hostid' => (string) $row['hostid'],
+					'host' => is_array($host) ? (string) $host['name'] : ''
+				];
 			}
 		}
 

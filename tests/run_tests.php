@@ -17,6 +17,8 @@ require_once __DIR__.'/../includes/TriggerInheritanceCache.php';
 require_once __DIR__.'/../includes/TriggerScopeExpander.php';
 require_once __DIR__.'/../includes/TriggerPrototypeResolver.php';
 require_once __DIR__.'/../includes/TriggerPrototypeScopeExpander.php';
+require_once __DIR__.'/../includes/ItemCharacteristicsFilter.php';
+require_once __DIR__.'/../includes/ItemMetadataCache.php';
 
 require_once __DIR__.'/stubs.php';
 
@@ -32,6 +34,8 @@ use Modules\EventTimeline\Includes\TriggerInheritanceCache as TC;
 use Modules\EventTimeline\Includes\TriggerScopeExpander as TX;
 use Modules\EventTimeline\Includes\TriggerPrototypeResolver as TPR;
 use Modules\EventTimeline\Includes\TriggerPrototypeScopeExpander as TPX;
+use Modules\EventTimeline\Includes\ItemCharacteristicsFilter as IF_;
+use Modules\EventTimeline\Includes\ItemMetadataCache as IMC;
 
 $pass = 0;
 $fail = 0;
@@ -419,6 +423,29 @@ $rows = [['label' => 'b10', 'total' => 1], ['label' => 'B2', 'total' => 5], ['la
 check('sort count', array_column(D::sort($rows, D::SORT_COUNT), 'label'), ['a', 'B2', 'b10']);
 check('sort asc natural', array_column(D::sort($rows, D::SORT_ASC), 'label'), ['a', 'B2', 'b10']);
 check('sort desc', array_column(D::sort($rows, D::SORT_DESC), 'label'), ['b10', 'B2', 'a']);
+
+// Phase 5 §50 イベント数順: event_count 降順 → total（影響Host数）降順 → A→Z。Measure（total）は変えない。
+check('byEvent event_count (events, not hosts)', array_column($r_ev = D::byEvent(
+	[$ev('1', 2), $ev('2', 4), $ev('3', 2), $ev('4', 3), $ev('5', 3), $ev('6', 3)],
+	['1' => ['10'], '2' => ['10'], '3' => ['11'], '4' => ['10'], '5' => ['10'], '6' => ['10']],
+	['1' => 'CPU', '2' => 'CPU', '3' => 'CPU', '4' => 'Disk', '5' => 'Disk', '6' => 'Disk']
+), 'event_count', 'label'), ['CPU' => 3, 'Disk' => 3]);
+check('byEvent total stays affected hosts', array_column($r_ev, 'total', 'label'), ['CPU' => 2, 'Disk' => 1]);
+$rows = [
+	['label' => 'many hosts', 'total' => 5, 'event_count' => 5],
+	['label' => 'burst', 'total' => 1, 'event_count' => 40],
+	['label' => 'b tie', 'total' => 2, 'event_count' => 7],
+	['label' => 'a tie', 'total' => 2, 'event_count' => 7],
+	['label' => 'c tie more hosts', 'total' => 3, 'event_count' => 7]
+];
+check('sort events: event_count desc, total desc, A-Z', array_column(D::sort($rows, D::SORT_EVENTS), 'label'),
+	['burst', 'c tie more hosts', 'a tie', 'b tie', 'many hosts']);
+check('sort count unchanged (affected hosts)', array_column(D::sort($rows, D::SORT_COUNT), 'label'),
+	['many hosts', 'c tie more hosts', 'a tie', 'b tie', 'burst']);
+check('sort events without event_count = sort count', array_column(D::sort(
+	[['label' => 'b', 'total' => 1], ['label' => 'a', 'total' => 1], ['label' => 'c', 'total' => 9]], D::SORT_EVENTS
+), 'label'), ['c', 'a', 'b']);
+check('SORTS contains SORT_EVENTS', in_array(D::SORT_EVENTS, D::SORTS, true), true);
 
 // Paging
 $many = array_map(static fn(int $i): array => ['label' => "h$i", 'total' => $i], range(1, 25));
@@ -1185,6 +1212,102 @@ check('P4 §44 canonical key groups hosts', [D::eventGroupKey('1', ['1' => '1000
 	D::eventGroupKey('2', ['1' => '1000', '2' => '1000', '3' => '3000'], [], ['1000' => 'X', '3000' => 'X']),
 	D::eventGroupKey('3', ['1' => '1000', '2' => '1000', '3' => '3000'], [], ['1000' => 'X', '3000' => 'X'])],
 	['p:1000', 'p:1000', 'p:3000']);
+
+// ---- Phase 5: Item characteristics filter ----
+// 値は Zabbix の定数値（試験用の固定値）: value_type FLOAT=0 STR=1 LOG=2 UINT64=3 TEXT=4、
+// type TRAPPER=2 SNMPTRAP=17 DEPENDENT=18 ZABBIX=0。
+const P5_VT_ALL = [0, 1, 2, 3, 4, 5];
+const P5_IT_ALL = [0, 2, 17, 18];
+check('P5 normalize: unknown dropped, sorted', IF_::normalize(['4', 2, 'x', 99, 2], P5_VT_ALL), [2, 4]);
+check('P5 normalize: empty = all', IF_::normalize([], P5_VT_ALL), []);
+check('P5 normalize: non-array', IF_::normalize(null, P5_VT_ALL), []);
+check('P5 normalize: all selected = all', IF_::normalize([0, 1, 2, 3, 4, 5], P5_VT_ALL), []);
+check('P5 isActive', [IF_::isActive([], []), IF_::isActive([2], []), IF_::isActive([], [17])], [false, true, true]);
+
+$p5_items = [
+	101 => ['value_type' => 3, 'type' => 2],   // A: Numeric (unsigned), trapper
+	102 => ['value_type' => 2, 'type' => 2],   // B: Log, trapper
+	103 => ['value_type' => 4, 'type' => 2],   // C: Text, trapper
+	104 => ['value_type' => 1, 'type' => 17],  // D: Character, SNMP trap
+	105 => ['value_type' => 1, 'type' => 18],  // E: Character, Dependent (master = 104 SNMP trap)
+	106 => ['value_type' => 2, 'type' => 2],   // F item1: Log, trapper
+	107 => ['value_type' => 3, 'type' => 17],  // F item2: Numeric, SNMP trap
+	108 => ['value_type' => 2, 'type' => 17],  // G: Log, SNMP trap（同一Itemで両条件）
+	109 => ['value_type' => 2, 'type' => 2]    // M: 2件目の Log（Trigger M は 102 + 109）
+];
+$p5_rel = [1 => [101], 2 => [102], 3 => [103], 4 => [104], 5 => [105], 6 => [106, 107], 7 => [108], 8 => [102, 109]];
+$p5 = static fn(array $vt, array $it, array $cand = [1, 2, 3, 4, 5, 6, 7, 8], ?array $items = null, ?array $rel = null)
+	=> IF_::apply($cand, $rel ?? $p5_rel, $items ?? $p5_items, $vt, $it);
+check('P5 VT=Log', $p5([2], [])['triggerids'], [2, 6, 7, 8]);
+check('P5 IT=SNMP trap', $p5([], [17])['triggerids'], [4, 6, 7]);
+check('P5 IT=Dependent (no master traversal)', [$p5([], [18])['triggerids'], in_array(5, $p5([], [17])['triggerids'], true)],
+	[[5], false]);
+check('P5 §36 VT=Log AND IT=SNMP trap: F excluded, G only', $p5([2], [17])['triggerids'], [7]);
+check('P5 §37 VT=Log OR Text', $p5([2, 4], [])['triggerids'], [2, 3, 6, 7, 8]);
+check('P5 §37 IT=SNMP trap OR trapper', $p5([], [2, 17])['triggerids'], [1, 2, 3, 4, 6, 7, 8]);
+check('P5 §37 (Log OR Text) AND (SNMP trap OR trapper)', $p5([2, 4], [2, 17])['triggerids'], [2, 3, 6, 7, 8]);
+$r = $p5([2], []);
+check('P5 §38 multi-item match: one trigger, items listed', [$r['matched'][8], count(array_keys($r['triggerids'], 8))],
+	[[102, 109], 1]);
+check('P5 F matched item is only the Log one', $r['matched'][6], [106]);
+check('P5 complete: no indeterminate', [$r['indeterminate'], $r['missing_items'], $r['candidate_count'], $r['item_count']],
+	[0, 0, 8, 9]);
+check('P5 §46 normal zero', [$p5([5], [])['triggerids'], $p5([5], [])['indeterminate']], [[], 0]);
+check('P5 candidates subset (selection)', $p5([2], [], [1, 6])['triggerids'], [6]);
+check('P5 no candidates', $p5([2], [], [])['triggerids'], []);
+// §45 / Q2b: Item 欠落・取得失敗・一部 Item のみ取得不能。
+$missing = $p5_items;
+unset($missing[107], $missing[102]);
+$r = $p5([], [17], [1, 2, 6, 7, 8], $missing);
+check('P5 Q2b item missing: determinable shown + indeterminate',
+	[$r['triggerids'], $r['indeterminate_ids'], $r['missing_items']], [[7], [2, 6, 8], 2]);
+$r = $p5([2], [], [2, 6, 8], $missing);
+check('P5 Q2b known match wins over missing item', [$r['triggerids'], $r['indeterminate']], [[6, 8], 1]);
+check('P5 Q2b missing item does not hide non-matching known', $p5([4], [], [1, 3], $missing)['indeterminate'], 0);
+$r = $p5([2], [], [1, 2, 3], []);
+check('P5 Q2b item fetch failure: all indeterminate, none matched', [$r['triggerids'], $r['indeterminate']], [[], 3]);
+$rel = $p5_rel;
+unset($rel[2]);
+$rel[3] = [];
+$r = $p5([2], [], [1, 2, 3], null, $rel);
+check('P5 relation missing / empty: indeterminate', [$r['triggerids'], $r['indeterminate_ids']], [[], [2, 3]]);
+check('P5 referencedItemids', IF_::referencedItemids([6, 8, 99], $p5_rel), [102, 106, 107, 109]);
+
+// ItemMetadataCache: Batch 取得・再取得なし・欠落の記録・取得失敗は欠落扱い。
+$rel_calls = [];
+$item_calls = [];
+$cache = new IMC(
+	static function (array $ids) use (&$rel_calls, $p5_rel) {
+		$rel_calls[] = $ids;
+		return array_intersect_key($p5_rel, array_flip($ids));
+	},
+	static function (array $ids) use (&$item_calls, $p5_items) {
+		$item_calls[] = $ids;
+		return array_intersect_key($p5_items, array_flip($ids));
+	}
+);
+$cache->seedRelations([1 => ['itemids' => [101], 'templateid' => 0], 2 => ['templateid' => 0]]);
+check('P5 cache relations: seeded + batch for the rest', array_keys($cache->relations([1, 2, 6, 999])), [1, 2, 6]);
+check('P5 cache relation fetch once (seeded excluded)', $rel_calls, [[2, 6, 999]]);
+$cache->relations([1, 2, 6, 999]);
+check('P5 cache relation no refetch (incl. missing)', count($rel_calls), 1);
+check('P5 cache items batch', array_keys($cache->items([106, 107, 5000, 106])), [106, 107]);
+$cache->items([106, 107, 5000, 102]);
+check('P5 cache items only new ids', $item_calls, [[106, 107, 5000], [102]]);
+check('P5 cache counters', [$cache->relation_fetch_calls, $cache->item_fetch_calls, $cache->item_fetch_failed], [1, 2, false]);
+$cache = new IMC(static fn(array $ids) => null, static fn(array $ids) => null);
+check('P5 cache relation fetch failure -> missing', $cache->relations([1, 2]), []);
+check('P5 cache item fetch failure -> missing + flag', [$cache->items([101]), $cache->item_fetch_failed], [[], true]);
+// 一部 Item のみ取得不能（1回目は失敗、2回目は成功）: 取得できたものだけで判定し、欠落は判定不能。
+$n = 0;
+$cache = new IMC(static fn(array $ids) => array_intersect_key($p5_rel, array_flip($ids)),
+	static function (array $ids) use (&$n, $p5_items) {
+		return $n++ === 0 ? null : array_intersect_key($p5_items, array_flip($ids));
+	});
+$a = $cache->items([102]);
+$b = $cache->items([106, 107]);
+$r = IF_::apply([2, 6], $cache->relations([2, 6]), $a + $b, [2], []);
+check('P5 Q2b partial availability', [$r['triggerids'], $r['indeterminate_ids']], [[6], [2]]);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

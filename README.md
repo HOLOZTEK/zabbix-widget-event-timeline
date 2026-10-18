@@ -123,6 +123,104 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 - **Trigger prototypes referencing items of multiple hosts** are not officially supported. The generated trigger is treated as one trigger and, like Phase 3 multi-host triggers, matches when any of its hosts is in the target hosts.
 - Nested LLD in Zabbix 8.0 (prototypes created by discovery) is **not verified** (not supported yet). Verification with real data on the Zabbix 8.0 final release is planned before v1.0.0.
 
+## 第5フェーズの機能（アイテム条件によるイベントの絞り込み）
+
+トリガーが**直接参照するアイテム**の「値の型（Value type）」と「アイテムタイプ（Item type）」で、表示するイベントを絞り込めます。
+
+- 表示画面のツールバーに「値の型」「アイテムタイプ」のドロップダウンがあり、それぞれ複数選択できます。未選択（すべて）の場合は条件なしです。
+- 初期値はWidget設定の「値の型」「アイテムタイプ」で指定します。表示画面で変更した条件は一時的なもので、「条件リセット」で設定値に戻ります。
+- 選択肢と表示名は Zabbix 本体の定義・翻訳をそのまま使います。Zabbix 8.0 では値の型に JSON、アイテムタイプに Nested（ネストされた）/ Telemetry query が加わります（7.0 では表示されません）。トリガーで一般的に使わない型も選択肢から除外しません。
+
+**判定方式**
+
+- 同じ軸で複数選択した場合は **OR**（例: 値の型 = ログ または テキスト）。
+- 値の型とアイテムタイプの両方を指定した場合は **AND** で、**同じアイテムが両方の条件を満たす**必要があります。例えば、ログ型の Zabbix トラッパーアイテムと、数値型の SNMP トラップアイテムを参照するトリガーは、「値の型 = ログ AND アイテムタイプ = SNMPトラップ」には一致しません。
+- トリガーが参照するアイテムのうち1件以上が条件を満たせば、そのトリガーのイベントを表示します。複数のアイテムが一致してもイベントは重複しません。
+- トリガーとアイテムの関係は Zabbix の構造情報（trigger.get の functions）だけで判定します。条件式・トリガー名・アイテムキーの文字列からは推測しません。
+- トリガー選択（第3・4フェーズ）がある場合はその展開結果に、ない場合は対象Host上のトリガーに対して適用します。通常トリガー・LLDトリガーの両方が対象で、LLDトリガーは**実際に生成されたアイテム**の型で判定します。
+- **依存アイテム**: トリガーが依存アイテムを直接参照する場合、アイテムタイプは「依存アイテム」として判定します。マスターアイテムのタイプへ自動的に遡りません（マスターが SNMP トラップでも「SNMPトラップ」には一致しません）。
+- **複数Hostのアイテムを参照するトリガー**: 参照するすべてのアイテム（対象Host以外のHostのアイテムを含む）を判定に使います。
+- **無効なアイテム**: アイテムの状態（有効/無効）は条件にしません。無効化されたアイテムを参照するトリガーの過去のイベントも、型が一致すれば表示します。
+- 条件を指定しない場合はトリガー・アイテムの追加取得を行わず、従来と同じイベントを表示します。条件を指定した場合も、トリガーとアイテムの情報は一括取得（アイテムは1,000件単位）で、Host数・トリガー数に比例してAPI呼び出し回数が増える構造にはしていません。
+
+**詳細表示（ドリルダウン）**
+
+- 条件を指定している場合、各イベント行の下に「一致したアイテム (n)」を表示し、展開すると一致したアイテムの Host・アイテム名・アイテムキー・値の型・アイテムタイプを確認できます。
+
+**大量イベントの発生源の絞り込み（例）**
+
+```text
+値の型 = ログ → 表示モード「ホスト」（件数順）で発生元Hostを特定 → 表示モード「イベント」（イベント発生数順）で原因トリガーを特定
+```
+
+- 表示モード「イベント」の並び順は「影響ホスト数順」「イベント発生数順」「A-Z」「Z-A」です（既定は影響ホスト数順）。
+  - 影響ホスト数順: 影響ホスト数の多い順（従来の「件数順」と同じ並び）。
+  - イベント発生数順: 該当イベント数の多い順（同数は影響ホスト数の多い順、さらに名前順）。1台のHostで大量に発生しているトリガーを見つけるときに使います。
+  - どの並び順でも、グラフの棒の高さは**影響ホスト数**です（並び順だけが変わります）。イベント数はツールチップの「該当イベント数」で確認できます。
+- 表示モード「ホスト」「ホストグループ」の並び順は従来どおり「件数順」「A→Z」「Z→A」です（グラフの値がイベント数のため、イベント発生数順は件数順と同じ並びになり、ボタンは表示しません）。
+- 設定画面の「並び順」では「イベント発生数順」を選べます（表示モード「イベント」以外では件数順として動作します）。
+
+または「アイテムタイプ = SNMPトラップ」で、SNMPトラップ由来のイベントだけに絞り込めます。
+
+**現在の構成に基づく判定と部分結果の警告**
+
+- 判定には、表示時点の Zabbix の構成（トリガーが参照するアイテムと、その現在の型）を使います。過去のイベント発生時点の構成ではありません。
+- 削除済みのアイテムなど、現在の Zabbix からアイテム情報を安全に取得できない場合は、完全な分類ができません。この場合、一致を確認できたトリガーのイベントだけを表示し、「一部のアイテム情報を確認できないため、結果が不完全な可能性があります。」を表示します。条件に一致するイベントが単に0件の場合（正常な0件）は警告を表示しません。
+- 補足: Zabbix の権限モデルでは、参照先Hostの権限がないアイテムを参照するトリガーは、トリガー自体がユーザーから見えなくなります（実環境で確認済み）。そのため通常の権限設定でこの警告が表示されることはほとんどありませんが、取得失敗等に備えて判定不能を一致・不一致のどちらにもしない防御的な実装にしています。
+
+**対象外・既知の挙動**
+
+- Zabbix 8.0 のネストしたLLD（ディスカバリで生成されたプロトタイプ）由来のトリガー・アイテムでの判定は**未検証**です。
+
+### Phase 5: filtering events by item characteristics
+
+Events can be filtered by the **value type** and **item type** of the items **directly referenced** by each trigger.
+
+- The toolbar has "Value type" and "Item type" drop-downs; each allows multiple selection. Nothing selected (All) means no condition.
+- Initial values are set in the widget configuration ("Value type", "Item type"). Changes made in the view are temporary; "Reset" restores the configured values.
+- Options and labels are taken from Zabbix itself (definitions and translations). Zabbix 8.0 adds JSON (value type) and Nested / Telemetry query (item type); they are not shown on 7.0. Types rarely used in triggers are not excluded.
+
+**Filter logic**
+
+- Multiple selections on the same axis are combined with **OR** (e.g. value type = Log or Text).
+- Value type and item type are combined with **AND**, and **the same item must satisfy both**. For example, a trigger referencing a Log Zabbix trapper item and a numeric SNMP trap item does not match "value type = Log AND item type = SNMP trap".
+- A trigger matches if at least one of its referenced items matches. Events are never duplicated when several items match.
+- The trigger–item relationship is taken only from Zabbix structural data (trigger.get functions). Expressions, trigger names and item keys are never parsed or guessed from.
+- With a trigger selection (Phases 3/4) the filter is applied to the expanded triggers; without one, to the triggers on the target hosts. Both normal and LLD triggers are supported; LLD triggers are judged by their **discovered items**.
+- **Dependent items**: if a trigger directly references a dependent item, its item type is "Dependent item". The master item's type is not followed (a dependent item whose master is an SNMP trap item does not match "SNMP trap").
+- **Triggers referencing items of multiple hosts**: all referenced items (including items on hosts outside the target hosts) are evaluated.
+- **Disabled items**: item status is not a condition. Past events of triggers referencing disabled items are shown if the type matches.
+- Without conditions no additional trigger/item queries are made and the result is the same as before. With conditions, triggers and items are fetched in bulk (items in chunks of 1,000); the number of API calls does not grow with the number of hosts or triggers.
+
+**Drilldown**
+
+- When a condition is active, each event row in the details shows "Matching items (n)"; expand it to see the host, item name, item key, value type and item type of the matched items.
+
+**Burst analysis example**
+
+```text
+Value type = Log → Display mode "Host" (by count) to find the source host → Display mode "Event" (Event count) to find the trigger
+```
+
+- In display mode "Event", the sort orders are "Affected hosts", "Event count", "A-Z" and "Z-A" (default: Affected hosts).
+  - Affected hosts: by the number of affected hosts, descending (same order as the former "By count").
+  - Event count: by the number of matching events, descending (ties by affected hosts, then by name). Use it to find a trigger that fires many events on a single host.
+  - With every sort order the bar height is the **number of affected hosts**; only the order changes. The event count is shown as "Events" in the tooltip.
+- Display modes "Host" and "Host group" keep "By count", "A to Z" and "Z to A" (the chart value already is the event count, so "Event count" would give the same order as "By count"; the button is not shown).
+- The "Sort order" setting also offers "Event count" (it behaves as "By count" outside display mode "Event").
+
+Or use "Item type = SNMP trap" to narrow down to events from SNMP trap items.
+
+**Current configuration and partial result warning**
+
+- Classification uses the current Zabbix configuration (the items currently referenced by the trigger and their current types), not the configuration at the time the events occurred.
+- If item metadata cannot be safely retrieved from the current Zabbix (e.g. deleted items), classification may be incomplete. Only events of triggers confirmed to match are shown, with the warning "Some item information could not be confirmed. The result may be incomplete." A normal empty result (no matching events) shows no warning.
+- Note: in the Zabbix permission model, a trigger referencing an item on a host the user cannot access is itself hidden from the user (verified in a real environment). This warning therefore rarely appears with normal permission settings; the implementation is defensive and never treats an undeterminable trigger as matching or non-matching.
+
+**Out of scope / known behavior**
+
+- Triggers and items from nested LLD in Zabbix 8.0 (prototypes created by discovery) are **not verified**.
+
 ## トリガー連携の権限
 
 Event TimelineでTemplate由来のトリガーを使用する場合、ログインユーザーには、そのトリガーの継承元Template（継承チェーン上のすべてのTemplate）を参照できる権限が必要です。これは不具合の回避策ではなく製品仕様です。Event TimelineはZabbixの権限を迂回してTemplateを参照することはありません。
