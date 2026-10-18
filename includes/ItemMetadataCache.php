@@ -43,21 +43,24 @@ class ItemMetadataCache {
 	/**
 	 * 別経路（対象Host上の Trigger 一覧）で取得済みの Trigger → Item の関連を登録する。
 	 *
-	 * @param array<int, array{itemids?: int[]}> $rows  triggerid => 行（itemids を持つ行だけ登録する）
+	 * @param array<string, array{itemids?: string[]}> $rows  triggerid => 行（itemids を持つ行だけ登録する）
 	 */
 	public function seedRelations(array $rows): void {
 		foreach ($rows as $triggerid => $row) {
-			if (is_array($row) && array_key_exists('itemids', $row) && is_array($row['itemids'])) {
-				$this->relations[(int) $triggerid] = array_values(array_map('intval', $row['itemids']));
-				unset($this->relation_missing[(int) $triggerid]);
+			$triggerid = Ids::normalize((string) $triggerid);
+
+			if ($triggerid !== null && is_array($row) && array_key_exists('itemids', $row)
+					&& is_array($row['itemids'])) {
+				$this->relations[$triggerid] = self::itemids($row['itemids']);
+				unset($this->relation_missing[$triggerid]);
 			}
 		}
 	}
 
 	/**
-	 * @param int[] $triggerids
+	 * @param string[] $triggerids
 	 *
-	 * @return array<int, int[]>  関連を取得できた Trigger だけ（取得失敗分は含まない = 呼び出し側で判定不能）
+	 * @return array<string, string[]>  関連を取得できた Trigger だけ（取得失敗分は含まない = 呼び出し側で判定不能）
 	 */
 	public function relations(array $triggerids): array {
 		$need = $this->need($triggerids, $this->relations, $this->relation_missing);
@@ -68,7 +71,11 @@ class ItemMetadataCache {
 
 			if (is_array($rows)) {
 				foreach ($rows as $triggerid => $itemids) {
-					$this->relations[(int) $triggerid] = array_values(array_map('intval', (array) $itemids));
+					$triggerid = Ids::normalize((string) $triggerid);
+
+					if ($triggerid !== null) {
+						$this->relations[$triggerid] = self::itemids((array) $itemids);
+					}
 				}
 			}
 
@@ -83,9 +90,9 @@ class ItemMetadataCache {
 	}
 
 	/**
-	 * @param int[] $itemids
+	 * @param string[] $itemids
 	 *
-	 * @return array<int, array>  取得できた Item だけ
+	 * @return array<string, array>  取得できた Item だけ
 	 */
 	public function items(array $itemids): array {
 		$need = $this->need($itemids, $this->items, $this->item_missing);
@@ -96,7 +103,11 @@ class ItemMetadataCache {
 
 			if (is_array($rows)) {
 				foreach ($rows as $itemid => $row) {
-					$this->items[(int) $itemid] = $row;
+					$itemid = Ids::normalize((string) $itemid);
+
+					if ($itemid !== null) {
+						$this->items[$itemid] = $row;
+					}
 				}
 			}
 			else {
@@ -116,28 +127,40 @@ class ItemMetadataCache {
 	private function need(array $ids, array $have, array $missing): array {
 		$need = [];
 
-		foreach ($ids as $id) {
-			$id = (int) $id;
-
+		foreach (Ids::unique($ids) as $id) {
 			if (!array_key_exists($id, $have) && !array_key_exists($id, $missing)) {
 				$need[$id] = true;
 			}
 		}
 
-		$need = array_keys($need);
-		sort($need, SORT_NUMERIC);
-
-		return $need;
+		return Ids::keys($need);
 	}
 
 	private function pick(array $ids, array $have): array {
 		$result = [];
 
-		foreach ($ids as $id) {
-			$id = (int) $id;
-
+		foreach (Ids::unique($ids) as $id) {
 			if (array_key_exists($id, $have)) {
 				$result[$id] = $have[$id];
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Trigger が参照する itemid の列を文字列 ID へ正規化する（取得順を保ち、不正値は除く）。
+	 *
+	 * @return string[]
+	 */
+	private static function itemids(array $itemids): array {
+		$result = [];
+
+		foreach ($itemids as $itemid) {
+			$itemid = Ids::normalize($itemid);
+
+			if ($itemid !== null) {
+				$result[] = $itemid;
 			}
 		}
 

@@ -15,7 +15,7 @@ namespace Modules\EventTimeline\Includes;
  */
 class TriggerInheritanceCache {
 
-	/** @var callable function(int[] $triggerids): ?array */
+	/** @var callable function(string[] $triggerids): ?array */
 	private $fetcher;
 
 	private array $rows = [];
@@ -31,51 +31,55 @@ class TriggerInheritanceCache {
 	/**
 	 * 別経路（対象Host上の Trigger 一覧等）で取得済みの行を登録する。
 	 *
-	 * @param array<int, array{templateid: int, flags: int, prototypeid?: int, description?: string}> $rows
+	 * @param array<string, array{templateid: string, flags: int, prototypeid?: string, description?: string}> $rows
 	 */
 	public function seed(array $rows): void {
 		foreach ($rows as $id => $row) {
+			$id = Ids::normalize((string) $id);
+
+			if ($id === null) {
+				continue;
+			}
+
 			$cached = [
-				'templateid' => (int) ($row['templateid'] ?? 0),
+				'templateid' => Ids::ref($row['templateid'] ?? '0'),
 				'flags' => (int) ($row['flags'] ?? 0)
 			];
 
 			if (array_key_exists('prototypeid', $row)) {
-				$cached['prototypeid'] = (int) $row['prototypeid'];
+				$cached['prototypeid'] = Ids::ref($row['prototypeid']);
 			}
-			elseif (array_key_exists('prototypeid', $this->rows[(int) $id] ?? [])) {
+			elseif (array_key_exists('prototypeid', $this->rows[$id] ?? [])) {
 				// 生成元 prototype 付きで取得済みの行を、付いていない行で上書きして情報を失わない。
-				$cached['prototypeid'] = $this->rows[(int) $id]['prototypeid'];
+				$cached['prototypeid'] = $this->rows[$id]['prototypeid'];
 			}
 
 			if (array_key_exists('description', $row)) {
 				$cached['description'] = (string) $row['description'];
 			}
 
-			$this->rows[(int) $id] = $cached;
-			unset($this->missing[(int) $id]);
+			$this->rows[$id] = $cached;
+			unset($this->missing[$id]);
 		}
 	}
 
 	/**
-	 * @param int[] $triggerids
+	 * @param string[] $triggerids
 	 *
-	 * @return array<int, array{templateid: int, flags: int}>|null  閲覧可能なものだけ。取得失敗時は null
+	 * @return array<string, array{templateid: string, flags: int}>|null  閲覧可能なものだけ。取得失敗時は null
 	 */
 	public function fetch(array $triggerids): ?array {
+		$triggerids = Ids::unique($triggerids);
 		$need = [];
 
 		foreach ($triggerids as $id) {
-			$id = (int) $id;
-
 			if (!array_key_exists($id, $this->rows) && !array_key_exists($id, $this->missing)) {
 				$need[$id] = true;
 			}
 		}
 
 		if ($need) {
-			$need = array_keys($need);
-			sort($need, SORT_NUMERIC);
+			$need = Ids::keys($need);
 
 			$this->fetch_calls++;
 			$rows = ($this->fetcher)($need);
@@ -96,8 +100,6 @@ class TriggerInheritanceCache {
 		$result = [];
 
 		foreach ($triggerids as $id) {
-			$id = (int) $id;
-
 			if (array_key_exists($id, $this->rows)) {
 				$result[$id] = $this->rows[$id];
 			}

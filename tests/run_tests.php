@@ -5,6 +5,7 @@
  * Zabbix / API には依存しない（BucketPlanner / Aggregator / TimeFormatter / SourceResolver::mergeUnique）。
  */
 
+require_once __DIR__.'/../includes/Ids.php';
 require_once __DIR__.'/../includes/BucketPlanner.php';
 require_once __DIR__.'/../includes/Aggregator.php';
 require_once __DIR__.'/../includes/TimeFormatter.php';
@@ -26,6 +27,7 @@ use Modules\EventTimeline\Includes\Aggregator;
 use Modules\EventTimeline\Includes\BucketPlanner;
 use Modules\EventTimeline\Includes\DetailSelector as DS;
 use Modules\EventTimeline\Includes\DimensionAggregator as D;
+use Modules\EventTimeline\Includes\Ids;
 use Modules\EventTimeline\Includes\SourceResolver;
 use Modules\EventTimeline\Includes\TimeFormatter;
 use Modules\EventTimeline\Includes\TriggerSelection as TS;
@@ -293,7 +295,7 @@ check('unique by eventid', count(Aggregator::uniqueByEventid([
 ])), 2);
 
 // ---- 8. Host集合の重複排除（Host直接指定 + Host group所属） ----
-check('mergeUnique', SourceResolver::mergeUnique([3, 1, '2', 3], [2, 4, 1], []), [1, 2, 3, 4]);
+check('mergeUnique', SourceResolver::mergeUnique([3, 1, '2', 3], [2, 4, 1], []), ['1', '2', '3', '4']);
 check('mergeUnique empty', SourceResolver::mergeUnique([], []), []);
 
 // ---- 9. 表示文字列 ----
@@ -647,23 +649,23 @@ check('TS §9.1 no condition (empty array)', TS::resolve([]),
 
 // §14.2 固定Trigger 1件。
 check('TS §14.2 single fixed trigger', TS::resolve(['12345']),
-	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [12345]]
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['12345']]
 );
 
 // §14.3 固定Trigger複数（3件以上）・重複除去・順序に意味を持たせない（昇順で正規化）。
 check('TS §14.3 multiple triggers, dedup, order-independent', TS::resolve(['12347', '12345', '12346', '12345']),
-	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [12345, 12346, 12347]]
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['12345', '12346', '12347']]
 );
 
 // §14.4 Navigator broadcastは triggerids[] がそのまま届く想定（int/文字列いずれの要素も受理）。
 check('TS §14.4 navigator broadcast (int elements)', TS::resolve([12345, 12346]),
-	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [12345, 12346]]
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['12345', '12346']]
 );
 
 // §14.5/§14.6 Selection変更・解除の追従（呼び出し側は都度 resolve するだけで良いことを確認）。
-check('TS §14.5 A -> B', TS::resolve(['1']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [1]]);
-check('TS §14.5 A -> A+B', TS::resolve(['1', '2']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [1, 2]]);
-check('TS §14.5 A+B -> B', TS::resolve(['2']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [2]]);
+check('TS §14.5 A -> B', TS::resolve(['1']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['1']]);
+check('TS §14.5 A -> A+B', TS::resolve(['1', '2']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['1', '2']]);
+check('TS §14.5 A+B -> B', TS::resolve(['2']), ['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['2']]);
 check('TS §14.6 A -> none', TS::resolve([]), ['trigger_filter' => TS::STATE_INACTIVE, 'triggerids' => []]);
 
 // §14.9 不正入力: 文字列単体・不正型。
@@ -698,7 +700,7 @@ check('TS §14.9 invalid: nested array element (malformed payload)', TS::resolve
 // （実在確認はPure-logicの責務外。§9.3どおりPhase 1ではEvent抽出に反映しないため、
 // 「指定なし」と無条件に混同しない＝triggeridsが空ではなくactiveであることだけを確認する）。
 check('TS §14.9 nonexistent trigger id is still a format-valid active selection', TS::resolve(['999999999']),
-	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [999999999]]
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['999999999']]
 );
 
 // §14.7/§14.8 Host Selectionとの独立性: TriggerSelectionの正規化はtriggerids配列のみに依存し、
@@ -706,7 +708,7 @@ check('TS §14.9 nonexistent trigger id is still a format-valid active selection
 // Host A由来のTrigger XをMetric Navigatorが選択していても、Tree NavigatorのHost B/C/Dとは
 // 独立に保持できることを確認する（triggeridsの解決にhostidsが影響しない）。
 check('TS §14.8 cross-host trigger held independently of host selection', TS::resolve(['123']),
-	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [123]]
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => ['123']]
 );
 
 
@@ -862,10 +864,10 @@ $tr_entry = static fn(array $r, int $i): array => [$r['entries'][$i]['canonical_
 	$r['entries'][$i]['status'], $r['entries'][$i]['inheritance_chain'], $r['entries'][$i]['reason']];
 
 // §17.1 単一テンプレート: Host A/B/C の同一テンプレートTriggerは同じ canonical になる。
-foreach ([25143, 25171, 25184] as $sid) {
+foreach (['25143', '25171', '25184'] as $sid) {
 	$r = TR::resolve([$sid], $tr_fetch);
 	check("TR §17.1 single template: $sid -> 23176", $tr_entry($r, 0),
-		[23176, TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, [$sid, 23176], null]);
+		['23176', TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, [$sid, '23176'], null]);
 }
 
 // §17.2 Host binding禁止: Resolver の出力・Event Selection に Host 情報は含まれない（Host範囲は resolveTarget のみ）。
@@ -878,33 +880,33 @@ check('TR §17.2 event selection carries only objectids (no hostids)', array_key
 
 // §17.3 多段継承: 2段（Host→Mid→Base）・3段（Host→Upper→Mid→Base）とも最上位の Base が canonical。
 $r = TR::resolve([300], $tr_fetch);
-check('TR §17.3 two-level', $tr_entry($r, 0), [100, TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, [300, 200, 100], null]);
+check('TR §17.3 two-level', $tr_entry($r, 0), ['100', TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, ['300', '200', '100'], null]);
 $r = TR::resolve([350], $tr_fetch);
 check('TR §17.3 three-level', $tr_entry($r, 0),
-	[100, TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, [350, 250, 200, 100], null]);
+	['100', TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, ['350', '250', '200', '100'], null]);
 // 中間テンプレートのTriggerそのものを選んでも同じ最上位へ。
 $r = TR::resolve([250], $tr_fetch);
 check('TR §17.3 middle template trigger', $tr_entry($r, 0),
-	[100, TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, [250, 200, 100], null]);
+	['100', TR::TYPE_TEMPLATE, TR::STATUS_RESOLVED, ['250', '200', '100'], null]);
 // API呼び出しは段ごとにまとめる（source 1回 + 親3段 = 4回）。
 $tr_calls = [];
 TR::resolve([350, 300], $tr_fetch);
-check('TR §17.3 fetch batched per level', $tr_calls, [[300, 350], [200, 250], [100]]);
+check('TR §17.3 fetch batched per level', $tr_calls, [['300', '350'], ['200', '250'], ['100']]);
 
 // §17.4 同名・別テンプレート: "Load average is too high"（agent / agent active）は別 canonical のまま。
 $r = TR::resolve([25091, 22395], $tr_fetch);
 check('TR §17.4 same name, different templates stay separate', $tr_canon($r),
-	[[22381, TR::TYPE_TEMPLATE, [25091]], [22425, TR::TYPE_TEMPLATE, [22395]]]);
+	[['22381', TR::TYPE_TEMPLATE, ['25091']], ['22425', TR::TYPE_TEMPLATE, ['22395']]]);
 
 // §17.5 重複排除: 同一テンプレート由来の複数Host Triggerは canonical 1件へ。source の追跡は保持する。
 $r = TR::resolve([25184, 25143, 25171, 25143], $tr_fetch);
 check('TR §17.5 duplicates collapse to one canonical (sources kept)', $tr_canon($r),
-	[[23176, TR::TYPE_TEMPLATE, [25143, 25171, 25184]]]);
-check('TR §17.5 entries per unique source', array_column($r['entries'], 'source_triggerid'), [25143, 25171, 25184]);
+	[['23176', TR::TYPE_TEMPLATE, ['25143', '25171', '25184']]]);
+check('TR §17.5 entries per unique source', array_column($r['entries'], 'source_triggerid'), ['25143', '25171', '25184']);
 
 // §17.6 Host固有Trigger: canonical = source、type = exact（他Hostへ名前で対応付けない）。
 $r = TR::resolve([400], $tr_fetch);
-check('TR §17.6 host-local', $tr_entry($r, 0), [400, TR::TYPE_EXACT, TR::STATUS_RESOLVED, [400], null]);
+check('TR §17.6 host-local', $tr_entry($r, 0), ['400', TR::TYPE_EXACT, TR::STATUS_RESOLVED, ['400'], null]);
 
 // §17.7 固定指定（文字列ID）と Navigator（int ID）は同じ Resolver 経路・同じ canonical。
 $fixed = TS::resolve(['25143', '22395']);
@@ -916,19 +918,19 @@ check('TR §17.7 fixed vs navigator: same canonical', TR::resolve($fixed['trigge
 // §17.8 不正入力: 存在しない・権限なし・チェーン途中閲覧不可・循環・深すぎるチェーン。いずれもエラー・無限ループにならず、
 // 全Event表示（絞り込みなし [[]]）へFallbackしない。
 $r = TR::resolve([999], $tr_fetch);
-check('TR §17.8 not found', $tr_entry($r, 0), [null, null, TR::STATUS_INVALID, [999], TR::REASON_NOT_FOUND]);
+check('TR §17.8 not found', $tr_entry($r, 0), [null, null, TR::STATUS_INVALID, ['999'], TR::REASON_NOT_FOUND]);
 check('TR §17.8 not found: no canonical', $r['canonical'], []);
 check('TR §17.8 not found: event selection is empty (no fallback to all)',
 	SourceResolver::resolveEventSelection(TS::resolve(['999']), $r), ['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
 $r = TR::resolve([600], $tr_fetch);
 check('TR §17.8 broken chain (parent unavailable)', $tr_entry($r, 0),
-	[null, TR::TYPE_TEMPLATE, TR::STATUS_UNRESOLVED, [600, 601], TR::REASON_PARENT_UNAVAILABLE]);
+	[null, TR::TYPE_TEMPLATE, TR::STATUS_UNRESOLVED, ['600', '601'], TR::REASON_PARENT_UNAVAILABLE]);
 check('TR §17.8 broken chain -> fail-closed (no source fallback)',
 	SourceResolver::resolveEventSelection(TS::resolve(['600']), $r),
 	['selected' => true, 'selectors' => [], 'error' => TR::REASON_PARENT_UNAVAILABLE, 'partial' => false]);
 $r = TR::resolve([700], $tr_fetch);
 check('TR §17.8 cycle terminates', $tr_entry($r, 0),
-	[null, TR::TYPE_TEMPLATE, TR::STATUS_INVALID, [700, 701, 700], TR::REASON_CYCLE]);
+	[null, TR::TYPE_TEMPLATE, TR::STATUS_INVALID, ['700', '701', '700'], TR::REASON_CYCLE]);
 $deep = [1000 => ['templateid' => 0, 'flags' => 0]];
 for ($i = 1; $i <= TR::MAX_DEPTH + 5; $i++) {
 	$deep[1000 + $i] = ['templateid' => 1000 + $i - 1, 'flags' => 0];
@@ -939,7 +941,7 @@ check('TR §17.8 too deep chain stops', [$r['entries'][0]['status'], $r['entries
 	[TR::STATUS_INVALID, TR::REASON_DEPTH_EXCEEDED]);
 $r = TR::resolve([1000 + TR::MAX_DEPTH], $deep_fetch);
 check('TR §17.8 chain at MAX_DEPTH still resolves', [$r['entries'][0]['canonical_triggerid'],
-	count($r['entries'][0]['inheritance_chain'])], [1000, TR::MAX_DEPTH + 1]);
+	count($r['entries'][0]['inheritance_chain'])], ['1000', TR::MAX_DEPTH + 1]);
 check('TR §17.8 API failure -> null', TR::resolve([25143], static fn(array $ids) => null), null);
 check('TR §17.8 invalid format -> empty event selection',
 	SourceResolver::resolveEventSelection(TS::resolve(['abc'])), ['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
@@ -947,7 +949,7 @@ check('TR §17.8 invalid format -> empty event selection',
 $ts_mix = TS::resolve(['25143', '999']);
 $r = TR::resolve($ts_mix['triggerids'], $tr_fetch);
 check('TR §17.8 mixed valid/invalid: canonical from valid only', $tr_canon($r),
-	[[23176, TR::TYPE_TEMPLATE, [25143]]]);
+	[['23176', TR::TYPE_TEMPLATE, ['25143']]]);
 check('TR §17.8 mixed valid/invalid: event selection uses valid source only',
 	$tx_es(['25143', '999'], [1]), ['selected' => true, 'selectors' => [['objectids' => ['25143']]], 'error' => null, 'partial' => false]);
 
@@ -955,14 +957,14 @@ check('TR §17.8 mixed valid/invalid: event selection uses valid source only',
 $ts_two = TS::resolve(['25091', '25143']);
 $r = TR::resolve($ts_two['triggerids'], $tr_fetch);
 check('TR §17.9 two canonicals', $tr_canon($r),
-	[[22381, TR::TYPE_TEMPLATE, [25091]], [23176, TR::TYPE_TEMPLATE, [25143]]]);
+	[['22381', TR::TYPE_TEMPLATE, ['25091']], ['23176', TR::TYPE_TEMPLATE, ['25143']]]);
 check('TR §17.9 OR kept in event selection', $tx_es(['25091', '25143'], [1]),
 	['selected' => true, 'selectors' => [['objectids' => ['25091', '25143']]], 'error' => null, 'partial' => false]);
 
 // LLD（Discovery）由来: 正規化しない（canonical = null, type = discovered）。Event 抽出は従来どおり source で行う。
 $r = TR::resolve([500], $tr_fetch);
 check('TR LLD discovered not normalized', $tr_entry($r, 0),
-	[null, TR::TYPE_DISCOVERED, TR::STATUS_UNRESOLVED, [500], TR::REASON_DISCOVERED]);
+	[null, TR::TYPE_DISCOVERED, TR::STATUS_UNRESOLVED, ['500'], TR::REASON_DISCOVERED]);
 // Phase 4: Event 抽出は Canonical Trigger prototype 経由で、同じ prototype から生成された Host 上のすべての Discovered Trigger。
 check('TR LLD event selection via canonical prototype', $tx_es(['500'], [1]),
 	['selected' => true, 'selectors' => [['objectids' => ['500', '501']]], 'error' => null, 'partial' => false]);
@@ -1014,11 +1016,11 @@ $tx_ids = static fn(array $ids, array $hostids): array => $tx($ids, $hostids)['t
 $objectids = static fn(array $es): array => $es['selectors'][0]['objectids'] ?? [];
 
 // §21 基本Host横断: Host A 上の ICMP（25143）を選択、対象 Host = B/C → B/C の実体だけ。A は含めない。
-check('P3 §21 cross-host: A selected, scope B/C', $tx_ids(['25143'], [2, 3]), [25171, 25184]);
-check('P3 §21 canonical is the template trigger', $tx(['25143'], [2, 3])['canonical_triggerids'], [23176]);
+check('P3 §21 cross-host: A selected, scope B/C', $tx_ids(['25143'], [2, 3]), ['25171', '25184']);
+check('P3 §21 canonical is the template trigger', $tx(['25143'], [2, 3])['canonical_triggerids'], ['23176']);
 // §22 Navigator Host = 対象Host: source 直接方式と同じ結果。
-check('P3 §22 same host as source', $tx_ids(['25143'], [1]), [25143]);
-check('P3 §22 same host as source (multi)', $tx_ids(['25091', '25143'], [1]), [25091, 25143]);
+check('P3 §22 same host as source', $tx_ids(['25143'], [1]), ['25143']);
+check('P3 §22 same host as source (multi)', $tx_ids(['25091', '25143'], [1]), ['25091', '25143']);
 // §23 Template 未適用 Host のみ: 0件・警告なし・全Event へ Fallback しない。
 check('P3 §23 template not linked -> empty', $tx_es(['25143'], [5]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
@@ -1026,28 +1028,28 @@ check('P3 §23 template not linked -> empty', $tx_es(['25143'], [5]),
 check('P3 §24 mixed scope', $tx_es(['25143'], [2, 3, 5]),
 	['selected' => true, 'selectors' => [['objectids' => ['25171', '25184']]], 'error' => null, 'partial' => false]);
 // §25 複数 Canonical の OR: Load(agent) + ICMP を A で選択、対象 B/C → B の Load・B/C の ICMP。
-check('P3 §25 OR of canonicals', $tx_ids(['25091', '25143'], [2, 3]), [25131, 25171, 25184]);
+check('P3 §25 OR of canonicals', $tx_ids(['25091', '25143'], [2, 3]), ['25131', '25171', '25184']);
 // 同名・別Template（agent active の Load average, Host D）は展開に含めない（名前で対応付けない）。
-check('P3 §25 same name other template not projected', $tx_ids(['25091'], [2, 3, 4]), [25131]);
+check('P3 §25 same name other template not projected', $tx_ids(['25091'], [2, 3, 4]), ['25131']);
 // 同じ実体が複数経路（A と B の ICMP を両方選択 = 同一 canonical）から解決されても重複しない。
-check('P3 §25 duplicate canonical collapses', $tx_ids(['25143', '25171'], [1, 2, 3]), [25143, 25171, 25184]);
+check('P3 §25 duplicate canonical collapses', $tx_ids(['25143', '25171'], [1, 2, 3]), ['25143', '25171', '25184']);
 // §26 Host ローカル exact（Host A の 400）
-check('P3 §26 exact: scope A', $tx_ids(['400'], [1]), [400]);
+check('P3 §26 exact: scope A', $tx_ids(['400'], [1]), ['400']);
 check('P3 §26 exact: scope B/C -> empty', $tx_es(['400'], [2, 3]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
-check('P3 §26 exact: scope A/B/C -> A only', $tx_ids(['400'], [1, 2, 3]), [400]);
+check('P3 §26 exact: scope A/B/C -> A only', $tx_ids(['400'], [1, 2, 3]), ['400']);
 // §27 多段 Template 継承: Host A の 300（Host→Mid→Base）を選択し、B の 350（Host→Upper→Mid→Base）へ展開する。
-check('P3 §27 multi-level: A(2 levels) -> B(3 levels)', $tx_ids(['300'], [2]), [350]);
-check('P3 §27 multi-level: scope A/B', $tx_ids(['350'], [1, 2]), [300, 350]);
+check('P3 §27 multi-level: A(2 levels) -> B(3 levels)', $tx_ids(['300'], [2]), ['350']);
+check('P3 §27 multi-level: scope A/B', $tx_ids(['350'], [1, 2]), ['300', '350']);
 // 中間 Template の Trigger（250 = Upper）は最上位 Base（100）へ正規化され、Base 由来の全Host Triggerへ展開される。
-check('P3 §27 middle template trigger expands by top canonical', $tx_ids(['250'], [1, 2]), [300, 350]);
+check('P3 §27 middle template trigger expands by top canonical', $tx_ids(['250'], [1, 2]), ['300', '350']);
 // Template 上の Trigger そのもの（継承元なし = exact 判定）を選んでも、それを継承する Host Trigger へ展開される。
-check('P3 template-level trigger selected directly', $tx_ids(['23176'], [1, 2, 3, 5]), [25143, 25171, 25184]);
+check('P3 template-level trigger selected directly', $tx_ids(['23176'], [1, 2, 3, 5]), ['25143', '25171', '25184']);
 // §12 / Q1=B: 対象Host上に判定不能な Trigger（Host D の 600: 継承元閲覧不可）があれば、確定できた一致だけで取得し partial。
 check('P3 §28 indeterminate on target -> partial', $tx_es(['25143'], [2, 4]),
 	['selected' => true, 'selectors' => [['objectids' => ['25171']]], 'error' => null, 'partial' => true]);
 check('P3 §28 indeterminate counted', [$tx(['25143'], [2, 4])['indeterminate'], $tx(['25143'], [2, 4])['indeterminate_ids']],
-	[1, [600]]);
+	[1, ['600']]);
 // 一致0件でも判定不能があれば partial（0件だが警告する）。全Eventへは戻さない。
 check('P3 §28 indeterminate only -> empty + partial', $tx_es(['25143'], [4]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
@@ -1063,11 +1065,11 @@ $tx_host_calls = [];
 check('P3 empty scope', $tx_ids(['25143'], []), []);
 check('P3 empty scope: no host trigger fetch', $tx_host_calls, []);
 // §29 Selection 変更の追従（リクエストごとに再展開するだけで前回の結果を持ち越さない）。
-check('P3 §29 A -> B', [$tx_ids(['25143'], [2, 3]), $tx_ids(['25091'], [2, 3])], [[25171, 25184], [25131]]);
+check('P3 §29 A -> B', [$tx_ids(['25143'], [2, 3]), $tx_ids(['25091'], [2, 3])], [['25171', '25184'], ['25131']]);
 check('P3 §29 A -> A+B -> B', [$tx_ids(['25143'], [2]), $tx_ids(['25143', '25091'], [2]), $tx_ids(['25091'], [2])],
-	[[25171], [25131, 25171], [25131]]);
+	[['25171'], ['25131', '25171'], ['25131']]);
 check('P3 §29 host B -> C -> B+C', [$tx_ids(['25143'], [2]), $tx_ids(['25143'], [3]), $tx_ids(['25143'], [2, 3])],
-	[[25171], [25184], [25171, 25184]]);
+	[['25171'], ['25184'], ['25171', '25184']]);
 // §16 Batch: 対象Host上の Trigger は Host 数に関係なく1回でまとめて取得し、Selection 解決で取得済みの
 // 継承チェーン（23176 等）は再取得しない。
 $tr_calls = [];
@@ -1077,9 +1079,9 @@ $r = TR::resolve([25143], [$cache, 'fetch']);
 $x = TX::expand($r, [1, 2, 3, 4, 5], $tx_fetch_hosts, $cache);
 check('P3 §16 host triggers fetched once for all hosts', $tx_host_calls, [[1, 2, 3, 4, 5]]);
 // Selection: [25143] → [23176]。展開: 対象Host Trigger は取得済み、親は未取得の 200・250・22381・22425・601 と 100 だけ（23176 は再取得しない）。
-check('P3 §16 inheritance fetched per level, cached', $tr_calls, [[25143], [23176], [200, 250, 601, 22381, 22425], [100]]);
+check('P3 §16 inheritance fetched per level, cached', $tr_calls, [['25143'], ['23176'], ['200', '250', '601', '22381', '22425'], ['100']]);
 check('P3 §16 cache call count', $cache->fetch_calls, 4);
-check('P3 §16 result', $x['triggerids'], [25143, 25171, 25184]);
+check('P3 §16 result', $x['triggerids'], ['25143', '25171', '25184']);
 // API 失敗は null（呼び出し側で取得失敗表示。部分結果にしない）。
 $cache = new TC($tr_fetch);
 check('P3 host trigger fetch failure -> null', TX::expand(TR::resolve([25143], [$cache, 'fetch']), [1],
@@ -1102,16 +1104,16 @@ $p4_entry = static function (array $ids, int $i = 0) use ($p4): array {
 
 // §32 Source 側の正規化: Discovered → Host 上の prototype → 継承元 → Canonical（多段）。
 check('P4 §32 source discovered -> canonical (Mid)', $p4_entry(['500']),
-	[1010, 1000, TPR::TYPE_TEMPLATE, TPR::STATUS_RESOLVED, [1010, 1100, 1000], null]);
+	['1010', '1000', TPR::TYPE_TEMPLATE, TPR::STATUS_RESOLVED, ['1010', '1100', '1000'], null]);
 check('P4 §32 source discovered -> canonical (Upper, 3 levels)', $p4_entry(['510']),
-	[1020, 1000, TPR::TYPE_TEMPLATE, TPR::STATUS_RESOLVED, [1020, 1200, 1100, 1000], null]);
+	['1020', '1000', TPR::TYPE_TEMPLATE, TPR::STATUS_RESOLVED, ['1020', '1200', '1100', '1000'], null]);
 check('P4 §32 host-local prototype is exact', $p4_entry(['540']),
-	[4000, 4000, TPR::TYPE_EXACT, TPR::STATUS_RESOLVED, [4000], null]);
+	['4000', '4000', TPR::TYPE_EXACT, TPR::STATUS_RESOLVED, ['4000'], null]);
 // §33 同一 Host（Source Host = 対象Host）: 同じ prototype の Discovered Trigger すべて（macro 値で絞らない）。
-check('P4 §33 same host: all discovered of the prototype', $p4_ids(['500'], [1]), [500, 501]);
+check('P4 §33 same host: all discovered of the prototype', $p4_ids(['500'], [1]), ['500', '501']);
 // §34 Host 横断・多段（A: Mid / B: Upper → 同じ Canonical Base）。Source Host（A）は対象に含めない。
-check('P4 §34 cross-host multi-level: A -> B', $p4_ids(['500'], [2]), [510, 511, 512]);
-check('P4 §34 cross-host multi-level: B -> A', $p4_ids(['511'], [1]), [500, 501]);
+check('P4 §34 cross-host multi-level: A -> B', $p4_ids(['500'], [2]), ['510', '511', '512']);
+check('P4 §34 cross-host multi-level: B -> A', $p4_ids(['511'], [1]), ['500', '501']);
 // §35 Discovery 0件（C）・Template 未適用（E）: 正常な0件。警告しない。全Eventへ戻さない。
 check('P4 §35 zero discovery host', $tx_es(['500'], [3]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
@@ -1121,11 +1123,11 @@ check('P4 §35 mixed scope A/B/C/E', $tx_es(['500'], [1, 2, 3, 5]),
 	['selected' => true, 'selectors' => [['objectids' => ['500', '501', '510', '511', '512']]], 'error' => null,
 		'partial' => false]);
 // §36 同名・別 Template の prototype は別 Canonical（名前で対応付けない）。
-check('P4 §36 same name other template: A', $p4_ids(['520'], [1, 4]), [520]);
-check('P4 §36 same name other template: B', $p4_ids(['530'], [1, 4]), [530]);
-check('P4 §36 canonical differs', [$p4_entry(['520'])[1], $p4_entry(['530'])[1]], [2000, 3000]);
+check('P4 §36 same name other template: A', $p4_ids(['520'], [1, 4]), ['520']);
+check('P4 §36 same name other template: B', $p4_ids(['530'], [1, 4]), ['530']);
+check('P4 §36 canonical differs', [$p4_entry(['520'])[1], $p4_entry(['530'])[1]], ['2000', '3000']);
 // §37 Host ローカル prototype（Q5）: 所有Hostが Scope にあればその Host の分だけ、なければ0件。
-check('P4 §37 host-local: owner in scope', $p4_ids(['540'], [1, 2]), [540]);
+check('P4 §37 host-local: owner in scope', $p4_ids(['540'], [1, 2]), ['540']);
 // Host D の 550（継承元を辿れない = Template 由来）は Host ローカル Canonical に一致し得ないため判定不能に数えない（Q2）。
 check('P4 §37 host-local: owner not in scope', $tx_es(['540'], [2, 4]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
@@ -1136,11 +1138,11 @@ check('P4 Q2 host-local + template canonical: parent_unavailable indeterminate',
 check('P4 §37 host-local: owner not in scope (no indeterminate host)', $tx_es(['540'], [2, 3]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => false]);
 // §38 複数 Canonical の OR・同一 Canonical の重複排除。
-check('P4 §38 OR of canonical prototypes', $p4_ids(['500', '520'], [1, 2]), [500, 501, 510, 511, 512, 520]);
+check('P4 §38 OR of canonical prototypes', $p4_ids(['500', '520'], [1, 2]), ['500', '501', '510', '511', '512', '520']);
 $r = $p4(['500', '510', '501'], [1, 2]);
-check('P4 §38 duplicate canonical collapses', array_column($r['pr']['canonical'], 'canonical_prototypeid'), [1000]);
-check('P4 §38 duplicate canonical sources', $r['pr']['canonical'][0]['source_triggerids'], [500, 501, 510]);
-check('P4 §38 duplicate canonical: no duplicate triggers', $r['x']['triggerids'], [500, 501, 510, 511, 512]);
+check('P4 §38 duplicate canonical collapses', array_column($r['pr']['canonical'], 'canonical_prototypeid'), ['1000']);
+check('P4 §38 duplicate canonical sources', $r['pr']['canonical'][0]['source_triggerids'], ['500', '501', '510']);
+check('P4 §38 duplicate canonical: no duplicate triggers', $r['x']['triggerids'], ['500', '501', '510', '511', '512']);
 // §39 通常 Trigger + LLD の和集合。
 check('P4 §39 normal + LLD union', $tx_es(['25143', '500'], [1, 2]),
 	['selected' => true, 'selectors' => [['objectids' => ['500', '501', '510', '511', '512', '25143', '25171']]],
@@ -1163,7 +1165,7 @@ check('P4 §40 normal-side error has priority', $tx_es(['600', '560'], [1]),
 // §41 対象Host側の判定不能は PARTIAL（確定した分だけで取得）。
 check('P4 §41 target indeterminate -> partial', $tx_es(['500'], [2, 4]),
 	['selected' => true, 'selectors' => [['objectids' => ['510', '511', '512']]], 'error' => null, 'partial' => true]);
-check('P4 §41 indeterminate ids', $p4(['500'], [2, 4])['x']['lld']['indeterminate_ids'], [550]);
+check('P4 §41 indeterminate ids', $p4(['500'], [2, 4])['x']['lld']['indeterminate_ids'], ['550']);
 check('P4 §41 indeterminate only -> empty + partial', $tx_es(['500'], [6]),
 	['selected' => true, 'selectors' => [], 'error' => null, 'partial' => true]);
 // Q2=A: Canonical prototype の Selection がないときは、対象Host上の LLD の判定不能を数えない。
@@ -1178,9 +1180,9 @@ $pp_calls = [];
 $r = $p4(['25143', '500'], [1, 2, 3, 4, 5, 6]);
 check('P4 §43 host triggers fetched once (normal + LLD)', $tx_host_calls, [[1, 2, 3, 4, 5, 6]]);
 check('P4 §43 prototype fetched per level, cached', $pp_calls,
-	[[1010], [1100], [1000], [1020, 2010, 3010, 4000, 5010], [1200, 2000, 3000, 5000]]);
+	[['1010'], ['1100'], ['1000'], ['1020', '2010', '3010', '4000', '5010'], ['1200', '2000', '3000', '5000']]);
 check('P4 §43 prototype cache call count', $r['pcache']->fetch_calls, 5);
-check('P4 §43 result', $r['x']['triggerids'], [500, 501, 510, 511, 512, 25143, 25171, 25184]);
+check('P4 §43 result', $r['x']['triggerids'], ['500', '501', '510', '511', '512', '25143', '25171', '25184']);
 check('P4 §43 partial from target indeterminate', $r['es']['partial'], true);
 // 取得失敗は null（部分結果にしない）。
 check('P4 prototype fetch failure (source)', TPR::resolve([500 => 1010], static fn(array $ids) => null), null);
@@ -1204,7 +1206,7 @@ check('P4 depth exceeded', [$r[9001]['status'], $r[9001]['reason']], [TPR::STATU
 // §44 Prototype group（Q1=B）: 表示グループは Canonical prototype 単位。Host 上の prototype が違っても Canonical が同じなら1つ。
 $r = TPR::resolvePrototypes([1010, 1020, 2010, 3010, 4000, 5010], $pp_fetch);
 check('P4 §44 group key = canonical', array_map(static fn(array $e) => $e['canonical_prototypeid'], $r),
-	[1010 => 1000, 1020 => 1000, 2010 => 2000, 3010 => 3000, 4000 => 4000, 5010 => null]);
+	['1010' => '1000', '1020' => '1000', '2010' => '2000', '3010' => '3000', '4000' => '4000', '5010' => null]);
 check('P4 §44 unresolved stays separate (partial)', [$r[5010]['status'], $r[5010]['reason']],
 	[TPR::STATUS_UNRESOLVED, TPR::REASON_PARENT_UNAVAILABLE]);
 // Canonical キーでのグループ化（eventGroupKey は map の値でグループ化するため、Host 別 prototype が1グループになる）。
@@ -1238,31 +1240,31 @@ $p5_items = [
 $p5_rel = [1 => [101], 2 => [102], 3 => [103], 4 => [104], 5 => [105], 6 => [106, 107], 7 => [108], 8 => [102, 109]];
 $p5 = static fn(array $vt, array $it, array $cand = [1, 2, 3, 4, 5, 6, 7, 8], ?array $items = null, ?array $rel = null)
 	=> IF_::apply($cand, $rel ?? $p5_rel, $items ?? $p5_items, $vt, $it);
-check('P5 VT=Log', $p5([2], [])['triggerids'], [2, 6, 7, 8]);
-check('P5 IT=SNMP trap', $p5([], [17])['triggerids'], [4, 6, 7]);
+check('P5 VT=Log', $p5([2], [])['triggerids'], ['2', '6', '7', '8']);
+check('P5 IT=SNMP trap', $p5([], [17])['triggerids'], ['4', '6', '7']);
 check('P5 IT=Dependent (no master traversal)', [$p5([], [18])['triggerids'], in_array(5, $p5([], [17])['triggerids'], true)],
-	[[5], false]);
-check('P5 §36 VT=Log AND IT=SNMP trap: F excluded, G only', $p5([2], [17])['triggerids'], [7]);
-check('P5 §37 VT=Log OR Text', $p5([2, 4], [])['triggerids'], [2, 3, 6, 7, 8]);
-check('P5 §37 IT=SNMP trap OR trapper', $p5([], [2, 17])['triggerids'], [1, 2, 3, 4, 6, 7, 8]);
-check('P5 §37 (Log OR Text) AND (SNMP trap OR trapper)', $p5([2, 4], [2, 17])['triggerids'], [2, 3, 6, 7, 8]);
+	[['5'], false]);
+check('P5 §36 VT=Log AND IT=SNMP trap: F excluded, G only', $p5([2], [17])['triggerids'], ['7']);
+check('P5 §37 VT=Log OR Text', $p5([2, 4], [])['triggerids'], ['2', '3', '6', '7', '8']);
+check('P5 §37 IT=SNMP trap OR trapper', $p5([], [2, 17])['triggerids'], ['1', '2', '3', '4', '6', '7', '8']);
+check('P5 §37 (Log OR Text) AND (SNMP trap OR trapper)', $p5([2, 4], [2, 17])['triggerids'], ['2', '3', '6', '7', '8']);
 $r = $p5([2], []);
-check('P5 §38 multi-item match: one trigger, items listed', [$r['matched'][8], count(array_keys($r['triggerids'], 8))],
-	[[102, 109], 1]);
-check('P5 F matched item is only the Log one', $r['matched'][6], [106]);
+check('P5 §38 multi-item match: one trigger, items listed', [$r['matched'][8], count(array_keys($r['triggerids'], '8', true))],
+	[['102', '109'], 1]);
+check('P5 F matched item is only the Log one', $r['matched'][6], ['106']);
 check('P5 complete: no indeterminate', [$r['indeterminate'], $r['missing_items'], $r['candidate_count'], $r['item_count']],
 	[0, 0, 8, 9]);
 check('P5 §46 normal zero', [$p5([5], [])['triggerids'], $p5([5], [])['indeterminate']], [[], 0]);
-check('P5 candidates subset (selection)', $p5([2], [], [1, 6])['triggerids'], [6]);
+check('P5 candidates subset (selection)', $p5([2], [], [1, 6])['triggerids'], ['6']);
 check('P5 no candidates', $p5([2], [], [])['triggerids'], []);
 // §45 / Q2b: Item 欠落・取得失敗・一部 Item のみ取得不能。
 $missing = $p5_items;
 unset($missing[107], $missing[102]);
 $r = $p5([], [17], [1, 2, 6, 7, 8], $missing);
 check('P5 Q2b item missing: determinable shown + indeterminate',
-	[$r['triggerids'], $r['indeterminate_ids'], $r['missing_items']], [[7], [2, 6, 8], 2]);
+	[$r['triggerids'], $r['indeterminate_ids'], $r['missing_items']], [['7'], ['2', '6', '8'], 2]);
 $r = $p5([2], [], [2, 6, 8], $missing);
-check('P5 Q2b known match wins over missing item', [$r['triggerids'], $r['indeterminate']], [[6, 8], 1]);
+check('P5 Q2b known match wins over missing item', [$r['triggerids'], $r['indeterminate']], [['6', '8'], 1]);
 check('P5 Q2b missing item does not hide non-matching known', $p5([4], [], [1, 3], $missing)['indeterminate'], 0);
 $r = $p5([2], [], [1, 2, 3], []);
 check('P5 Q2b item fetch failure: all indeterminate, none matched', [$r['triggerids'], $r['indeterminate']], [[], 3]);
@@ -1270,8 +1272,8 @@ $rel = $p5_rel;
 unset($rel[2]);
 $rel[3] = [];
 $r = $p5([2], [], [1, 2, 3], null, $rel);
-check('P5 relation missing / empty: indeterminate', [$r['triggerids'], $r['indeterminate_ids']], [[], [2, 3]]);
-check('P5 referencedItemids', IF_::referencedItemids([6, 8, 99], $p5_rel), [102, 106, 107, 109]);
+check('P5 relation missing / empty: indeterminate', [$r['triggerids'], $r['indeterminate_ids']], [[], ['2', '3']]);
+check('P5 referencedItemids', IF_::referencedItemids([6, 8, 99], $p5_rel), ['102', '106', '107', '109']);
 
 // ItemMetadataCache: Batch 取得・再取得なし・欠落の記録・取得失敗は欠落扱い。
 $rel_calls = [];
@@ -1288,12 +1290,12 @@ $cache = new IMC(
 );
 $cache->seedRelations([1 => ['itemids' => [101], 'templateid' => 0], 2 => ['templateid' => 0]]);
 check('P5 cache relations: seeded + batch for the rest', array_keys($cache->relations([1, 2, 6, 999])), [1, 2, 6]);
-check('P5 cache relation fetch once (seeded excluded)', $rel_calls, [[2, 6, 999]]);
+check('P5 cache relation fetch once (seeded excluded)', $rel_calls, [['2', '6', '999']]);
 $cache->relations([1, 2, 6, 999]);
 check('P5 cache relation no refetch (incl. missing)', count($rel_calls), 1);
 check('P5 cache items batch', array_keys($cache->items([106, 107, 5000, 106])), [106, 107]);
 $cache->items([106, 107, 5000, 102]);
-check('P5 cache items only new ids', $item_calls, [[106, 107, 5000], [102]]);
+check('P5 cache items only new ids', $item_calls, [['106', '107', '5000'], ['102']]);
 check('P5 cache counters', [$cache->relation_fetch_calls, $cache->item_fetch_calls, $cache->item_fetch_failed], [1, 2, false]);
 $cache = new IMC(static fn(array $ids) => null, static fn(array $ids) => null);
 check('P5 cache relation fetch failure -> missing', $cache->relations([1, 2]), []);
@@ -1307,7 +1309,115 @@ $cache = new IMC(static fn(array $ids) => array_intersect_key($p5_rel, array_fli
 $a = $cache->items([102]);
 $b = $cache->items([106, 107]);
 $r = IF_::apply([2, 6], $cache->relations([2, 6]), $a + $b, [2], []);
-check('P5 Q2b partial availability', [$r['triggerids'], $r['indeterminate_ids']], [[6], [2]]);
+check('P5 Q2b partial availability', [$r['triggerids'], $r['indeterminate_ids']], [['6'], ['2']]);
+
+// issue #34 P2: Zabbix の ID は符号なし 64-bit。PHP_INT_MAX（9223372036854775807）を超える ID を int へ変換すると
+// PHP_INT_MAX に飽和して衝突するため、ID は10進文字列のまま扱う。境界値と、上限を超える複数の異なる ID を検証する。
+$max = (string) PHP_INT_MAX;
+$big1 = '9223372036854775808';
+$big2 = '9223372036854775809';
+$big3 = '18446744073709551615';
+
+check('#34 Ids normalize int', Ids::normalize(PHP_INT_MAX), $max);
+check('#34 Ids normalize over PHP_INT_MAX', [Ids::normalize($big1), Ids::normalize($big3)], [$big1, $big3]);
+check('#34 Ids normalize leading zeros', Ids::normalize('000123'), '123');
+check('#34 Ids normalize invalid', [Ids::normalize('0'), Ids::normalize('000'), Ids::normalize(0), Ids::normalize(-1),
+	Ids::normalize('-1'), Ids::normalize('1.5'), Ids::normalize(1.5), Ids::normalize(''), Ids::normalize(null),
+	Ids::normalize([1])], [null, null, null, null, null, null, null, null, null, null]);
+check('#34 Ids ref', [Ids::ref('0'), Ids::ref(null), Ids::ref($big2)], ['0', '0', $big2]);
+check('#34 Ids compare across the boundary', [Ids::compare($max, $big1), Ids::compare($big1, $big2),
+	Ids::compare($big2, $big2), Ids::compare('10', '9'), Ids::compare($big3, $big2)], [-1, -1, 0, 1, 1]);
+check('#34 Ids unique: distinct over PHP_INT_MAX kept, int/string duplicates collapse',
+	Ids::unique([$big2, $big1, PHP_INT_MAX, $max, '10', 10, $big3, $big1]), ['10', $max, $big1, $big2, $big3]);
+check('#34 Ids keys of int + string keys', Ids::keys([$big1 => true, 5 => true, $max => true]), ['5', $max, $big1]);
+check('#34 Ids decrement', [Ids::decrement($big1), Ids::decrement('10000000000000000000'), Ids::decrement('100'),
+	Ids::decrement('1')], [$max, '9999999999999999999', '99', '0']);
+
+// Trigger Selection: 上限を超える2件が1件へ潰れない。
+check('#34 TS distinct triggerids over PHP_INT_MAX', TS::resolve([$big2, $big1, $max]),
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [$max, $big1, $big2]]);
+
+// Resolver: 上限を超える source / template ID の継承チェーンが別々の canonical になる。
+$big_rows = [
+	$big1 => ['templateid' => '18446744073709551610', 'flags' => 0],
+	$big2 => ['templateid' => '18446744073709551611', 'flags' => 0],
+	'18446744073709551610' => ['templateid' => '0', 'flags' => 0],
+	'18446744073709551611' => ['templateid' => '0', 'flags' => 0],
+	$max => ['templateid' => '0', 'flags' => 0]
+];
+$big_calls = [];
+$big_fetch = static function (array $ids) use (&$big_calls, $big_rows): array {
+	$big_calls[] = $ids;
+	return array_intersect_key($big_rows, array_flip($ids));
+};
+$r = TR::resolve([$big1, $big2, $max], $big_fetch);
+check('#34 TR distinct canonicals over PHP_INT_MAX', array_map(static fn(array $c): array => [
+	$c['canonical_triggerid'], $c['source_triggerids']], $r['canonical']),
+	[[$max, [$max]], ['18446744073709551610', [$big1]], ['18446744073709551611', [$big2]]]);
+check('#34 TR chains keep exact ids', array_column($r['entries'], 'inheritance_chain'),
+	[[$max], [$big1, '18446744073709551610'], [$big2, '18446744073709551611']]);
+check('#34 TR fetch receives exact ids', $big_calls, [[$max, $big1, $big2], ['18446744073709551610',
+	'18446744073709551611']]);
+
+// Scope 展開: 対象Host上の上限超え Trigger が、それぞれの canonical にだけ一致する。
+$big_host = [
+	'18446744073709551612' => ['templateid' => '18446744073709551610', 'flags' => 0],
+	'18446744073709551613' => ['templateid' => '18446744073709551611', 'flags' => 0]
+];
+$x = TX::expand(TR::resolve([$big1], $big_fetch), ['1'], static fn(array $h): array => $big_host,
+	new TC($big_fetch));
+check('#34 TX expand over PHP_INT_MAX: only the matching canonical', [$x['triggerids'], $x['canonical_triggerids']],
+	[['18446744073709551612'], ['18446744073709551610']]);
+$x = TX::expand(TR::resolve([$big1, $big2], $big_fetch), ['1'], static fn(array $h): array => $big_host,
+	new TC($big_fetch));
+check('#34 TX expand over PHP_INT_MAX: both', $x['triggerids'], ['18446744073709551612', '18446744073709551613']);
+
+// LLD: 上限を超える Discovered Trigger / prototype ID が別々の Canonical prototype になる。
+$big_protos = [
+	'18446744073709551600' => ['templateid' => '18446744073709551602', 'flags' => 2],
+	'18446744073709551601' => ['templateid' => '18446744073709551603', 'flags' => 2],
+	'18446744073709551602' => ['templateid' => '0', 'flags' => 2],
+	'18446744073709551603' => ['templateid' => '0', 'flags' => 2]
+];
+$big_pfetch = static fn(array $ids): array => array_intersect_key($big_protos, array_flip($ids));
+$r = TPR::resolve([$big1 => '18446744073709551600', $big2 => '18446744073709551601'], $big_pfetch);
+check('#34 TPR distinct canonical prototypes over PHP_INT_MAX', array_map(static fn(array $c): array => [
+	$c['canonical_prototypeid'], $c['source_triggerids']], $r['canonical']),
+	[['18446744073709551602', [$big1]], ['18446744073709551603', [$big2]]]);
+check('#34 TPR source ids kept', array_column($r['entries'], 'source_prototypeid', 'source_triggerid'),
+	[$big1 => '18446744073709551600', $big2 => '18446744073709551601']);
+$big_lld_host = [
+	'18446744073709551620' => ['templateid' => '0', 'flags' => 4, 'prototypeid' => '18446744073709551600'],
+	'18446744073709551621' => ['templateid' => '0', 'flags' => 4, 'prototypeid' => '18446744073709551601']
+];
+$x = TPX::expand(TPR::resolve([$big1 => '18446744073709551600'], $big_pfetch), ['1'],
+	static fn(array $h): array => $big_lld_host, new TC($big_pfetch));
+check('#34 TPX expand over PHP_INT_MAX: only the matching prototype', [$x['triggerids'], $x['matched_prototypeids']],
+	[['18446744073709551620'], ['18446744073709551600']]);
+
+// Item characteristics filter: 上限を超える Trigger / Item ID が衝突しない。
+$big_rel = [$big1 => [$big3, '18446744073709551614'], $big2 => ['18446744073709551614']];
+$big_items = [$big3 => ['type' => 2, 'value_type' => 2], '18446744073709551614' => ['type' => 0, 'value_type' => 3]];
+$cache = new IMC(static fn(array $ids): array => array_intersect_key($big_rel, array_flip($ids)),
+	static fn(array $ids): array => array_intersect_key($big_items, array_flip($ids)));
+$rel = $cache->relations([$big2, $big1]);
+check('#34 IMC relations over PHP_INT_MAX', [array_map('strval', array_keys($rel)), $rel[$big1], $rel[$big2]],
+	[[$big1, $big2], [$big3, '18446744073709551614'], ['18446744073709551614']]);
+$ref = IF_::referencedItemids([$big1, $big2], $rel);
+check('#34 IF referencedItemids over PHP_INT_MAX', $ref, ['18446744073709551614', $big3]);
+$r = IF_::apply([$big2, $big1], $rel, $cache->items($ref), [2], []);
+check('#34 IF apply over PHP_INT_MAX: only the Log trigger', [$r['triggerids'], $r['matched'][$big1]],
+	[[$big1], [$big3]]);
+$cache->seedRelations([$big2 => ['itemids' => [$big3]], $big1 => ['itemids' => []]]);
+check('#34 IMC seedRelations over PHP_INT_MAX', [$cache->relations([$big1])[$big1], $cache->relations([$big2])[$big2]],
+	[[], [$big3]]);
+
+// Host / Host group ID・Event Selection の objectids。
+check('#34 mergeUnique across PHP_INT_MAX', SourceResolver::mergeUnique([$big2, PHP_INT_MAX], [$max, $big1, $big3]),
+	[$max, $big1, $big2, $big3]);
+check('#34 Event Selection objectids over PHP_INT_MAX', SourceResolver::resolveEventSelection(
+	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [$big1]], ['entries' => [], 'canonical' => []],
+	['triggerids' => [$big2, $big1, $big2], 'indeterminate' => 0])['selectors'], [['objectids' => [$big1, $big2]]]);
 
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

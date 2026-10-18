@@ -60,25 +60,19 @@ class TriggerSelectionResolver {
 	public static int $calls = 0;
 
 	/**
-	 * @param int[]    $source_triggerids  正規化済み（TriggerSelection::resolve の active）の source Trigger ID
-	 * @param callable $fetch  function(int[] $triggerids): ?array
-	 *                         閲覧可能なTriggerだけを triggerid => ['templateid' => int, 'flags' => int] で返す。
+	 * @param string[] $source_triggerids  正規化済み（TriggerSelection::resolve の active）の source Trigger ID
+	 * @param callable $fetch  function(string[] $triggerids): ?array
+	 *                         閲覧可能なTriggerだけを triggerid => ['templateid' => string, 'flags' => int] で返す。
 	 *                         取得失敗時は null（呼び出し全体を失敗として null を返す）。
 	 *
 	 * @return array{entries: array[], canonical: array[]}|null  取得失敗時は null
 	 *   canonical: canonical_triggerid 単位に重複排除した Canonical Trigger の一覧（canonical_triggerid 昇順）。
-	 *              各要素は ['canonical_triggerid' => int, 'type' => string, 'source_triggerids' => int[]]。
+	 *              各要素は ['canonical_triggerid' => string, 'type' => string, 'source_triggerids' => string[]]。
+	 *   ID はすべて10進文字列（Ids。PHP_INT_MAX を超える ID も衝突させない）。
 	 */
 	public static function resolve(array $source_triggerids, callable $fetch): ?array {
 		self::$calls++;
-		$sources = [];
-
-		foreach ($source_triggerids as $id) {
-			$sources[(int) $id] = true;
-		}
-
-		$sources = array_keys($sources);
-		sort($sources, SORT_NUMERIC);
+		$sources = Ids::unique($source_triggerids);
 
 		if (!$sources) {
 			return ['entries' => [], 'canonical' => []];
@@ -101,7 +95,7 @@ class TriggerSelectionResolver {
 			foreach ($pending as $id) {
 				if (array_key_exists($id, $rows)) {
 					$known[$id] = [
-						'templateid' => (int) ($rows[$id]['templateid'] ?? 0),
+						'templateid' => Ids::ref($rows[$id]['templateid'] ?? '0'),
 						'flags' => (int) ($rows[$id]['flags'] ?? 0)
 					];
 				}
@@ -113,15 +107,14 @@ class TriggerSelectionResolver {
 			$next = [];
 
 			foreach ($pending as $id) {
-				$parent = $known[$id]['templateid'] ?? 0;
+				$parent = $known[$id]['templateid'] ?? '0';
 
-				if ($parent > 0 && !array_key_exists($parent, $known) && !array_key_exists($parent, $missing)) {
+				if ($parent !== '0' && !array_key_exists($parent, $known) && !array_key_exists($parent, $missing)) {
 					$next[$parent] = true;
 				}
 			}
 
-			$pending = array_keys($next);
-			sort($pending, SORT_NUMERIC);
+			$pending = Ids::keys($next);
 		}
 
 		$entries = [];
@@ -142,7 +135,7 @@ class TriggerSelectionResolver {
 			}
 		}
 
-		ksort($canonical, SORT_NUMERIC);
+		Ids::ksort($canonical);
 
 		return ['entries' => $entries, 'canonical' => array_values($canonical)];
 	}
@@ -150,7 +143,7 @@ class TriggerSelectionResolver {
 	/**
 	 * 取得済みデータだけを使って、1つの source の継承チェーンを辿る（APIは呼ばない）。
 	 */
-	private static function walk(int $source, array $known): array {
+	private static function walk(string $source, array $known): array {
 		$entry = [
 			'source_triggerid' => $source,
 			'canonical_triggerid' => null,
@@ -176,7 +169,7 @@ class TriggerSelectionResolver {
 			return $entry;
 		}
 
-		if ($known[$source]['templateid'] === 0) {
+		if ($known[$source]['templateid'] === '0') {
 			// 継承元のないTrigger: Host固有（またはテンプレート上の定義そのもの）。canonical = source。
 			$entry['canonical_triggerid'] = $source;
 			$entry['type'] = self::TYPE_EXACT;
@@ -192,7 +185,7 @@ class TriggerSelectionResolver {
 		for ($depth = 0; ; $depth++) {
 			$parent = $known[$current]['templateid'];
 
-			if ($parent === 0) {
+			if ($parent === '0') {
 				// 最上位（継承元なし）に到達。
 				$entry['canonical_triggerid'] = $current;
 				$entry['status'] = self::STATUS_RESOLVED;
