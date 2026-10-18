@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.5
+Version:        0.2.6
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -102,6 +102,11 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sun Oct 18 2026 claude <noreply> - 0.2.6-0
+- Zabbix の ID（Trigger / Trigger prototype / Item / Host / Host group / Event）を10進文字列のまま扱うよう修正。
+  PHP_INT_MAX（9223372036854775807）を超える ID が1件に衝突し、トリガー選択・展開・Item 特性フィルタが
+  誤った結果になる問題を解消（issue #34）。
+
 * Sun Oct 18 2026 claude <noreply> - 0.2.5-0
 - LLD / トリガープロトタイプ（Phase 4）: Discovered トリガーをプロトタイプ（parent_triggerid）から
   Template 継承元の最上位プロトタイプへ正規化し、対象Host上の同じプロトタイプ由来のトリガーへ展開する。

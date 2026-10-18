@@ -1,3 +1,11 @@
+zabbix-widget-event-timeline (0.2.6) unstable; urgency=medium
+
+  * Zabbix の ID（Trigger / Trigger prototype / Item / Host / Host group / Event）を10進文字列のまま扱うよう修正。
+    PHP_INT_MAX（9223372036854775807）を超える ID が1件に衝突し、トリガー選択・展開・Item 特性フィルタが
+    誤った結果になる問題を解消（issue #34）。
+
+ -- claude <noreply@example.com>  Sun, 18 Oct 2026 23:00:00 +0900
+
 zabbix-widget-event-timeline (0.2.5) unstable; urgency=medium
 
   * LLD / トリガープロトタイプ（Phase 4）: Discovered トリガーをプロトタイプ（parent_triggerid）から
