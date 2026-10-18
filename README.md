@@ -249,6 +249,11 @@ When template-inherited triggers are used with Event Timeline, the logged-in use
 - 約8年を超える期間では1 monthでもBucket数が100を超える場合があります（Zabbixの Time period 上限は730日のため通常は発生しません）。
 - Host指定は監視有効/無効を区別しません。
 - 継続イベント加算モードの復旧時刻はEventの復旧Event（r_eventid）から取得します。取得上限は期間前に発生したEventの取得分も含みます。
+制約事項の分類（各フェーズの節に詳細）:
+
+- **仕様上の制約**: 削除済みのトリガー / アイテムの過去イベントは対象外（名前等から推測しない）、依存アイテムはマスターアイテムのタイプへ遡らない、継承元Templateを参照できないトリガー選択は適用しない（fail-closed）、判定不能（PARTIAL）の過大計上（下記）、狭幅表示（下記）
+- **将来対応**: Zabbix 8.0 の多段LLD（ディスカバリで作成されるプロトタイプ）の実データ検証（v1.0.0 前に 8.0 正式版で実施予定）、DrilldownダイアログでのPARTIAL警告の再表示
+
 - **狭幅表示**: 実用上の最小幅は約216px（1800px幅ダッシュボードの10列相当）です。約400px未満ではツールバーのボタンが折り返し、グラフはWidget内の縦スクロールで表示されます（横方向にはWidget枠を超えません）。
 - **判定不能（PARTIAL）件数の過大計上**: 選択したトリガーの正規化結果（Canonical）がTemplate上のトリガー、または対象Host外のHostローカルトリガーの場合、継承元を参照できない対象Host上のトリガーを、実際には選択と無関係でも「判定不能」として計上することがあります。所有者の判定には追加のAPI呼び出しが必要で、誤判定すると条件を満たさないイベントを表示（fail-open）してしまうため、安全側（過大計上）にしています。選択がすべて対象Host上のHostローカルトリガーの場合は計上しません。
 - Drilldownダイアログには判定不能（PARTIAL）の警告を再表示しません（本体の表示には警告が出ます）。
@@ -256,6 +261,11 @@ When template-inherited triggers are used with Event Timeline, the logged-in use
 - Zabbix 8.0以降では、LLD生成元の取得に`trigger.get`の`selectDiscoveryData`を使用します（8.0で廃止予定となった`selectTriggerDiscovery`は使用しません）。7.0系では従来どおり`selectTriggerDiscovery`を使用します。
 
 ### Known limitations
+
+Classification (details in each phase section):
+
+- **By design**: past events of deleted triggers / items are not shown (nothing is inferred from names); dependent items are not traced to the master item type; trigger selections whose inherited templates cannot be accessed are not applied (fail-closed); over-counting of PARTIAL (below); narrow widgets (below)
+- **Future work**: verification of nested LLD on Zabbix 8.0 (prototypes created by discovery) with real data on the 8.0 final release before v1.0.0; repeating the PARTIAL warning in the drilldown dialog
 
 - **Narrow widgets**: The practical minimum width is about 216 px (10 columns of a 1800 px wide dashboard). Below about 400 px the toolbar buttons wrap and the chart is shown with vertical scrolling inside the widget (nothing overflows the widget horizontally).
 - **Over-counting of unresolvable (PARTIAL) events**: When a selected trigger resolves to a template trigger or to a host-local trigger outside the target hosts, triggers on the target hosts whose inherited templates cannot be accessed may be counted as "unresolvable" even if they are unrelated to the selection. Determining the owner would require additional API calls, and a wrong decision would show events that do not match the selection (fail-open), so the widget errs on the side of over-counting. Nothing is counted when all selected triggers are host-local triggers on the target hosts.
