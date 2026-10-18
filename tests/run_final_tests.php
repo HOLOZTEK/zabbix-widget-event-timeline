@@ -10,6 +10,7 @@
  * - 各ケースの期待値と実測値を証跡として標準出力へ出す。
  */
 
+require_once __DIR__.'/../includes/Ids.php';
 require_once __DIR__.'/../includes/BucketPlanner.php';
 require_once __DIR__.'/../includes/Aggregator.php';
 

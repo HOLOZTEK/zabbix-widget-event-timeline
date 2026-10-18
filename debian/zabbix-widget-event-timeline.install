@@ -12,6 +12,7 @@ includes/CWidgetFieldWeekStartView.php usr/share/zabbix-widget-event-timeline/in
 includes/DetailSelector.php usr/share/zabbix-widget-event-timeline/includes/
 includes/EventFetcher.php usr/share/zabbix-widget-event-timeline/includes/
 includes/helpers.php usr/share/zabbix-widget-event-timeline/includes/
+includes/Ids.php usr/share/zabbix-widget-event-timeline/includes/
 includes/ItemCharacteristicsFilter.php usr/share/zabbix-widget-event-timeline/includes/
 includes/ItemMetadataCache.php usr/share/zabbix-widget-event-timeline/includes/
 includes/SourceResolver.php usr/share/zabbix-widget-event-timeline/includes/

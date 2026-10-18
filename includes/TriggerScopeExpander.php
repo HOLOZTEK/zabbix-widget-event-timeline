@@ -36,9 +36,9 @@ class TriggerScopeExpander {
 
 	/**
 	 * @param array    $resolution          TriggerSelectionResolver::resolve() の結果（filterError() が null のもの）
-	 * @param int[]    $target_hostids      Host Scope（SourceResolver::resolveTarget の hostids）
-	 * @param callable $fetch_host_triggers function(int[] $hostids): ?array
-	 *                                      対象Host上の閲覧可能な Trigger を triggerid => ['templateid' => int, 'flags' => int]
+	 * @param string[] $target_hostids      Host Scope（SourceResolver::resolveTarget の hostids）
+	 * @param callable $fetch_host_triggers function(string[] $hostids): ?array
+	 *                                      対象Host上の閲覧可能な Trigger を triggerid => ['templateid' => string, 'flags' => int]
 	 *                                      で返す。取得失敗時は null。
 	 * @param TriggerInheritanceCache $cache Selection の解決と共有する継承情報キャッシュ
 	 *
@@ -121,9 +121,6 @@ class TriggerScopeExpander {
 	}
 
 	private static function sortedKeys(array $set): array {
-		$ids = array_map('intval', array_keys($set));
-		sort($ids, SORT_NUMERIC);
-
-		return $ids;
+		return Ids::keys($set);
 	}
 }

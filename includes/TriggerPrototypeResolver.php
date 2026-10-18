@@ -57,25 +57,30 @@ class TriggerPrototypeResolver {
 	/**
 	 * Source の Discovered Trigger を Canonical Trigger prototype へ正規化する。
 	 *
-	 * @param array<int, int> $sources  source Discovered Trigger ID => 生成元 Trigger prototype ID（不明なら 0）
-	 * @param callable        $fetch    function(int[] $prototypeids): ?array
-	 *                                  閲覧可能な prototype だけを prototypeid => ['templateid' => int, ...] で返す。
+	 * @param array<string, string> $sources  source Discovered Trigger ID => 生成元 Trigger prototype ID（不明なら '0'）
+	 * @param callable        $fetch    function(string[] $prototypeids): ?array
+	 *                                  閲覧可能な prototype だけを prototypeid => ['templateid' => string, ...] で返す。
 	 *                                  取得失敗時は null（呼び出し全体を失敗として null を返す）。
 	 *
 	 * @return array{entries: array[], canonical: array[]}|null  取得失敗時は null
 	 *   canonical: canonical_prototypeid 単位に重複排除した一覧（昇順）。
-	 *              各要素は ['canonical_prototypeid' => int, 'type' => string, 'source_triggerids' => int[]]。
+	 *              各要素は ['canonical_prototypeid' => string, 'type' => string, 'source_triggerids' => string[]]。
+	 *   ID はすべて10進文字列（Ids）。
 	 */
 	public static function resolve(array $sources, callable $fetch): ?array {
 		$normalized = [];
 
 		foreach ($sources as $triggerid => $prototypeid) {
-			$normalized[(int) $triggerid] = (int) $prototypeid;
+			$triggerid = Ids::normalize((string) $triggerid);
+
+			if ($triggerid !== null) {
+				$normalized[$triggerid] = Ids::ref($prototypeid);
+			}
 		}
 
-		ksort($normalized, SORT_NUMERIC);
+		Ids::ksort($normalized);
 
-		$prototypes = self::resolvePrototypes(array_values(array_filter($normalized)), $fetch);
+		$prototypes = self::resolvePrototypes(array_values($normalized), $fetch);
 
 		if ($prototypes === null) {
 			return null;
@@ -85,9 +90,10 @@ class TriggerPrototypeResolver {
 		$canonical = [];
 
 		foreach ($normalized as $triggerid => $prototypeid) {
+			$triggerid = (string) $triggerid;
 			$entry = ['source_triggerid' => $triggerid];
 
-			if ($prototypeid === 0) {
+			if ($prototypeid === '0') {
 				$entry += [
 					'source_prototypeid' => null,
 					'canonical_prototypeid' => null,
@@ -116,7 +122,7 @@ class TriggerPrototypeResolver {
 			}
 		}
 
-		ksort($canonical, SORT_NUMERIC);
+		Ids::ksort($canonical);
 
 		return ['entries' => $entries, 'canonical' => array_values($canonical)];
 	}
@@ -125,24 +131,15 @@ class TriggerPrototypeResolver {
 	 * Trigger prototype の集合を Canonical Trigger prototype へ正規化する（対象Host上の prototype の照合・
 	 * プロトタイプグループ表示で使う）。段ごとに未取得の親をまとめて取得する（API 呼び出し回数 = 継承の段数 + 1 程度）。
 	 *
-	 * @param int[]    $prototypeids
+	 * @param string[] $prototypeids  '0'・不正値は無視する
 	 * @param callable $fetch  resolve() と同じ
 	 *
-	 * @return array<int, array>|null  prototypeid => ['canonical_prototypeid', 'type', 'status', 'inheritance_chain',
+	 * @return array<string, array>|null  prototypeid => ['canonical_prototypeid', 'type', 'status', 'inheritance_chain',
 	 *                                 'reason']。取得失敗時は null
 	 */
 	public static function resolvePrototypes(array $prototypeids, callable $fetch): ?array {
 		self::$calls++;
-		$ids = [];
-
-		foreach ($prototypeids as $id) {
-			if ((int) $id > 0) {
-				$ids[(int) $id] = true;
-			}
-		}
-
-		$ids = array_keys($ids);
-		sort($ids, SORT_NUMERIC);
+		$ids = Ids::unique($prototypeids);
 
 		$known = [];
 		$missing = [];
@@ -157,7 +154,7 @@ class TriggerPrototypeResolver {
 
 			foreach ($pending as $id) {
 				if (array_key_exists($id, $rows)) {
-					$known[$id] = (int) ($rows[$id]['templateid'] ?? 0);
+					$known[$id] = Ids::ref($rows[$id]['templateid'] ?? '0');
 				}
 				else {
 					$missing[$id] = true;
@@ -167,15 +164,14 @@ class TriggerPrototypeResolver {
 			$next = [];
 
 			foreach ($pending as $id) {
-				$parent = $known[$id] ?? 0;
+				$parent = $known[$id] ?? '0';
 
-				if ($parent > 0 && !array_key_exists($parent, $known) && !array_key_exists($parent, $missing)) {
+				if ($parent !== '0' && !array_key_exists($parent, $known) && !array_key_exists($parent, $missing)) {
 					$next[$parent] = true;
 				}
 			}
 
-			$pending = array_keys($next);
-			sort($pending, SORT_NUMERIC);
+			$pending = Ids::keys($next);
 		}
 
 		$result = [];
@@ -190,9 +186,9 @@ class TriggerPrototypeResolver {
 	/**
 	 * 取得済みデータだけを使って、1つの prototype の継承チェーンを辿る（APIは呼ばない）。
 	 *
-	 * @param array<int, int> $known  prototypeid => templateid（閲覧可能なものだけ）
+	 * @param array<string, string> $known  prototypeid => templateid（閲覧可能なものだけ）
 	 */
-	private static function walk(int $prototypeid, array $known): array {
+	private static function walk(string $prototypeid, array $known): array {
 		$entry = [
 			'canonical_prototypeid' => null,
 			'type' => null,
@@ -208,14 +204,14 @@ class TriggerPrototypeResolver {
 			return $entry;
 		}
 
-		$entry['type'] = $known[$prototypeid] === 0 ? self::TYPE_EXACT : self::TYPE_TEMPLATE;
+		$entry['type'] = $known[$prototypeid] === '0' ? self::TYPE_EXACT : self::TYPE_TEMPLATE;
 		$visited = [$prototypeid => true];
 		$current = $prototypeid;
 
 		for ($depth = 0; ; $depth++) {
 			$parent = $known[$current];
 
-			if ($parent === 0) {
+			if ($parent === '0') {
 				$entry['canonical_prototypeid'] = $current;
 				$entry['status'] = self::STATUS_RESOLVED;
 

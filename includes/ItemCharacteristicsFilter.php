@@ -67,29 +67,28 @@ class ItemCharacteristicsFilter {
 	/**
 	 * 候補から関連取得が必要な参照 Item ID を集める（昇順・重複なし）。
 	 *
-	 * @param array<int, int[]|null> $relations  triggerid => 直接参照する itemid（関連を取得できなければ null / 未設定）
+	 * @param array<string, string[]|null> $relations  triggerid => 直接参照する itemid（関連を取得できなければ null / 未設定）
+	 *
+	 * @return string[]
 	 */
 	public static function referencedItemids(array $candidates, array $relations): array {
 		$ids = [];
 
-		foreach ($candidates as $triggerid) {
-			foreach ($relations[(int) $triggerid] ?? [] as $itemid) {
-				$ids[(int) $itemid] = true;
+		foreach (Ids::unique($candidates) as $triggerid) {
+			foreach ($relations[$triggerid] ?? [] as $itemid) {
+				$ids[] = $itemid;
 			}
 		}
 
-		$ids = array_keys($ids);
-		sort($ids, SORT_NUMERIC);
-
-		return $ids;
+		return Ids::unique($ids);
 	}
 
 	/**
-	 * @param int[]                  $candidates   候補 Trigger ID（Trigger Selection の展開結果、または Host Scope 上の Trigger）
-	 * @param array<int, int[]|null> $relations    triggerid => 直接参照する itemid
-	 * @param array<int, array>      $items        itemid => ['type' => int, 'value_type' => int, ...]（取得できたものだけ）
-	 * @param int[]                  $value_types  normalize() 済み（空 = すべて）
-	 * @param int[]                  $item_types   normalize() 済み（空 = すべて）
+	 * @param string[]                     $candidates   候補 Trigger ID（Trigger Selection の展開結果、または Host Scope 上の Trigger）
+	 * @param array<string, string[]|null> $relations    triggerid => 直接参照する itemid
+	 * @param array<string, array>         $items        itemid => ['type' => int, 'value_type' => int, ...]（取得できたものだけ）
+	 * @param int[]                        $value_types  normalize() 済み（空 = すべて）
+	 * @param int[]                        $item_types   normalize() 済み（空 = すべて）
 	 *
 	 * @return array
 	 *   - triggerids:        一致した Trigger ID（昇順・重複なし）
@@ -102,8 +101,7 @@ class ItemCharacteristicsFilter {
 	 */
 	public static function apply(array $candidates, array $relations, array $items, array $value_types,
 			array $item_types): array {
-		$candidates = array_values(array_unique(array_map('intval', $candidates)));
-		sort($candidates, SORT_NUMERIC);
+		$candidates = Ids::unique($candidates);
 
 		$matched = [];
 		$indeterminate = [];
@@ -122,7 +120,7 @@ class ItemCharacteristicsFilter {
 			$hit = [];
 			$unknown = false;
 
-			foreach (array_unique(array_map('intval', $itemids)) as $itemid) {
+			foreach (Ids::unique($itemids) as $itemid) {
 				$referenced[$itemid] = true;
 
 				if (!array_key_exists($itemid, $items)) {
@@ -135,7 +133,6 @@ class ItemCharacteristicsFilter {
 			}
 
 			if ($hit) {
-				sort($hit, SORT_NUMERIC);
 				$matched[$triggerid] = $hit;
 			}
 			elseif ($unknown) {
@@ -143,9 +140,8 @@ class ItemCharacteristicsFilter {
 			}
 		}
 
-		$ids = array_keys($matched);
-		$indeterminate_ids = array_keys($indeterminate);
-		sort($indeterminate_ids, SORT_NUMERIC);
+		$ids = Ids::keys($matched);
+		$indeterminate_ids = Ids::keys($indeterminate);
 
 		return [
 			'triggerids' => $ids,

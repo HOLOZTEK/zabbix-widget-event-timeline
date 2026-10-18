@@ -13,6 +13,7 @@ use Modules\EventTimeline\Includes\{
 	DimensionAggregator,
 	BucketPlanner,
 	EventFetcher,
+	Ids,
 	ItemCharacteristicsFilter,
 	ItemMetadataCache,
 	SourceResolver,
@@ -483,7 +484,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$sources = [];
 
 		foreach ($discovered as $triggerid) {
-			$sources[$triggerid] = (int) ($rows[$triggerid]['prototypeid'] ?? 0);
+			$sources[$triggerid] = Ids::ref($rows[$triggerid]['prototypeid'] ?? '0');
 		}
 
 		return TriggerPrototypeResolver::resolve($sources, [$this->prototype_cache, 'fetch']) ?? false;
@@ -540,8 +541,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			}
 		}
 
-		$triggerids = array_values(array_unique(array_merge($normal['triggerids'], $lld['triggerids'] ?? [])));
-		sort($triggerids, SORT_NUMERIC);
+		$triggerids = Ids::unique(array_merge($normal['triggerids'], $lld['triggerids'] ?? []));
 
 		return [
 			'triggerids' => $triggerids,
@@ -606,7 +606,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 		$value_types = WidgetForm::valueTypeOptions();
 		$list = [];
 
-		foreach (array_unique(array_map('intval', $triggerids)) as $triggerid) {
+		foreach (Ids::unique($triggerids) as $triggerid) {
 			foreach ($this->item_filter['matched'][$triggerid] ?? [] as $itemid) {
 				$item = $this->item_filter['items'][$itemid] ?? null;
 
@@ -907,8 +907,8 @@ class WidgetView extends CControllerDashboardWidgetView {
 			}
 		}
 
-		usort($picked, static fn(array $a, array $b): int => [(int) $b['clock'], (int) $b['eventid']]
-			<=> [(int) $a['clock'], (int) $a['eventid']]);
+		usort($picked, static fn(array $a, array $b): int => (int) $b['clock'] <=> (int) $a['clock']
+			?: Ids::compare(Ids::ref($b['eventid']), Ids::ref($a['eventid'])));
 
 		$total = count($picked);
 		$shown = array_slice($picked, 0, self::DRILLDOWN_MAX_ROWS);
