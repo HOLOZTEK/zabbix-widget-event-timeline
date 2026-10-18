@@ -150,11 +150,15 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 **大量イベントの発生源の絞り込み（例）**
 
 ```text
-値の型 = ログ → 表示モード「ホスト」（件数順）で発生元Hostを特定 → 表示モード「イベント」（イベント数順）で原因トリガーを特定
+値の型 = ログ → 表示モード「ホスト」（件数順）で発生元Hostを特定 → 表示モード「イベント」（イベント発生数順）で原因トリガーを特定
 ```
 
-- 表示モード「イベント」のグラフの値と「件数順」は、従来どおり**影響ホスト数**です。1台のHostで大量に発生しているトリガーを見つけるには、並び順「イベント数順」（表示モード「イベント」でのみ表示）を使います。グラフの値（影響ホスト数）は変わらず、該当イベント数の多い順（同数は影響ホスト数の多い順、さらに名前順）に並びます。イベント数はツールチップの「該当イベント数」で確認できます。
-- 表示モード「ホスト」「ホストグループ」ではグラフの値がイベント数のため、「イベント数順」は「件数順」と同じ並びになります（ボタンは表示しません）。
+- 表示モード「イベント」の並び順は「影響ホスト数順」「イベント発生数順」「A-Z」「Z-A」です（既定は影響ホスト数順）。
+  - 影響ホスト数順: 影響ホスト数の多い順（従来の「件数順」と同じ並び）。
+  - イベント発生数順: 該当イベント数の多い順（同数は影響ホスト数の多い順、さらに名前順）。1台のHostで大量に発生しているトリガーを見つけるときに使います。
+  - どの並び順でも、グラフの棒の高さは**影響ホスト数**です（並び順だけが変わります）。イベント数はツールチップの「該当イベント数」で確認できます。
+- 表示モード「ホスト」「ホストグループ」の並び順は従来どおり「件数順」「A→Z」「Z→A」です（グラフの値がイベント数のため、イベント発生数順は件数順と同じ並びになり、ボタンは表示しません）。
+- 設定画面の「並び順」では「イベント発生数順」を選べます（表示モード「イベント」以外では件数順として動作します）。
 
 または「アイテムタイプ = SNMPトラップ」で、SNMPトラップ由来のイベントだけに絞り込めます。
 
@@ -195,11 +199,15 @@ Events can be filtered by the **value type** and **item type** of the items **di
 **Burst analysis example**
 
 ```text
-Value type = Log → Display mode "Host" (by count) to find the source host → Display mode "Event" (by event count) to find the trigger
+Value type = Log → Display mode "Host" (by count) to find the source host → Display mode "Event" (Event count) to find the trigger
 ```
 
-- In display mode "Event", the chart value and "By count" remain the **number of affected hosts**. To find a trigger that fires many events on a single host, use the sort order "By event count" (shown only in display mode "Event"). The chart value (affected hosts) does not change; rows are ordered by the number of matching events (ties by affected hosts, then by name). The event count is shown as "Events" in the tooltip.
-- In display modes "Host" and "Host group" the chart value already is the event count, so "By event count" gives the same order as "By count" (the button is not shown).
+- In display mode "Event", the sort orders are "Affected hosts", "Event count", "A-Z" and "Z-A" (default: Affected hosts).
+  - Affected hosts: by the number of affected hosts, descending (same order as the former "By count").
+  - Event count: by the number of matching events, descending (ties by affected hosts, then by name). Use it to find a trigger that fires many events on a single host.
+  - With every sort order the bar height is the **number of affected hosts**; only the order changes. The event count is shown as "Events" in the tooltip.
+- Display modes "Host" and "Host group" keep "By count", "A to Z" and "Z to A" (the chart value already is the event count, so "Event count" would give the same order as "By count"; the button is not shown).
+- The "Sort order" setting also offers "Event count" (it behaves as "By count" outside display mode "Event").
 
 Or use "Item type = SNMP trap" to narrow down to events from SNMP trap items.
 

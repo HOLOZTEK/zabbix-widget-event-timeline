@@ -331,8 +331,17 @@ msgstr "Sort order"
 msgid "By count"
 msgstr "By count"
 
-msgid "By event count"
-msgstr "By event count"
+msgid "Sort by affected hosts"
+msgstr "Affected hosts"
+
+msgid "Sort by event count"
+msgstr "Event count"
+
+msgid "A-Z"
+msgstr "A-Z"
+
+msgid "Z-A"
+msgstr "Z-A"
 
 msgid "A to Z"
 msgstr "A to Z"

@@ -187,7 +187,7 @@ class WidgetForm extends CWidgetForm {
 					DimensionAggregator::SORT_ASC => _et('A to Z'),
 					DimensionAggregator::SORT_DESC => _et('Z to A'),
 					// Event mode でのみ意味を持つ（Host / Host group では件数順と同じ並び）。
-					DimensionAggregator::SORT_EVENTS => _et('By event count')
+					DimensionAggregator::SORT_EVENTS => _et('Sort by event count')
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			// ページング（Host / Host group / Event の各モードで使う）。

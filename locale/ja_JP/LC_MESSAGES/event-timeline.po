@@ -331,8 +331,17 @@ msgstr "並び順"
 msgid "By count"
 msgstr "件数順"
 
-msgid "By event count"
-msgstr "イベント数順"
+msgid "Sort by affected hosts"
+msgstr "影響ホスト数順"
+
+msgid "Sort by event count"
+msgstr "イベント発生数順"
+
+msgid "A-Z"
+msgstr "A-Z"
+
+msgid "Z-A"
+msgstr "Z-A"
 
 msgid "A to Z"
 msgstr "A→Z"

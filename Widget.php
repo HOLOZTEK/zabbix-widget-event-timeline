@@ -67,8 +67,14 @@ class Widget extends CWidget {
 					=> _et('A to Z'),
 				'Z to A'
 					=> _et('Z to A'),
-				'By event count'
-					=> _et('By event count'),
+				'Sort by affected hosts'
+					=> _et('Sort by affected hosts'),
+				'Sort by event count'
+					=> _et('Sort by event count'),
+				'A-Z'
+					=> _et('A-Z'),
+				'Z-A'
+					=> _et('Z-A'),
 				'Affected hosts'
 					=> _et('Affected hosts'),
 				'No target host groups.'
