@@ -331,6 +331,9 @@ msgstr "Sort order"
 msgid "By count"
 msgstr "By count"
 
+msgid "By event count"
+msgstr "By event count"
+
 msgid "A to Z"
 msgstr "A to Z"
 

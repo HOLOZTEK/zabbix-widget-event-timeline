@@ -9,6 +9,7 @@ namespace Modules\EventTimeline\Includes;
  *   By Host       : Dimension=Host        Measure=Event数（Host内で1 eventid = 1件）
  *   By Host group : Dimension=Host group  Measure=Event数（Group内で1 eventid = 1件）
  *   By Event      : Dimension=Event名     Measure=影響Host数（Event名 × Host のユニーク数）
+ *                   行には該当Event数（event_count）も持たせる（並び替え SORT_EVENTS と Tooltip 用。Measure は変えない）
  *
  * 入力の $events は Filter（Severity / Ack）と期間判定を通過済みのEvent。
  * $event_hosts は eventid => Host ID[]（対象Host集合との交差済み）。
@@ -20,8 +21,11 @@ class DimensionAggregator {
 	public const SORT_COUNT = 0;
 	public const SORT_ASC   = 1;
 	public const SORT_DESC  = 2;
+	// イベント数順（v0.2.0 Phase 5 §50）: Event mode で、Measure（影響Host数）を変えずに該当Event数の降順へ並べる。
+	// event_count を持たない行（Host / Host group。Measure がEvent数）では件数順と同じ並びになる。
+	public const SORT_EVENTS = 3;
 
-	public const SORTS = [self::SORT_COUNT, self::SORT_ASC, self::SORT_DESC];
+	public const SORTS = [self::SORT_COUNT, self::SORT_ASC, self::SORT_DESC, self::SORT_EVENTS];
 
 	private static function emptyCounts(): array {
 		return array_fill(0, count(Aggregator::SEVERITIES), 0);
@@ -89,15 +93,18 @@ class DimensionAggregator {
 
 	/**
 	 * By Event: Event名ごとの影響Host数（Event名 × Host のユニーク数）。eventid 単位では数えない。
+	 * 該当Event数は event_count として別に返す（Measure の total は影響Host数のまま）。
 	 * 同じEvent名 × Hostに複数のSeverityがある場合は、現在のFilterを通ったEventのうち最も高いSeverityへ1回だけ割り当てる。
 	 *
 	 * @param array<string, string> $event_names  eventid => Event名
 	 */
 	public static function byEvent(array $events, array $event_hosts, array $event_names): array {
 		$best = [];
+		$seen_events = [];
 
 		foreach ($events as $e) {
 			$name = (string) ($event_names[$e['eventid']] ?? '');
+			$seen_events[$name][$e['eventid']] = true;
 
 			foreach (array_unique($event_hosts[$e['eventid']] ?? []) as $hostid) {
 				$severity = (int) $e['severity'];
@@ -112,7 +119,7 @@ class DimensionAggregator {
 
 		foreach ($best as $name => $hosts) {
 			$row = ['id' => (string) $name, 'label' => (string) $name, 'counts' => self::emptyCounts(), 'total' => 0,
-				'hostids' => array_keys($hosts)];
+				'event_count' => count($seen_events[$name] ?? []), 'hostids' => array_keys($hosts)];
 
 			foreach ($hosts as $severity) {
 				$row['counts'][$severity]++;
@@ -233,6 +240,7 @@ class DimensionAggregator {
 
 	/**
 	 * 並び替え。件数順=件数の降順（同数はA→Z）、A→Z / Z→A は大文字小文字を区別しない自然順。
+	 * イベント数順=該当Event数（event_count。無い行は total）の降順、同数は件数の降順、さらに同数はA→Z。
 	 */
 	public static function sort(array $rows, int $mode): array {
 		$natural = static fn(array $a, array $b): int => strnatcasecmp($a['label'], $b['label'])
@@ -245,6 +253,13 @@ class DimensionAggregator {
 
 			case self::SORT_DESC:
 				usort($rows, static fn(array $a, array $b): int => $natural($b, $a));
+				break;
+
+			case self::SORT_EVENTS:
+				usort($rows, static fn(array $a, array $b): int =>
+					($b['event_count'] ?? $b['total']) <=> ($a['event_count'] ?? $a['total'])
+						?: $b['total'] <=> $a['total'] ?: $natural($a, $b)
+				);
 				break;
 
 			default:

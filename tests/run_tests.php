@@ -424,6 +424,29 @@ check('sort count', array_column(D::sort($rows, D::SORT_COUNT), 'label'), ['a', 
 check('sort asc natural', array_column(D::sort($rows, D::SORT_ASC), 'label'), ['a', 'B2', 'b10']);
 check('sort desc', array_column(D::sort($rows, D::SORT_DESC), 'label'), ['b10', 'B2', 'a']);
 
+// Phase 5 §50 イベント数順: event_count 降順 → total（影響Host数）降順 → A→Z。Measure（total）は変えない。
+check('byEvent event_count (events, not hosts)', array_column($r_ev = D::byEvent(
+	[$ev('1', 2), $ev('2', 4), $ev('3', 2), $ev('4', 3), $ev('5', 3), $ev('6', 3)],
+	['1' => ['10'], '2' => ['10'], '3' => ['11'], '4' => ['10'], '5' => ['10'], '6' => ['10']],
+	['1' => 'CPU', '2' => 'CPU', '3' => 'CPU', '4' => 'Disk', '5' => 'Disk', '6' => 'Disk']
+), 'event_count', 'label'), ['CPU' => 3, 'Disk' => 3]);
+check('byEvent total stays affected hosts', array_column($r_ev, 'total', 'label'), ['CPU' => 2, 'Disk' => 1]);
+$rows = [
+	['label' => 'many hosts', 'total' => 5, 'event_count' => 5],
+	['label' => 'burst', 'total' => 1, 'event_count' => 40],
+	['label' => 'b tie', 'total' => 2, 'event_count' => 7],
+	['label' => 'a tie', 'total' => 2, 'event_count' => 7],
+	['label' => 'c tie more hosts', 'total' => 3, 'event_count' => 7]
+];
+check('sort events: event_count desc, total desc, A-Z', array_column(D::sort($rows, D::SORT_EVENTS), 'label'),
+	['burst', 'c tie more hosts', 'a tie', 'b tie', 'many hosts']);
+check('sort count unchanged (affected hosts)', array_column(D::sort($rows, D::SORT_COUNT), 'label'),
+	['many hosts', 'c tie more hosts', 'a tie', 'b tie', 'burst']);
+check('sort events without event_count = sort count', array_column(D::sort(
+	[['label' => 'b', 'total' => 1], ['label' => 'a', 'total' => 1], ['label' => 'c', 'total' => 9]], D::SORT_EVENTS
+), 'label'), ['c', 'a', 'b']);
+check('SORTS contains SORT_EVENTS', in_array(D::SORT_EVENTS, D::SORTS, true), true);
+
 // Paging
 $many = array_map(static fn(int $i): array => ['label' => "h$i", 'total' => $i], range(1, 25));
 $p = D::paginate($many, 10, 2);

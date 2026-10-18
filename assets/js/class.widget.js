@@ -911,12 +911,20 @@ class CWidgetEventTimeline extends CWidget {
 		return group;
 	}
 
-	// 並び順（次元モードのみ）: 件数順 / A→Z / Z→A。
+	// 並び順（次元モードのみ）: 件数順 / A→Z / Z→A、Event mode ではイベント数順も（Phase 5 §50）。
+	// Host / Host group ではイベント数順は件数順と同じ並びのため、ボタンを出さず件数順を選択中として表示する。
 	#buildSortGroup() {
 		const group = this.#buildGroup(t('Sort order'));
+		const by_event = this.#runtime.mode === CWidgetEventTimeline.MODE_EVENT;
+		const current = !by_event && this.#runtime.sort === 3 ? 0 : this.#runtime.sort;
+		const choices = [[0, t('By count')], [1, t('A to Z')], [2, t('Z to A')]];
 
-		for (const [sort, label] of [[0, t('By count')], [1, t('A to Z')], [2, t('Z to A')]]) {
-			this.#buildChoice(group, label, this.#runtime.sort === sort, '', () => {
+		if (by_event) {
+			choices.push([3, t('By event count')]);
+		}
+
+		for (const [sort, label] of choices) {
+			this.#buildChoice(group, label, current === sort, '', () => {
 				this.#runtime.sort = sort;
 				this.#applyRuntimeChange();
 			});

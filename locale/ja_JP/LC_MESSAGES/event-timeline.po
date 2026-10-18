@@ -331,6 +331,9 @@ msgstr "並び順"
 msgid "By count"
 msgstr "件数順"
 
+msgid "By event count"
+msgstr "イベント数順"
+
 msgid "A to Z"
 msgstr "A→Z"
 

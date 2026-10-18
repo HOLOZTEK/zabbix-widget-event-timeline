@@ -150,8 +150,11 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 **大量イベントの発生源の絞り込み（例）**
 
 ```text
-値の型 = ログ → 表示モード「ホスト」（件数順）で発生元Hostを特定 → 表示モード「イベント」（件数順）で原因トリガーを特定
+値の型 = ログ → 表示モード「ホスト」（件数順）で発生元Hostを特定 → 表示モード「イベント」（イベント数順）で原因トリガーを特定
 ```
+
+- 表示モード「イベント」のグラフの値と「件数順」は、従来どおり**影響ホスト数**です。1台のHostで大量に発生しているトリガーを見つけるには、並び順「イベント数順」（表示モード「イベント」でのみ表示）を使います。グラフの値（影響ホスト数）は変わらず、該当イベント数の多い順（同数は影響ホスト数の多い順、さらに名前順）に並びます。イベント数はツールチップの「該当イベント数」で確認できます。
+- 表示モード「ホスト」「ホストグループ」ではグラフの値がイベント数のため、「イベント数順」は「件数順」と同じ並びになります（ボタンは表示しません）。
 
 または「アイテムタイプ = SNMPトラップ」で、SNMPトラップ由来のイベントだけに絞り込めます。
 
@@ -192,8 +195,11 @@ Events can be filtered by the **value type** and **item type** of the items **di
 **Burst analysis example**
 
 ```text
-Value type = Log → Display mode "Host" (by count) to find the source host → Display mode "Event" (by count) to find the trigger
+Value type = Log → Display mode "Host" (by count) to find the source host → Display mode "Event" (by event count) to find the trigger
 ```
+
+- In display mode "Event", the chart value and "By count" remain the **number of affected hosts**. To find a trigger that fires many events on a single host, use the sort order "By event count" (shown only in display mode "Event"). The chart value (affected hosts) does not change; rows are ordered by the number of matching events (ties by affected hosts, then by name). The event count is shown as "Events" in the tooltip.
+- In display modes "Host" and "Host group" the chart value already is the event count, so "By event count" gives the same order as "By count" (the button is not shown).
 
 Or use "Item type = SNMP trap" to narrow down to events from SNMP trap items.
 

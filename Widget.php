@@ -67,6 +67,8 @@ class Widget extends CWidget {
 					=> _et('A to Z'),
 				'Z to A'
 					=> _et('Z to A'),
+				'By event count'
+					=> _et('By event count'),
 				'Affected hosts'
 					=> _et('Affected hosts'),
 				'No target host groups.'

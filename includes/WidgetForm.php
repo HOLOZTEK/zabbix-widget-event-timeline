@@ -185,7 +185,9 @@ class WidgetForm extends CWidgetForm {
 				(new CWidgetFieldSelect('sort_order', _et('Sort order'), [
 					DimensionAggregator::SORT_COUNT => _et('By count'),
 					DimensionAggregator::SORT_ASC => _et('A to Z'),
-					DimensionAggregator::SORT_DESC => _et('Z to A')
+					DimensionAggregator::SORT_DESC => _et('Z to A'),
+					// Event mode でのみ意味を持つ（Host / Host group では件数順と同じ並び）。
+					DimensionAggregator::SORT_EVENTS => _et('By event count')
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			// ページング（Host / Host group / Event の各モードで使う）。
@@ -218,7 +220,7 @@ class WidgetForm extends CWidgetForm {
 			->addField(
 				(new CWidgetFieldSelect('rt_sort', '', [
 					DimensionAggregator::SORT_COUNT => '', DimensionAggregator::SORT_ASC => '',
-					DimensionAggregator::SORT_DESC => ''
+					DimensionAggregator::SORT_DESC => '', DimensionAggregator::SORT_EVENTS => ''
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			->addField((new CWidgetFieldIntegerBox('rt_page', '', 1, 1000000))->setDefault(1))
