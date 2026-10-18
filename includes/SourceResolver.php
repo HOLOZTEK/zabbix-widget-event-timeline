@@ -75,11 +75,10 @@ class SourceResolver {
 					return ['selected' => true, 'selectors' => [], 'error' => $error, 'partial' => false];
 				}
 
-				$triggerids = array_values(array_unique(self::normalize($expansion['triggerids'] ?? [])));
-				sort($triggerids, SORT_NUMERIC);
+				$triggerids = self::normalize($expansion['triggerids'] ?? []);
 
 				return ['selected' => true,
-					'selectors' => $triggerids ? [['objectids' => array_map('strval', $triggerids)]] : [],
+					'selectors' => $triggerids ? [['objectids' => $triggerids]] : [],
 					'error' => null,
 					'partial' => ($expansion['indeterminate'] ?? 0) > 0
 				];
@@ -90,10 +89,10 @@ class SourceResolver {
 	}
 
 	/**
-	 * @param int[] $hostids   直接指定されたHost ID
-	 * @param int[] $groupids  指定されたHost group ID（サブグループを含めて展開する）
+	 * @param string[] $hostids   直接指定されたHost ID
+	 * @param string[] $groupids  指定されたHost group ID（サブグループを含めて展開する）
 	 *
-	 * @return int[]  重複のないHost ID（昇順）。閲覧権限のないHostは含まれない。
+	 * @return string[]  重複のないHost ID（10進文字列・昇順）。閲覧権限のないHostは含まれない。
 	 */
 	public static function resolve(array $hostids, array $groupids): array {
 		$from_hosts = [];
@@ -133,24 +132,16 @@ class SourceResolver {
 	}
 
 	/**
-	 * 複数のHost ID配列を統合し、重複を除いた昇順の整数配列にする。
+	 * 複数のHost ID配列を統合し、重複を除いた昇順の ID 配列（10進文字列。issue #34）にする。
 	 */
 	public static function mergeUnique(array ...$lists): array {
-		$merged = [];
-
-		foreach ($lists as $list) {
-			foreach ($list as $id) {
-				$merged[(int) $id] = true;
-			}
-		}
-
-		$ids = array_keys($merged);
-		sort($ids, SORT_NUMERIC);
-
-		return $ids;
+		return Ids::unique(array_merge(...$lists));
 	}
 
+	/**
+	 * @return string[]  正の ID だけ（10進文字列・重複なし・昇順）
+	 */
 	private static function normalize(array $ids): array {
-		return array_values(array_filter(array_map('intval', $ids), static fn(int $id): bool => $id > 0));
+		return Ids::unique($ids);
 	}
 }

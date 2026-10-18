@@ -30,7 +30,7 @@ class EventFetcher {
 	}
 
 	/**
-	 * @param int[]   $hostids    resolved host IDs（Source resolution の結果）
+	 * @param string[] $hostids    resolved host IDs（Source resolution の結果）
 	 * @param int     $time_from  期間開始（UNIX時刻、含む）
 	 * @param int     $time_till  期間終了（UNIX時刻、含む）
 	 * @param int[]   $severities API側でも絞り込むSeverity（全Severityなら絞り込まない）
@@ -206,7 +206,8 @@ class EventFetcher {
 
 			// 次ページ: 直前ページの最小 eventid より小さいものだけを取得する。
 			$last = end($page);
-			$till_eventid = (string) ((int) $last['eventid'] - 1);
+			// eventid は PHP の int に収まらないことがあるため、文字列のまま 1 を引く（issue #34）。
+			$till_eventid = Ids::decrement(Ids::ref($last['eventid']));
 		}
 
 		return [
@@ -292,7 +293,7 @@ class EventFetcher {
 	 * $target_hostids が null のときは関連Hostをすべて返し、指定時は対象Host集合との交差だけを返す。
 	 *
 	 * @param string[]      $eventids
-	 * @param int[]|null    $target_hostids
+	 * @param string[]|null $target_hostids
 	 *
 	 * @return array<string, array{name: string, triggerid: string, hosts: array<int, array{id: string, name: string}>,
 	 *         end: ?int}>|null  失敗時は null
@@ -354,7 +355,7 @@ class EventFetcher {
 	 * ためのもので、追加のAPI呼び出しは発生しない（event.get の output に objectid を足すだけ）。
 	 *
 	 * @param string[] $eventids
-	 * @param int[]    $target_hostids
+	 * @param string[] $target_hostids
 	 *
 	 * @return array{names: array<string, string>, hosts: array<string, string[]>, host_names: array<string, string>,
 	 *         triggers: array<string, string>}|null
@@ -445,9 +446,9 @@ class EventFetcher {
 	 * TriggerPrototypeResolver 用: Trigger prototype の継承情報（templateid / flags）と表示名（description。{#MACRO} は
 	 * 未解決のまま）。Host 上の prototype も Template 上の prototype も対象にする。閲覧権限のない prototype は返らない。
 	 *
-	 * @param int[] $prototypeids
+	 * @param string[] $prototypeids
 	 *
-	 * @return array<int, array{templateid: int, flags: int, description: string}>|null  API失敗時は null
+	 * @return array<string, array{templateid: string, flags: int, description: string}>|null  API失敗時は null
 	 */
 	public static function fetchPrototypeInheritance(array $prototypeids): ?array {
 		$result = [];
@@ -464,8 +465,8 @@ class EventFetcher {
 			}
 
 			foreach ($rows as $row) {
-				$result[(int) $row['triggerid']] = [
-					'templateid' => (int) $row['templateid'],
+				$result[(string) $row['triggerid']] = [
+					'templateid' => Ids::ref($row['templateid']),
 					'flags' => (int) $row['flags'],
 					'description' => (string) $row['description']
 				];
@@ -479,12 +480,12 @@ class EventFetcher {
 	 * TriggerSelectionResolver 用: Triggerの継承情報（templateid / flags）。Host上のTriggerもテンプレート上の
 	 * Triggerも対象にする（trigger.get は templated 未指定で両方を返す）。閲覧権限のないTriggerは返らない。
 	 *
-	 * @param int[] $triggerids
+	 * @param string[] $triggerids
 	 *
 	 * Phase 4: LLD（Discovery）由来の Trigger は生成元 Trigger prototype（triggerDiscovery.parent_triggerid）も同じ呼び出しで
 	 * 取得し、prototypeid として返す（Source の Discovered Trigger → prototype の解決に追加の呼び出しをしない）。
 	 *
-	 * @return array<int, array{templateid: int, flags: int, prototypeid: int}>|null  API失敗時は null
+	 * @return array<string, array{templateid: string, flags: int, prototypeid: string}>|null  API失敗時は null
 	 */
 	public static function fetchTriggerInheritance(array $triggerids): ?array {
 		$result = [];
@@ -502,7 +503,7 @@ class EventFetcher {
 			}
 
 			foreach ($rows as $row) {
-				$result[(int) $row['triggerid']] = self::inheritanceRow($row);
+				$result[(string) $row['triggerid']] = self::inheritanceRow($row);
 			}
 		}
 
@@ -510,19 +511,20 @@ class EventFetcher {
 	}
 
 	/**
-	 * trigger.get の1行を継承情報の行へ変換する（prototypeid は triggerDiscovery を取得したときだけ。無ければ 0）。
+	 * trigger.get の1行を継承情報の行へ変換する（prototypeid は triggerDiscovery を取得したときだけ。無ければ '0'）。
+	 * ID は10進文字列のまま保つ（issue #34）。flags は列挙値なので int。
 	 */
 	private static function inheritanceRow(array $row): array {
 		$result = [
-			'templateid' => (int) $row['templateid'],
+			'templateid' => Ids::ref($row['templateid']),
 			'flags' => (int) $row['flags']
 		];
 
 		if (array_key_exists('triggerDiscovery', $row)) {
 			$discovery = $row['triggerDiscovery'];
 			$result['prototypeid'] = is_array($discovery) && isset($discovery['parent_triggerid'])
-				? (int) $discovery['parent_triggerid']
-				: 0;
+				? Ids::ref($discovery['parent_triggerid'])
+				: '0';
 		}
 
 		return $result;
@@ -540,11 +542,12 @@ class EventFetcher {
 	 * Phase 5: $with_functions のとき（Item characteristics filter が有効なとき）は、Trigger が直接参照する Item
 	 * （functions の itemid）も同じ呼び出しで取得し itemids として返す。
 	 *
-	 * @param int[] $hostids
+	 * @param string[] $hostids
 	 * @param bool  $with_prototype
 	 * @param bool  $with_functions
 	 *
-	 * @return array<int, array{templateid: int, flags: int, prototypeid?: int, itemids?: int[]}>|null  API失敗時は null
+	 * @return array<string, array{templateid: string, flags: int, prototypeid?: string, itemids?: string[]}>|null
+	 *         API失敗時は null
 	 */
 	public static function fetchHostTriggers(array $hostids, bool $with_prototype = false,
 			bool $with_functions = false): ?array {
@@ -572,10 +575,10 @@ class EventFetcher {
 			}
 
 			foreach ($rows as $row) {
-				$result[(int) $row['triggerid']] = self::inheritanceRow($row);
+				$result[(string) $row['triggerid']] = self::inheritanceRow($row);
 
 				if ($with_functions) {
-					$result[(int) $row['triggerid']]['itemids'] = self::functionItemids($row);
+					$result[(string) $row['triggerid']]['itemids'] = self::functionItemids($row);
 				}
 			}
 		}
@@ -588,9 +591,9 @@ class EventFetcher {
 	 * Trigger → Item の構造情報。式の文字列解析はしない）。Trigger をまとめて取得する（Trigger 1件ごとの呼び出しはしない）。
 	 * 閲覧権限のない Trigger は返らない。
 	 *
-	 * @param int[] $triggerids
+	 * @param string[] $triggerids
 	 *
-	 * @return array<int, int[]>|null  triggerid => itemid[]。API失敗時は null
+	 * @return array<string, string[]>|null  triggerid => itemid[]。API失敗時は null
 	 */
 	public static function fetchTriggerItems(array $triggerids): ?array {
 		$result = [];
@@ -608,7 +611,7 @@ class EventFetcher {
 			}
 
 			foreach ($rows as $row) {
-				$result[(int) $row['triggerid']] = self::functionItemids($row);
+				$result[(string) $row['triggerid']] = self::functionItemids($row);
 			}
 		}
 
@@ -620,14 +623,11 @@ class EventFetcher {
 
 		foreach ($row['functions'] ?? [] as $function) {
 			if (isset($function['itemid'])) {
-				$ids[(int) $function['itemid']] = true;
+				$ids[] = $function['itemid'];
 			}
 		}
 
-		$ids = array_keys($ids);
-		sort($ids, SORT_NUMERIC);
-
-		return $ids;
+		return Ids::unique($ids);
 	}
 
 	/**
@@ -635,9 +635,9 @@ class EventFetcher {
 	 * Item の status（Disabled 等）では絞り込まない。Web monitoring の Item も対象にする。
 	 * Item をまとめて取得する（Item 1件ごとの呼び出しはしない）。閲覧できない・存在しない Item は返らない。
 	 *
-	 * @param int[] $itemids
+	 * @param string[] $itemids
 	 *
-	 * @return array<int, array{type: int, value_type: int, name: string, key: string, hostid: string,
+	 * @return array<string, array{type: int, value_type: int, name: string, key: string, hostid: string,
 	 *         host: string}>|null  API失敗時は null
 	 */
 	public static function fetchItemMetadata(array $itemids): ?array {
@@ -658,7 +658,7 @@ class EventFetcher {
 
 			foreach ($rows as $row) {
 				$host = $row['hosts'][0] ?? null;
-				$result[(int) $row['itemid']] = [
+				$result[(string) $row['itemid']] = [
 					'type' => (int) $row['type'],
 					'value_type' => (int) $row['value_type'],
 					'name' => (string) (($row['name_resolved'] ?? '') !== '' ? $row['name_resolved'] : $row['name']),

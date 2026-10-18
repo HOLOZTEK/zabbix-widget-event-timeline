@@ -48,6 +48,7 @@ install -D -m 644 ${SRCDIR}/includes/CWidgetFieldWeekStartView.php ${STAGEDIR}/i
 install -D -m 644 ${SRCDIR}/includes/DetailSelector.php ${STAGEDIR}/includes/DetailSelector.php
 install -D -m 644 ${SRCDIR}/includes/EventFetcher.php ${STAGEDIR}/includes/EventFetcher.php
 install -D -m 644 ${SRCDIR}/includes/helpers.php ${STAGEDIR}/includes/helpers.php
+install -D -m 644 ${SRCDIR}/includes/Ids.php ${STAGEDIR}/includes/Ids.php
 install -D -m 644 ${SRCDIR}/includes/SourceResolver.php ${STAGEDIR}/includes/SourceResolver.php
 install -D -m 644 ${SRCDIR}/includes/TimeFormatter.php ${STAGEDIR}/includes/TimeFormatter.php
 install -D -m 644 ${SRCDIR}/includes/TriggerInheritanceCache.php ${STAGEDIR}/includes/TriggerInheritanceCache.php

@@ -97,8 +97,8 @@ class Aggregator {
 	 */
 	public static function pickDetails(array $events, array $bounds, int $limit, bool $continuous = false,
 			int $now = 0): array {
-		usort($events, static fn(array $a, array $b): int => [(int) $a['clock'], (int) $a['eventid']]
-			<=> [(int) $b['clock'], (int) $b['eventid']]);
+		usort($events, static fn(array $a, array $b): int => (int) $a['clock'] <=> (int) $b['clock']
+			?: Ids::compare(Ids::ref($a['eventid']), Ids::ref($b['eventid'])));
 
 		$picked = [];
 

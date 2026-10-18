@@ -46,7 +46,7 @@ class TriggerSelection {
 	/**
 	 * @param mixed $raw  triggerids フィールドの生値。通常は配列（空配列、またはID文字列の配列）。
 	 *
-	 * @return array{trigger_filter: string, triggerids: int[]}
+	 * @return array{trigger_filter: string, triggerids: string[]}  triggerids は正規化した10進文字列（Ids）
 	 */
 	public static function resolve($raw): array {
 		if ($raw === null || $raw === []) {
@@ -72,8 +72,7 @@ class TriggerSelection {
 			$triggerids[$normalized] = true;
 		}
 
-		$ids = array_keys($triggerids);
-		sort($ids, SORT_NUMERIC);
+		$ids = Ids::keys($triggerids);
 
 		if (!$ids) {
 			// 配列ではあるが要素が無かった（空配列は is_array チェックより前の `$raw === []` で
@@ -85,20 +84,10 @@ class TriggerSelection {
 	}
 
 	/**
-	 * Trigger ID 1件を正規表現。整数（>0）または数字のみの文字列（>0）であれば int を返す。
-	 * それ以外（負数・0・小数・非数値文字列・null・配列等）は null を返す。
+	 * Trigger ID 1件を正規化する。整数（>0）または数字のみの文字列（>0）であれば、先頭ゼロを除いた文字列を返す
+	 * （PHP の int へは変換しない。issue #34）。それ以外（負数・0・小数・非数値文字列・null・配列等）は null を返す。
 	 */
-	private static function normalizeId($id): ?int {
-		if (is_int($id)) {
-			return $id > 0 ? $id : null;
-		}
-
-		if (is_string($id) && $id !== '' && ctype_digit($id)) {
-			$int = (int) $id;
-
-			return $int > 0 ? $int : null;
-		}
-
-		return null;
+	private static function normalizeId($id): ?string {
+		return Ids::normalize($id);
 	}
 }

@@ -35,10 +35,10 @@ class TriggerPrototypeScopeExpander {
 
 	/**
 	 * @param array    $resolution          TriggerPrototypeResolver::resolve() の結果（filterError() が null のもの）
-	 * @param int[]    $target_hostids      Host Scope
-	 * @param callable $fetch_host_triggers function(int[] $hostids): ?array
+	 * @param string[] $target_hostids      Host Scope
+	 * @param callable $fetch_host_triggers function(string[] $hostids): ?array
 	 *                                      対象Host上の閲覧可能な Trigger を
-	 *                                      triggerid => ['templateid' => int, 'flags' => int, 'prototypeid' => int] で返す
+	 *                                      triggerid => ['templateid' => string, 'flags' => int, 'prototypeid' => string] で返す
 	 *                                      （prototypeid は Discovered Trigger の生成元 prototype。無ければ 0）。失敗時は null。
 	 * @param TriggerInheritanceCache $cache prototype 用の継承情報キャッシュ（通常 Trigger 用とは別インスタンス）
 	 *
@@ -57,7 +57,7 @@ class TriggerPrototypeScopeExpander {
 		$template_canonical = false;
 
 		foreach ($resolution['canonical'] as $row) {
-			$canonical[(int) $row['canonical_prototypeid']] = true;
+			$canonical[Ids::ref($row['canonical_prototypeid'])] = true;
 			$template_canonical = $template_canonical || $row['type'] === TriggerPrototypeResolver::TYPE_TEMPLATE;
 		}
 
@@ -85,7 +85,11 @@ class TriggerPrototypeScopeExpander {
 
 		foreach ($host_triggers as $triggerid => $row) {
 			if ((int) ($row['flags'] ?? 0) === TriggerSelectionResolver::FLAG_DISCOVERY_CREATED) {
-				$discovered[(int) $triggerid] = (int) ($row['prototypeid'] ?? 0);
+				$triggerid = Ids::normalize((string) $triggerid);
+
+				if ($triggerid !== null) {
+					$discovered[$triggerid] = Ids::ref($row['prototypeid'] ?? '0');
+				}
 			}
 		}
 
@@ -108,7 +112,7 @@ class TriggerPrototypeScopeExpander {
 		$indeterminate = [];
 
 		foreach ($discovered as $triggerid => $prototypeid) {
-			$entry = $prototypeid > 0 ? ($host_prototypes[$prototypeid] ?? null) : null;
+			$entry = $prototypeid !== '0' ? ($host_prototypes[$prototypeid] ?? null) : null;
 
 			if ($entry === null || $entry['status'] !== TriggerPrototypeResolver::STATUS_RESOLVED) {
 				if ($entry !== null && $entry['reason'] === TriggerPrototypeResolver::REASON_PARENT_UNAVAILABLE
@@ -136,9 +140,6 @@ class TriggerPrototypeScopeExpander {
 	}
 
 	private static function sortedKeys(array $set): array {
-		$ids = array_map('intval', array_keys($set));
-		sort($ids, SORT_NUMERIC);
-
-		return $ids;
+		return Ids::keys($set);
 	}
 }
