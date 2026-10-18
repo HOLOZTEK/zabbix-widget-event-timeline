@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.4
+Version:        0.2.5
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -101,6 +101,14 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sun Oct 18 2026 claude <noreply> - 0.2.5-0
+- LLD / トリガープロトタイプ（Phase 4）: Discovered トリガーをプロトタイプ（parent_triggerid）から
+  Template 継承元の最上位プロトタイプへ正規化し、対象Host上の同じプロトタイプ由来のトリガーへ展開する。
+  正規化できないものは分離して部分結果の警告を表示する。
+- Item 特性フィルタ（Phase 5）: Item の値の型・アイテムタイプで Event を絞り込む。
+- Event View の並び順を 影響ホスト数順（既定）/ イベント発生数順 / A-Z / Z-A に変更。
+  棒の高さは影響ホスト数のまま。Host / Host group 表示の並び順は従来どおり。
+
 * Sat Oct 17 2026 claude <noreply> - 0.2.4-0
 - トリガーの対象Host展開（Phase 3）: 選択されたトリガーを正規化した最上位の定義を、
   Event Timeline の対象Host（固定Host / Host group / 受信Host）へ展開し、対象Host上の
