@@ -283,11 +283,7 @@ msgstr "フィルタの初期状態"
 msgid "Target"
 msgstr "対象"
 
-msgid "Initial display state"
-msgstr "表示の初期状態"
 
-msgid "Data retrieval"
-msgstr "データ取得"
 
 msgid "Display mode"
 msgstr "表示モード"
@@ -346,8 +342,6 @@ msgstr "対象: %1$s件（%2$s–%3$s件を表示）"
 msgid "Page %1$s / %2$s"
 msgstr "%1$s / %2$sページ"
 
-msgid "Paging"
-msgstr "ページング"
 
 msgid "Chart items per page"
 msgstr "グラフの1ページ表示件数"
@@ -605,3 +599,18 @@ msgstr "表示名"
 
 msgid "When both value type and item type are set, the same item must match both."
 msgstr "値の型とアイテムタイプを両方指定した場合は、同じアイテムが両方に一致する必要があります。"
+
+msgid "Targets"
+msgstr "対象"
+
+msgid "Display"
+msgstr "表示"
+
+msgid "Filters"
+msgstr "フィルター"
+
+msgid "Data"
+msgstr "データ"
+
+msgid "This tab contains errors."
+msgstr "このタブにエラーがあります。"

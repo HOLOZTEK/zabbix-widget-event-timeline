@@ -257,6 +257,40 @@ Only the presentation and tooltips are improved; fetching and aggregation are un
   - Narrowed by severity, ack status, value type, item type or trigger selection: "No events match the current conditions", "Change the filters or display conditions." and the active conditions, plus a hint to use "Reset conditions" when the state differs from the configuration.
   - Fetch errors and unresolvable trigger selections keep the existing error / warning display and are never shown as a normal empty result. An empty result with a warning (e.g. the fetch limit) keeps the warning and shows the empty state.
 
+## 設定画面（タブ構成）
+
+設定画面は5つのタブで構成します。タイプ・名前・リフレッシュ間隔・ヘッダーを表示は Zabbix 標準 Widget と同じくタブの外に表示します。
+
+| タブ | 設定項目（表示順） |
+|---|---|
+| 対象 | ホスト、ホストグループ、トリガー |
+| 表示 | 表示モード、イベント表示、並び順、集計方法、（区切り）グラフの1ページ表示件数、自動ページ送り、詳細一覧の1ページ表示件数 |
+| フィルター | 深刻度、確認状態、値の型、アイテムタイプ |
+| データ | イベント取得上限数、期間、週の開始曜日 |
+| 外観 | グラフの高さ、Y軸最小値、X軸ラベル、（区切り）線の色、文字の色 |
+
+- 設定画面を開くと常に「対象」タブから表示します。タブを切り替えても、適用前の入力値は保持されます。
+- 固定指定と Widget 参照（ホスト・ホストグループ・トリガー）の動作、設定項目名、保存形式、表示画面の動作は変わりません。
+- 適用時のエラーは Zabbix 標準どおり設定画面上部に表示します。加えて、エラーのある項目を含むタブにエラー色の印（●）を付け、フォーム順で最初のエラーのタブを開いてその入力欄へフォーカスします。再度適用すると印は付け直されます。タブ外の項目のエラーなど所属タブを特定できない場合は、タブの切替も印付けも行いません。
+- 補足（Zabbix 標準の動作）: 「追加」ダイアログでタイプを切り替えると、Zabbix は同じ名前の設定項目の値を引き継ぎます。そのため直前のタイプに同名の項目（例: `max_events`）がある場合、範囲外の値が入って適用時にエラーになることがあります。この場合は該当タブ（例: データ）へ誘導されるので、値を直して適用してください。
+
+### Configuration form (tabs)
+
+The configuration form has five tabs. Type, Name, Refresh interval and Show header stay outside the tabs, as in the standard Zabbix widgets.
+
+| Tab | Fields (in order) |
+|---|---|
+| Targets | Hosts, Host groups, Triggers |
+| Display | Display mode, Event grouping, Sort order, Aggregation method, (separator) Chart items per page, Auto paging, Detail items per page |
+| Filters | Severity, Acknowledgement, Value type, Item type |
+| Data | Maximum events to retrieve, Time period, First day of week |
+| Appearance | Graph height, Y-axis minimum, X-axis labels, (separator) Line color, Text color |
+
+- The form always opens on the Targets tab. Unsaved values are kept when switching tabs.
+- Fixed selection and widget references (hosts, host groups, triggers), field names, the saved format and the runtime behavior are unchanged.
+- Validation errors are shown at the top of the form as in standard Zabbix. In addition, every tab that contains an invalid field gets a mark (●) in the Zabbix error color, the tab of the first invalid field (in form order) is opened and the field is focused. The marks are recalculated on every Apply. When the tab cannot be determined (e.g. an error in a field outside the tabs), no tab is switched or marked.
+- Note (standard Zabbix behavior): when the type is changed in the "Add widget" dialog, Zabbix carries over values of fields with the same name. If the previous type has a field with the same name (e.g. `max_events`), an out-of-range value may be carried over and rejected on Apply; the form then guides you to the relevant tab (e.g. Data) so you can correct it.
+
 ## トリガー連携の権限
 
 Event TimelineでTemplate由来のトリガーを使用する場合、ログインユーザーには、そのトリガーの継承元Template（継承チェーン上のすべてのTemplate）を参照できる権限が必要です。これは不具合の回避策ではなく製品仕様です。Event TimelineはZabbixの権限を迂回してTemplateを参照することはありません。

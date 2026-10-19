@@ -543,3 +543,34 @@
 .et-detail-key {
 	font-family: monospace;
 }
+
+/*
+ * 設定画面のタブ（対象 / 表示 / フィルター / データ / 外観）。外枠は Zabbix 標準の円グラフ設定と同じく
+ * フォームの2列を横断させる。タブの見た目自体は Zabbix 標準（jQuery UI tabs）のまま。
+ */
+form.dashboard-widget-event-timeline .et-config-tabs {
+	grid-column: 1 / -1;
+	min-width: 0;
+}
+
+form.dashboard-widget-event-timeline .et-config-tabs > .ui-tabs-nav {
+	white-space: nowrap;
+}
+
+form.dashboard-widget-event-timeline .et-config-tabs > div[id] {
+	min-width: 0;
+	overflow-x: auto;
+}
+
+/* ページング相当の設定・色設定の前の軽い区切り（Accordion や見出しは使わない）。 */
+form.dashboard-widget-event-timeline .et-form-separator {
+	grid-column: 1 / -1;
+	border-top: 1px solid rgba(128, 128, 128, 0.35);
+}
+
+/* エラーを含むタブの小さな印。色は Zabbix の .red（テーマごとのエラー色）。 */
+.et-tab-error-mark {
+	margin-left: 5px;
+	font-size: 9px;
+	vertical-align: middle;
+}

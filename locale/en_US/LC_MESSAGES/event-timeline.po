@@ -283,11 +283,7 @@ msgstr "Initial filter state"
 msgid "Target"
 msgstr "Target"
 
-msgid "Initial display state"
-msgstr "Initial display state"
 
-msgid "Data retrieval"
-msgstr "Data retrieval"
 
 msgid "Display mode"
 msgstr "Display mode"
@@ -346,8 +342,6 @@ msgstr "Targets: %1$s (showing %2$s–%3$s)"
 msgid "Page %1$s / %2$s"
 msgstr "Page %1$s / %2$s"
 
-msgid "Paging"
-msgstr "Paging"
 
 msgid "Chart items per page"
 msgstr "Chart items per page"
@@ -605,3 +599,18 @@ msgstr "Visible name"
 
 msgid "When both value type and item type are set, the same item must match both."
 msgstr "When both value type and item type are set, the same item must match both."
+
+msgid "Targets"
+msgstr "Targets"
+
+msgid "Display"
+msgstr "Display"
+
+msgid "Filters"
+msgstr "Filters"
+
+msgid "Data"
+msgstr "Data"
+
+msgid "This tab contains errors."
+msgstr "This tab contains errors."
