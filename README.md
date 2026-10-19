@@ -2,6 +2,8 @@
 
 固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
 
+> **v0.2.7**: 表示の改善（UI Polish: 型の表示順・ツールバーとグラフのツールチップ・0件表示）を行いました。
+>
 > **v0.2.6**: 第1〜第5フェーズの機能（Source連携・トリガーの対象Host展開・LLD対応・アイテム条件フィルタ・Host / Host group / Event ビュー・Drilldown）を統合し、第6フェーズで統合試験と最終品質確認を行いました（Feature Freeze）。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Metric Navigator 連携）で指定できます。
 
 ## 機能
@@ -21,7 +23,7 @@
 - **取得上限**: 設定画面で変更可能（既定100,000件）。上限に達した場合はグラフ上部に警告を表示し、集計対象外となる期間を明示
 - **外観設定**: グラフ高さ、Y軸最小値（軸の最大値の最低保証。0/空=自動、データがそれを超えれば自動拡張。軸下端は常に0）、線の色・文字色（「自動」= Zabbixテーマ追従。カスタムはカラーピッカーまたは #RRGGBB 入力。「デフォルトを使用」で自動へ戻す。Light/Dark対応）
 - **X軸**: 目盛りは最小単位のみ表示し、月日・年は軸下部の期間線（日付/年の切れ目で分割）で表示
-- **空状態 / エラー表示**: 「No events」・対象Hostなし・取得失敗
+- **空状態 / エラー表示**: 0件でもグラフ（軸・Grid）とフッターを残し、中央に状態を表示（下記「UI Polish」）。対象Hostなし・取得失敗は従来どおり
 - 日本語 / English ロケール対応
 
 ## 第2フェーズの機能
@@ -220,6 +222,40 @@ Or use "Item type = SNMP trap" to narrow down to events from SNMP trap items.
 **Out of scope / known behavior**
 
 - Triggers and items from nested LLD in Zabbix 8.0 (prototypes created by discovery) are **not verified**.
+
+## UI Polish（v1.0.0 前の表示改善）
+
+集計・取得の仕様は変えず、表示とツールチップだけを改善しています（追加の event.get なし）。
+
+- **値の型の表示順**（実行時フィルター・設定画面とも）: すべて、数値 (浮動小数)、数値 (整数)、文字列、テキスト、ログ、バイナリ、（Zabbix 8.0）JSON。表示名は Zabbix 本体の翻訳です。
+- **アイテムタイプの表示順**（見出し・区切りなし、そのバージョンに存在するものだけ）: Zabbixエージェント、Zabbixエージェント(アクティブ)、SNMPエージェント、SNMPトラップ、Zabbixトラッパー、Zabbixインターナル、シンプルチェック、外部チェック、データベースモニタ、HTTPエージェント、IPMIエージェント、SSHエージェント、TELNETエージェント、JMXエージェント、Web監視、計算、依存アイテム、スクリプト、ブラウザ、（8.0）ネストされた（Zabbix 8.0rc1 の翻訳）、Telemetry query。
+- **操作ボタンのツールチップ**: ツールバーのすべての操作（表示モード・並び順・発生数/継続数・確認状態・深刻度・詳細の並び・値の型/アイテムタイプ・条件リセット）に、押すと何が変わるかを表示します。発生数/継続数の説明は「時間軸」と「ホスト / ホストグループ / イベント」で変わります。「ホスト順 / 時系列」は詳細の並びだけを変え、グラフの集計は変わりません。
+- **グラフのツールチップ**（棒・X軸ラベル共通。名前は省略せず折り返し、Widget の外へはみ出しません。狭い Widget でグラフの高さを超える分は省略されます）
+  - ホスト: ホスト名（技術名）、表示名、インターフェース（メインを優先・種別付き・最大3件、IP がない場合は DNS 名）、イベント数、深刻度別の内訳。インターフェースは表示中のページのホストだけを host.get 1回でまとめて取得します。
+  - ホストグループ: グループ名、対象ホスト数（現在の対象範囲のうち、そのグループに直接所属し閲覧できるホスト数。サブグループは含めない）、影響ホスト数（同じ母集団でイベントのあるホスト数。対象ホスト数以下）、イベント数、深刻度別の内訳。
+  - イベント: 名前（全文）、影響ホスト数、イベント発生数、深刻度別の内訳（影響ホスト数）、最新発生時刻。値の型 / アイテムタイプの条件があるときは一致アイテム数も表示します。
+  - 値はサーバーの集計値そのもので、並び順を変えても変わりません。
+- **0件の表示（Empty State）**: グラフの軸・Grid・フッターを残し、中央に状態を表示します。
+  - 絞り込み条件なし: 「対象期間にイベントはありません」
+  - 深刻度・確認状態・値の型・アイテムタイプ・トリガー選択のいずれかで実際に絞り込んでいる場合: 「現在の条件に一致するイベントはありません」「フィルターまたは表示条件を変更してください。」と、有効な条件。設定値から変更している場合は「条件リセット」の案内も表示します。
+  - 取得失敗・トリガー選択を適用できない場合は従来のエラー / 警告表示のままで、正常な0件には見せません。取得上限などの警告がある0件は、警告を残したうえで0件を表示します。
+
+### UI Polish (display improvements before v1.0.0)
+
+Only the presentation and tooltips are improved; fetching and aggregation are unchanged (no additional event.get).
+
+- **Value type order** (runtime filter and configuration): All, Numeric (float), Numeric (unsigned), Character, Text, Log, Binary, (Zabbix 8.0) JSON. Labels come from Zabbix translations.
+- **Item type order** (no headings or separators; only types that exist in the running version): Zabbix agent, Zabbix agent (active), SNMP agent, SNMP trap, Zabbix trapper, Zabbix internal, Simple check, External check, Database monitor, HTTP agent, IPMI agent, SSH agent, TELNET agent, JMX agent, Web monitoring, Calculated, Dependent item, Script, Browser, (8.0) Nested, Telemetry query.
+- **Toolbar tooltips**: every toolbar control (display mode, sort order, occurred/continuing count, ack status, severity, tooltip order, value type / item type, reset) explains what it changes. The occurred/continuing count text differs between "Timeline" and the category views. "By host / Chronological" only changes the order of the details; the aggregated graph does not change.
+- **Chart tooltips** (bars and X axis labels; names are never truncated, long names wrap, and the tooltip stays inside the widget; in a small widget, lines beyond the chart height are cut off)
+  - Host: host name (technical), visible name, interfaces (main first, with type, up to 3, DNS name when there is no IP), event count, events by severity. Interfaces are fetched with a single host.get for the hosts on the current page only.
+  - Host group: group name, target hosts (hosts in the current scope that are direct members of the group and visible to the user; subgroups are not included), affected hosts (hosts with events in the same population; never more than the target hosts), event count, events by severity.
+  - Event: full name, affected hosts, number of events, affected hosts by severity, last occurrence. With a value type / item type condition, the number of matching items is shown as well.
+  - Values are the server-side aggregates and do not change with the sort order.
+- **Empty state**: the axes, grid and footer stay visible and the state is shown in the center.
+  - No narrowing condition: "No events in the target period".
+  - Narrowed by severity, ack status, value type, item type or trigger selection: "No events match the current conditions", "Change the filters or display conditions." and the active conditions, plus a hint to use "Reset conditions" when the state differs from the configuration.
+  - Fetch errors and unresolvable trigger selections keep the existing error / warning display and are never shown as a normal empty result. An empty result with a warning (e.g. the fetch limit) keeps the warning and shows the empty state.
 
 ## トリガー連携の権限
 

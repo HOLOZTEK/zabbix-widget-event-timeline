@@ -336,7 +336,9 @@ class WidgetView extends CControllerDashboardWidgetView {
 					$plan['bounds'], $continuous, $now
 				)));
 
-				$category = $this->buildCategory($events, $target['hostids'], $runtime, $fields, $page_size, $page);
+				$category = $this->buildCategory($events, $target['hostids'], $runtime, $fields, $page_size, $page,
+					$tz
+				);
 
 				if ($category === null) {
 					$this->setResponse(new CControllerResponseData([
@@ -420,7 +422,10 @@ class WidgetView extends CControllerDashboardWidgetView {
 				'value_type_options' => self::optionList($value_type_options),
 				'item_type_options' => self::optionList($item_type_options),
 				'empty_reason' => $shown > 0 ? null
-					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events'))
+					: ($empty_reason ?? (array_sum($severity_counts) > 0 ? 'filtered' : 'no_events')),
+				// 0件表示（Empty State）の文言を決めるための、実際に Event を限定している条件（UI Polish §23〜24）。
+				// 追加の event.get はしない（「条件を外せば何件あるか」は求めない。Q2）。
+				'active_filters' => self::activeFilters($runtime, $trigger_selection['trigger_filter'])
 			], $week_start),
 			'user' => ['debug_mode' => $this->getDebugMode()]
 		]));
@@ -643,6 +648,74 @@ class WidgetView extends CControllerDashboardWidgetView {
 	}
 
 	/**
+	 * 現在 Event を限定している条件（Severity / 確認状態 / 値の型 / アイテムタイプ / Trigger Selection）。
+	 * Severity・確認状態は全選択なら限定なし、値の型・アイテムタイプは normalize 済み（全選択・未選択は []）。
+	 *
+	 * @return string[]
+	 */
+	private static function activeFilters(array $runtime, string $trigger_filter): array {
+		$active = [];
+
+		if (array_diff(Aggregator::SEVERITIES, $runtime['severities'])) {
+			$active[] = 'severity';
+		}
+
+		if (array_diff([WidgetForm::ACK_UNACKNOWLEDGED, WidgetForm::ACK_ACKNOWLEDGED], $runtime['ack'])) {
+			$active[] = 'ack';
+		}
+
+		if ($runtime['value_types']) {
+			$active[] = 'value_type';
+		}
+
+		if ($runtime['item_types']) {
+			$active[] = 'item_type';
+		}
+
+		if ($trigger_filter === TriggerSelection::STATE_ACTIVE) {
+			$active[] = 'trigger';
+		}
+
+		return $active;
+	}
+
+	/**
+	 * Event 行の Tooltip 用: 行に含まれる Trigger の一致 Item 数（重複なし。Drilldown の一致 Item 一覧と同じ母集団）。
+	 *
+	 * @param string[] $triggerids
+	 */
+	private function matchedItemCount(array $triggerids): int {
+		$itemids = [];
+
+		foreach ($triggerids as $triggerid) {
+			foreach ($this->item_filter['matched'][$triggerid] ?? [] as $itemid) {
+				if (isset($this->item_filter['items'][$itemid])) {
+					$itemids[$itemid] = true;
+				}
+			}
+		}
+
+		return count($itemids);
+	}
+
+	/**
+	 * インターフェース種別の表示名（Zabbix 本体の interfaceType2str()）。
+	 *
+	 * @return array<int, string>
+	 */
+	private static function interfaceTypeNames(): array {
+		$names = [];
+
+		foreach (['INTERFACE_TYPE_AGENT', 'INTERFACE_TYPE_SNMP', 'INTERFACE_TYPE_IPMI', 'INTERFACE_TYPE_JMX'] as $name) {
+			if (defined($name)) {
+				$names[constant($name)] = interfaceType2str(constant($name));
+			}
+		}
+
+		return $names;
+	}
+
+	/**
 	 * @param array<int, string> $options  値 => 表示名
 	 *
 	 * @return array<int, array{id: int, name: string}>  表示順を保つためリストで渡す
@@ -663,7 +736,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 	 * @return array|null  失敗時は null
 	 */
 	private function buildCategory(array $events, array $hostids, array $runtime, array $fields, int $page_size,
-			int $page): ?array {
+			int $page, DateTimeZone $tz): ?array {
 		$info = $events
 			? EventFetcher::fetchDimensionInfo(array_column($events, 'eventid'), $hostids)
 			: ['names' => [], 'hosts' => [], 'host_names' => [], 'triggers' => []];
@@ -681,20 +754,31 @@ class WidgetView extends CControllerDashboardWidgetView {
 				break;
 
 			case WidgetForm::MODE_GROUP:
-				$groups = $events ? EventFetcher::fetchHostGroups(array_keys($info['host_names'])) : [];
+				// 対象 Host 全体の所属 Group を1回の取得でまとめて引く（Tooltip の「対象ホスト数」の母数。UI Polish §18）。
+				// 集計は Event のある Host（$info['hosts']）だけで行うため、件数・棒高は Event のある Host だけで引く場合と同じ。
+				$groups = $events ? EventFetcher::fetchHostGroups($hostids) : [];
 
 				if ($groups === null) {
 					return null;
 				}
 
 				$rows = DimensionAggregator::byHostGroup($events, $info['hosts'], $groups);
+				$group_hosts = DimensionAggregator::groupHostCounts($events, $info['hosts'], $groups);
+
+				foreach ($rows as &$row) {
+					$row += $group_hosts[$row['id']] ?? ['target_hosts' => 0, 'affected_hosts' => 0];
+				}
+
+				unset($row);
 				break;
 
 			default:
 				$event_display = self::eventDisplay($fields);
+				// Item Filter 有効時だけ、行に含まれる Trigger から Tooltip の「一致アイテム数」を出す（UI Polish §20）。
+				$event_triggers = $this->item_filter !== null ? $info['triggers'] : [];
 
 				if ($event_display === WidgetForm::EVENT_DISPLAY_INDIVIDUAL) {
-					$rows = DimensionAggregator::byEvent($events, $info['hosts'], $info['names']);
+					$rows = DimensionAggregator::byEvent($events, $info['hosts'], $info['names'], $event_triggers);
 				}
 				else {
 					$event_proto = $this->resolveEventPrototypes($events, $info['triggers'], $info['names']);
@@ -704,7 +788,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 					}
 
 					$rows = DimensionAggregator::byEventGroup($events, $info['hosts'], $info['names'],
-						$event_proto['map'], $event_proto['names']
+						$event_proto['map'], $event_proto['names'], $event_triggers
 					);
 					$prototype_partial = $event_proto['partial'];
 				}
@@ -716,13 +800,43 @@ class WidgetView extends CControllerDashboardWidgetView {
 					);
 					$row['hosts'] = $list['hosts'];
 					$row['hosts_more'] = $list['hosts_more'];
-					unset($row['hostids']);
+					$row['last_time'] = $row['last_clock'] > 0
+						? (new \DateTimeImmutable('@'.$row['last_clock']))->setTimezone($tz)->format('Y/m/d H:i')
+						: null;
+
+					if (array_key_exists('triggerids', $row)) {
+						$row['matched_items'] = $this->matchedItemCount(array_keys($row['triggerids']));
+					}
+
+					unset($row['hostids'], $row['last_clock'], $row['triggerids']);
 				}
 
 				unset($row);
 		}
 
 		$pager = DimensionAggregator::paginate(DimensionAggregator::sort($rows, $runtime['sort']), $page_size, $page);
+
+		if ($runtime['mode'] === WidgetForm::MODE_HOST && $pager['rows']) {
+			// Host の詳細（Host 名・表示名・インターフェース）は表示中のページの Host だけを1回で取得する（UI Polish §17）。
+			// Tooltip の補足情報なので、取得できなくても集計結果はそのまま表示する（詳細の行を出さないだけ）。
+			$details = EventFetcher::fetchHostDetails(array_column($pager['rows'], 'id'));
+
+			foreach ($pager['rows'] as &$row) {
+				$detail = $details[$row['id']] ?? null;
+
+				if ($detail !== null) {
+					$interfaces = DimensionAggregator::interfaceList($detail['interfaces'], self::interfaceTypeNames(),
+						WidgetForm::POPUP_INTERFACE_LIMIT
+					);
+					$row['host'] = $detail['host'];
+					$row['display_name'] = $detail['name'];
+					$row['interfaces'] = $interfaces['list'];
+					$row['interfaces_more'] = $interfaces['more'];
+				}
+			}
+
+			unset($row);
+		}
 
 		return [
 			'rows' => $pager['rows'],
@@ -1097,6 +1211,7 @@ class WidgetView extends CControllerDashboardWidgetView {
 			'total' => $meta['total'],
 			'severity_counts' => $meta['severity_counts'],
 			'empty_reason' => $meta['empty_reason'],
+			'active_filters' => $meta['active_filters'],
 			'trigger_partial' => $meta['trigger_partial'],
 			'item_partial' => $meta['item_partial'],
 			'value_type_options' => $meta['value_type_options'],

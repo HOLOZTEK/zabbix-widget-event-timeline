@@ -1452,5 +1452,68 @@ check('#34 Event Selection objectids over PHP_INT_MAX', SourceResolver::resolveE
 	['trigger_filter' => TS::STATE_ACTIVE, 'triggerids' => [$big1]], ['entries' => [], 'canonical' => []],
 	['triggerids' => [$big2, $big1, $big2], 'indeterminate' => 0])['selectors'], [['objectids' => [$big1, $big2]]]);
 
+// ─── UI Polish（issue #42）───────────────────────────────────────
+// §3/§4 表示順: 定数名の一覧の順に並べ、未定義の定数は飛ばし、一覧にない値は末尾に元の順で残す（集合は変えない）。
+define('ET_TEST_ORDER_A', 7);
+define('ET_TEST_ORDER_B', 2);
+$opts = [0 => 'zero', 2 => 'two', 5 => 'five', 7 => 'seven'];
+$ordered = IF_::orderOptions($opts, ['ET_TEST_ORDER_A', 'ET_TEST_ORDER_UNDEFINED', 'ET_TEST_ORDER_B']);
+check('orderOptions order', array_keys($ordered), [7, 2, 0, 5]);
+check('orderOptions keeps names and set', [$ordered[7], $ordered[0], count($ordered)], ['seven', 'zero', 4]);
+check('orderOptions defined but absent option skipped',
+	array_keys(IF_::orderOptions([2 => 'two'], ['ET_TEST_ORDER_A', 'ET_TEST_ORDER_B'])), [2]);
+check('orderOptions empty order keeps original', array_keys(IF_::orderOptions($opts, [])), [0, 2, 5, 7]);
+
+// §19 Event 行の最新発生時刻・Trigger（付帯情報。集計値は変えない）。
+$evc = static fn(string $id, int $sev, int $clock): array => ['eventid' => $id, 'clock' => $clock, 'end' => null,
+	'severity' => $sev];
+$ui_events = [$evc('1', 2, 100), $evc('2', 4, 300), $evc('3', 2, 200), $evc('4', 3, 50)];
+$ui_hosts = ['1' => ['10'], '2' => ['10'], '3' => ['11'], '4' => ['10']];
+$ui_names = ['1' => 'CPU', '2' => 'CPU', '3' => 'CPU', '4' => 'Disk'];
+$ui_trig = ['1' => 't1', '2' => 't1', '3' => 't2', '4' => 't3'];
+$plain = D::byEvent($ui_events, $ui_hosts, $ui_names);
+$with = D::byEvent($ui_events, $ui_hosts, $ui_names, $ui_trig);
+check('byEvent last_clock', array_column($plain, 'last_clock', 'label'), ['CPU' => 300, 'Disk' => 50]);
+check('byEvent no triggerids without map', array_key_exists('triggerids', $plain[0]), false);
+check('byEvent triggerids', array_map(static fn(array $r): array => array_keys($r['triggerids']), $with),
+	[['t1', 't2'], ['t3']]);
+check('byEvent extras do not change counts', array_map(static fn(array $r): array =>
+	[$r['total'], $r['event_count'], $r['counts']], $with), array_map(static fn(array $r): array =>
+	[$r['total'], $r['event_count'], $r['counts']], $plain));
+$g = D::byEventGroup($ui_events, $ui_hosts, $ui_names, [], [], $ui_trig);
+check('byEventGroup last_clock / triggerids', array_map(static fn(array $r): array =>
+	[$r['label'], $r['last_clock'], array_keys($r['triggerids'])], $g), [['CPU', 300, ['t1', 't2']], ['Disk', 50, ['t3']]]);
+check('byEvent last_clock stable across sorts', array_column(D::sort($with, D::SORT_ASC), 'last_clock', 'label'),
+	array_column(D::sort($with, D::SORT_EVENTS), 'last_clock', 'label'));
+
+// §18 Host group の対象ホスト数 / 影響ホスト数（同じ母集団・直接所属のみ）。
+$ui_groups = ['10' => ['g1' => 'G1', 'g2' => 'G2'], '11' => ['g1' => 'G1'], '12' => ['g1' => 'G1', 'g3' => 'G3']];
+$gc = D::groupHostCounts([$evc('1', 4, 0), $evc('2', 2, 0)], ['1' => ['10', '11'], '2' => ['10']], $ui_groups);
+check('groupHostCounts', $gc, [
+	'g1' => ['target_hosts' => 3, 'affected_hosts' => 2],
+	'g2' => ['target_hosts' => 1, 'affected_hosts' => 1],
+	'g3' => ['target_hosts' => 1, 'affected_hosts' => 0]
+]);
+check('groupHostCounts affected <= target', array_filter($gc, static fn(array $c): bool =>
+	$c['affected_hosts'] > $c['target_hosts']), []);
+check('groupHostCounts host outside map ignored', D::groupHostCounts([$evc('9', 1, 0)], ['9' => ['99']], $ui_groups)['g1'],
+	['target_hosts' => 3, 'affected_hosts' => 0]);
+check('byHostGroup unchanged by full target map', $c(D::byHostGroup([$ev('1', 4), $ev('2', 2)],
+	['1' => ['10', '11'], '2' => ['10']], $ui_groups)), [['G1', 2], ['G2', 2]]);
+
+// §16 インターフェース一覧: main 優先 → 種別順、IP なしは DNS、接続先なしは出さない、上限超過は件数。
+$types = [1 => 'Agent', 2 => 'SNMP', 3 => 'IPMI', 4 => 'JMX'];
+$il = D::interfaceList([
+	['type' => '2', 'main' => '1', 'useip' => '1', 'ip' => '192.0.2.2', 'dns' => '', 'port' => '161'],
+	['type' => '1', 'main' => '0', 'useip' => '1', 'ip' => '192.0.2.9', 'dns' => '', 'port' => '10050'],
+	['type' => '1', 'main' => '1', 'useip' => '0', 'ip' => '192.0.2.1', 'dns' => 'a.example', 'port' => '10050'],
+	['type' => '4', 'main' => '1', 'useip' => '1', 'ip' => '', 'dns' => 'jmx.example', 'port' => '12345'],
+	['type' => '3', 'main' => '1', 'useip' => '1', 'ip' => '', 'dns' => '', 'port' => '623']
+], $types, 3);
+check('interfaceList order / address', array_map(static fn(array $i): string => $i['type'].' '.$i['address'].':'.$i['port'],
+	$il['list']), ['Agent a.example:10050', 'SNMP 192.0.2.2:161', 'JMX jmx.example:12345']);
+check('interfaceList more (empty address skipped)', $il['more'], 1);
+check('interfaceList empty', D::interfaceList([], $types, 3), ['list' => [], 'more' => 0]);
+
 echo "passed: $pass, failed: $fail\n";
 exit($fail === 0 ? 0 : 1);

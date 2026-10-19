@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.6
+Version:        0.2.7
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -102,6 +102,12 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Mon Oct 19 2026 claude <noreply> - 0.2.7-0
+- UI Polish（issue #42）: 値の型・アイテムタイプの表示順を固定。
+- ツールバーの全操作とグラフ（Host / Host group / Event）に Tooltip を追加。
+- 0件表示を改善（軸・Grid・フッターを残し、条件の有無で文言を分ける）。
+- 第6フェーズの統合レビュー修正と Zabbix 8.0 の非推奨パラメータ対応を含む。
+
 * Sun Oct 18 2026 claude <noreply> - 0.2.6-0
 - Zabbix の ID（Trigger / Trigger prototype / Item / Host / Host group / Event）を10進文字列のまま扱うよう修正。
   PHP_INT_MAX（9223372036854775807）を超える ID が1件に衝突し、トリガー選択・展開・Item 特性フィルタが

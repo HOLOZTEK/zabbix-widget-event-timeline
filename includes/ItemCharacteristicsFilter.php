@@ -24,6 +24,27 @@ namespace Modules\EventTimeline\Includes;
 class ItemCharacteristicsFilter {
 
 	/**
+	 * 値の型の表示順（UI Polish §3）。Zabbix の定数名で指定し、現在の Zabbix に定義がない定数は飛ばす
+	 * （JSON は 8.0 以降のみ）。ここにない値の型は末尾に Zabbix の定義順で続ける。
+	 */
+	public const VALUE_TYPE_ORDER = [
+		'ITEM_VALUE_TYPE_FLOAT', 'ITEM_VALUE_TYPE_UINT64', 'ITEM_VALUE_TYPE_STR', 'ITEM_VALUE_TYPE_TEXT',
+		'ITEM_VALUE_TYPE_LOG', 'ITEM_VALUE_TYPE_BINARY', 'ITEM_VALUE_TYPE_JSON'
+	];
+
+	/**
+	 * アイテムタイプの表示順（UI Polish §4）。見出し・区切りは付けない。扱いは VALUE_TYPE_ORDER と同じ
+	 * （Nested / Telemetry query は 8.0 以降のみ）。
+	 */
+	public const ITEM_TYPE_ORDER = [
+		'ITEM_TYPE_ZABBIX', 'ITEM_TYPE_ZABBIX_ACTIVE', 'ITEM_TYPE_SNMP', 'ITEM_TYPE_SNMPTRAP', 'ITEM_TYPE_TRAPPER',
+		'ITEM_TYPE_INTERNAL', 'ITEM_TYPE_SIMPLE', 'ITEM_TYPE_EXTERNAL', 'ITEM_TYPE_DB_MONITOR', 'ITEM_TYPE_HTTPAGENT',
+		'ITEM_TYPE_IPMI', 'ITEM_TYPE_SSH', 'ITEM_TYPE_TELNET', 'ITEM_TYPE_JMX', 'ITEM_TYPE_HTTPTEST',
+		'ITEM_TYPE_CALCULATED', 'ITEM_TYPE_DEPENDENT', 'ITEM_TYPE_SCRIPT', 'ITEM_TYPE_BROWSER', 'ITEM_TYPE_NESTED',
+		'ITEM_TYPE_TELEMETRY_QUERY'
+	];
+
+	/**
 	 * 選択値を、現在の Zabbix が定義する値（$defined）に含まれるものだけに正規化する（昇順・重複なし）。
 	 * 定義済みの値をすべて選択した場合は条件なしと同じため、空配列（すべて）にする。
 	 *
@@ -152,5 +173,26 @@ class ItemCharacteristicsFilter {
 			'item_count' => count($referenced),
 			'missing_items' => count($missing)
 		];
+	}
+
+	/**
+	 * 選択肢を定数名の一覧の順に並べ替える。未定義の定数・選択肢にない値は飛ばし、一覧にない選択肢は末尾に
+	 * 元の順で残す（表示順だけを変え、選択肢の集合は変えない）。
+	 *
+	 * @param array<int, string> $options
+	 * @param string[]           $order    定数名
+	 *
+	 * @return array<int, string>
+	 */
+	public static function orderOptions(array $options, array $order): array {
+		$ordered = [];
+
+		foreach ($order as $name) {
+			if (defined($name) && array_key_exists(constant($name), $options)) {
+				$ordered[constant($name)] = $options[constant($name)];
+			}
+		}
+
+		return $ordered + $options;
 	}
 }

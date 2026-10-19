@@ -716,4 +716,38 @@ class EventFetcher {
 
 		return $map;
 	}
+
+	/**
+	 * Host View の Tooltip 用（UI Polish §16〜17）: Host 名（技術名）・表示名・インターフェース。表示中のページの Host
+	 * だけを1回の host.get（selectInterfaces）でまとめて取得する（Host 数分の呼び出しにはしない）。
+	 *
+	 * @param string[] $hostids
+	 *
+	 * @return array<string, array{host: string, name: string, interfaces: array[]}>|null  失敗時は null
+	 */
+	public static function fetchHostDetails(array $hostids): ?array {
+		$map = [];
+
+		foreach (array_chunk(array_values(array_unique($hostids)), 500) as $chunk) {
+			$rows = API::Host()->get([
+				'output' => ['hostid', 'host', 'name'],
+				'selectInterfaces' => ['type', 'main', 'useip', 'ip', 'dns', 'port'],
+				'hostids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$map[(string) $row['hostid']] = [
+					'host' => (string) $row['host'],
+					'name' => (string) $row['name'],
+					'interfaces' => $row['interfaces'] ?? []
+				];
+			}
+		}
+
+		return $map;
+	}
 }
