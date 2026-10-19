@@ -1,3 +1,12 @@
+zabbix-widget-event-timeline (0.2.7) unstable; urgency=medium
+
+  * UI Polish（issue #42）: 値の型・アイテムタイプの表示順を固定。
+  * ツールバーの全操作とグラフに Tooltip を追加。
+  * 0件表示を改善（軸・Grid・フッターを残して状態を表示）。
+  * 第6フェーズの統合レビュー修正と Zabbix 8.0 対応を含む。
+
+ -- claude <noreply@example.com>  Mon, 19 Oct 2026 10:00:00 +0900
+
 zabbix-widget-event-timeline (0.2.6) unstable; urgency=medium
 
   * Zabbix の ID（Trigger / Trigger prototype / Item / Host / Host group / Event）を10進文字列のまま扱うよう修正。
