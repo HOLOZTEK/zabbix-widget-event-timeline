@@ -2,6 +2,8 @@
 
 固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
 
+> **v0.2.8**: 設定画面を5タブ（対象 / 表示 / フィルター / 期間 / 外観）に整理し、深刻度・確認状態の必須チェックと、値の型・アイテムタイプの「すべて」を追加しました。
+>
 > **v0.2.7**: 表示の改善（UI Polish: 型の表示順・ツールバーとグラフのツールチップ・0件表示）を行いました。
 >
 > **v0.2.6**: 第1〜第5フェーズの機能（Source連携・トリガーの対象Host展開・LLD対応・アイテム条件フィルタ・Host / Host group / Event ビュー・Drilldown）を統合し、第6フェーズで統合試験と最終品質確認を行いました（Feature Freeze）。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Metric Navigator 連携）で指定できます。
@@ -256,6 +258,46 @@ Only the presentation and tooltips are improved; fetching and aggregation are un
   - No narrowing condition: "No events in the target period".
   - Narrowed by severity, ack status, value type, item type or trigger selection: "No events match the current conditions", "Change the filters or display conditions." and the active conditions, plus a hint to use "Reset conditions" when the state differs from the configuration.
   - Fetch errors and unresolvable trigger selections keep the existing error / warning display and are never shown as a normal empty result. An empty result with a warning (e.g. the fetch limit) keeps the warning and shows the empty state.
+
+## 設定画面（タブ構成）
+
+設定画面は5つのタブで構成します。タイプ・名前・リフレッシュ間隔・ヘッダーを表示は Zabbix 標準 Widget と同じくタブの外に表示します。
+
+| タブ | 設定項目（表示順） |
+|---|---|
+| 対象 | ホスト、ホストグループ、トリガー、（区切り）イベント取得上限数 |
+| 表示 | 表示モード、イベント表示、並び順、集計方法、（区切り）グラフの1ページ表示件数、自動ページ送り、詳細一覧の1ページ表示件数 |
+| フィルター | 深刻度、確認状態、値の型、アイテムタイプ |
+| 期間 | 期間（ダッシュボード / ウィジェット / カスタム）、週の開始曜日 |
+| 外観 | グラフの高さ、Y軸最小値、X軸ラベル、（区切り）線の色、文字の色 |
+
+- 設定画面を開くと常に「対象」タブから表示します。タブを切り替えても、適用前の入力値は保持されます。
+- イベント取得上限数は意味上は取得制御ですが、変更頻度が高いため初期表示の「対象」タブに置いています。
+- 深刻度・確認状態は、設定画面から適用するときにそれぞれ1つ以上の選択が必要です（「深刻度を1つ以上選択してください。」「確認状態を1つ以上選択してください。」）。表示画面で一時的に切り替える条件には影響しません。なお Zabbix は空の選択を保存しないため、旧版で全解除して保存した Widget も、再読み込み後は既定値（すべて選択）で表示されていました。新版でもこの表示は変わりません。
+- 値の型・アイテムタイプの先頭に「すべて」を表示します。「すべて」がONの状態は個別指定なし（すべてが対象）で、保存形式は従来どおりです（「すべて」用の値は保存しません）。個別の項目を選ぶと「すべて」はOFFになり、最後の個別項目を外すとONに戻ります。「すべて」を選ぶと個別の選択を解除します。個別指定がないまま「すべて」をOFFにはできません。
+- 固定指定と Widget 参照（ホスト・ホストグループ・トリガー）の動作、設定項目名、保存形式、表示画面の動作は変わりません。
+- 適用時のエラーは Zabbix 標準どおり設定画面上部に表示します。加えて、エラーのある項目を含むタブにエラー色の印（●）を付け、フォーム順で最初のエラーのタブを開いてその入力欄へフォーカスします。再度適用すると印は付け直されます。タブ外の項目のエラーなど所属タブを特定できない場合は、タブの切替も印付けも行いません。
+- 補足（Zabbix 標準の動作）: 「追加」ダイアログでタイプを切り替えると、Zabbix は同じ名前の設定項目の値を引き継ぎます。そのため直前のタイプに同名の項目（例: `max_events`）がある場合、範囲外の値が入って適用時にエラーになることがあります。この場合は該当タブ（例: 対象）へ誘導されるので、値を直して適用してください。
+
+### Configuration form (tabs)
+
+The configuration form has five tabs. Type, Name, Refresh interval and Show header stay outside the tabs, as in the standard Zabbix widgets.
+
+| Tab | Fields (in order) |
+|---|---|
+| Targets | Hosts, Host groups, Triggers, (separator) Event retrieval limit |
+| Display | Display mode, Event grouping, Sort order, Aggregation method, (separator) Chart items per page, Auto paging, Detail items per page |
+| Filters | Severity, Acknowledgement, Value type, Item type |
+| Time period | Time period (Dashboard / Widget / Custom), First day of week |
+| Appearance | Graph height, Y-axis minimum, X-axis labels, (separator) Line color, Text color |
+
+- The form always opens on the Targets tab. Unsaved values are kept when switching tabs.
+- Event retrieval limit controls data retrieval, but it is placed on the Targets tab (opened first) because it is changed often.
+- When applying the form, at least one severity and at least one acknowledgement status must be selected ("Select at least one severity.", "Select at least one acknowledgement status."). Temporary conditions changed in the view are not affected. Zabbix does not store an empty selection, so a widget saved with everything cleared in an earlier version was already shown with the default (all selected) after reloading; this does not change.
+- Value type and Item type start with an "All" option. "All" checked means no individual selection (everything included), stored in the same format as before (no value is stored for "All"). Selecting an individual option clears "All"; clearing the last individual option checks "All" again; selecting "All" clears the individual options. "All" cannot be cleared while nothing else is selected.
+- Fixed selection and widget references (hosts, host groups, triggers), field names, the saved format and the runtime behavior are unchanged.
+- Validation errors are shown at the top of the form as in standard Zabbix. In addition, every tab that contains an invalid field gets a mark (●) in the Zabbix error color, the tab of the first invalid field (in form order) is opened and the field is focused. The marks are recalculated on every Apply. When the tab cannot be determined (e.g. an error in a field outside the tabs), no tab is switched or marked.
+- Note (standard Zabbix behavior): when the type is changed in the "Add widget" dialog, Zabbix carries over values of fields with the same name. If the previous type has a field with the same name (e.g. `max_events`), an out-of-range value may be carried over and rejected on Apply; the form then guides you to the relevant tab (e.g. Targets) so you can correct it.
 
 ## トリガー連携の権限
 
