@@ -81,6 +81,12 @@ class WidgetForm extends CWidgetForm {
 	public const MAX_EVENTS_MAX     = 1000000;
 	public const MAX_EVENTS_DEFAULT = 100000;
 
+	// 設定画面から保存するときに1つ以上の選択を必須とする項目と、そのエラー文（翻訳前）。
+	public const REQUIRED_SELECTIONS = [
+		'severities' => 'Select at least one severity.',
+		'ack_states' => 'Select at least one acknowledgement status.'
+	];
+
 	/**
 	 * 値の型（Item の value_type）の選択肢。現在の Zabbix が定義する ITEM_VALUE_TYPE_* 定数すべてと、
 	 * Zabbix 本体の表示名・翻訳（itemValueTypeString()）。Event Timeline 側で一覧・翻訳を持たない（Phase 5 Q3）。
@@ -258,7 +264,7 @@ class WidgetForm extends CWidgetForm {
 				]))->setDefault(self::COUNT_OCCURRENCE)
 			)
 			->addField(
-				(new CWidgetFieldIntegerBox('max_events', _et('Maximum events to retrieve'),
+				(new CWidgetFieldIntegerBox('max_events', _et('Event retrieval limit'),
 					self::MAX_EVENTS_MIN, self::MAX_EVENTS_MAX
 				))->setDefault(self::MAX_EVENTS_DEFAULT)
 			)
@@ -309,6 +315,25 @@ class WidgetForm extends CWidgetForm {
 					->setDefaultPeriod(['from' => 'now-24h', 'to' => 'now'])
 					->setFlags(CWidgetField::FLAG_NOT_EMPTY | CWidgetField::FLAG_LABEL_ASTERISK)
 			);
+	}
+
+	/**
+	 * 深刻度・確認状態の「1つ以上選択」は設定画面からの保存（widget.check の strict 検証）でだけ求める。
+	 * 表示時・ダッシュボード保存時の検証（非strict）では全解除のまま受け入れ、保存済みの既存Widgetの表示
+	 * （該当Eventなし）を変えない。Zabbix の FLAG_NOT_EMPTY はチェックボックス一覧の空を検証しないため自前で行う。
+	 */
+	public function validate(bool $strict = false): array {
+		$errors = parent::validate($strict);
+
+		if ($strict) {
+			foreach (self::REQUIRED_SELECTIONS as $name => $message) {
+				if ($this->getFieldValue($name) === []) {
+					$errors[] = _et($message);
+				}
+			}
+		}
+
+		return $errors;
 	}
 
 	// 週の開始曜日の選択肢（日曜〜土曜の順。内部値はBucketPlannerのWEEKDAY_*定数と共通）。

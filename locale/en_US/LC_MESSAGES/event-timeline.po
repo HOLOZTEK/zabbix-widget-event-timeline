@@ -46,8 +46,8 @@ msgstr "Time"
 msgid "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
 msgstr "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
 
-msgid "Maximum events to retrieve"
-msgstr "Maximum events to retrieve"
+msgid "Event retrieval limit"
+msgstr "Event retrieval limit"
 
 msgid "Graph height"
 msgstr "Graph height"
@@ -283,11 +283,7 @@ msgstr "Initial filter state"
 msgid "Target"
 msgstr "Target"
 
-msgid "Initial display state"
-msgstr "Initial display state"
 
-msgid "Data retrieval"
-msgstr "Data retrieval"
 
 msgid "Display mode"
 msgstr "Display mode"
@@ -346,8 +342,6 @@ msgstr "Targets: %1$s (showing %2$s–%3$s)"
 msgid "Page %1$s / %2$s"
 msgstr "Page %1$s / %2$s"
 
-msgid "Paging"
-msgstr "Paging"
 
 msgid "Chart items per page"
 msgstr "Chart items per page"
@@ -459,8 +453,8 @@ msgstr "Value type"
 msgid "Item type"
 msgstr "Item type"
 
-msgid "If nothing is selected, all are included."
-msgstr "If nothing is selected, all are included."
+msgid "Select \"All\" to include all value types."
+msgstr "Select \"All\" to include all value types."
 
 msgid "All (item filter)"
 msgstr "All"
@@ -605,3 +599,27 @@ msgstr "Visible name"
 
 msgid "When both value type and item type are set, the same item must match both."
 msgstr "When both value type and item type are set, the same item must match both."
+
+msgid "Targets"
+msgstr "Targets"
+
+msgid "Display"
+msgstr "Display"
+
+msgid "Filters"
+msgstr "Filters"
+
+msgid "Time period"
+msgstr "Time period"
+
+msgid "This tab contains errors."
+msgstr "This tab contains errors."
+
+msgid "Select \"All\" to include all item types."
+msgstr "Select \"All\" to include all item types."
+
+msgid "Select at least one severity."
+msgstr "Select at least one severity."
+
+msgid "Select at least one acknowledgement status."
+msgstr "Select at least one acknowledgement status."

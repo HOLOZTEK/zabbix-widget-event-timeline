@@ -8,9 +8,21 @@
 ?>
 window.widget_event_timeline_form = new class {
 
-	init() {
+	init({form_tabs_id, error_fields, all_fields}) {
 		// フォームIDは Zabbix 7.0 では 'widget-dialogue-form'、8.0以降では 'widget-form'。
 		this._form = document.getElementById('widget-dialogue-form') ?? document.getElementById('widget-form');
+		this._tabs = document.getElementById(form_tabs_id);
+		this._error_fields = error_fields;
+
+		// タブ切替時に開いたままの Color Picker（7.0の jQuery colorpicker）を閉じる（Zabbix標準の円グラフと同じ）。
+		jQuery(this._tabs).on('tabsactivate', () => {
+			if (typeof jQuery.colorpicker === 'function') {
+				jQuery.colorpicker('hide');
+			}
+		});
+
+		this._watchErrors();
+		this._initAllOptions(all_fields);
 
 		// Zabbix 7.0: CWidgetFieldColorView は Color Picker の初期化を行わないため、ここで jQuery colorpicker を初期化する。
 		// Zabbix 8.0以降: <z-color-picker> が自己初期化し、jQuery colorpicker は存在しない。
@@ -30,6 +42,162 @@ window.widget_event_timeline_form = new class {
 
 		for (const colorpicker of colorpickers) {
 			this._enhance(colorpicker);
+		}
+	}
+
+	/**
+	 * 適用時のエラー表示（Zabbix標準: フォーム直前に挿入される .msg-bad）を監視し、エラーのある設定項目が属するタブを示す。
+	 * 補助表示であり、検証そのものは Zabbix のサーバー側検証に任せる。上部のエラー表示は変更しない。
+	 */
+	_watchErrors() {
+		const container = this._form.parentNode;
+
+		if (container === null) {
+			return;
+		}
+
+		const update = () => {
+			try {
+				this._showErrorTabs(container.querySelector(':scope > .msg-bad'));
+			}
+			catch (e) {
+				// 補助表示の失敗で設定画面を壊さない（Zabbix標準のエラー表示はそのまま残る）。
+			}
+		};
+
+		new MutationObserver(update).observe(container, {childList: true});
+		update();
+	}
+
+	/**
+	 * 値の型・アイテムタイプの先頭に、表示だけの「すべて」を加える（name を持たないため保存されない）。
+	 * 保存値は従来どおり個別項目だけで、「すべて」がON = 個別指定なし = 全対象。
+	 * 個別指定なしのまま「すべて」をOFFにはできない（保存仕様上「すべて」と意味が衝突するため）。
+	 */
+	_initAllOptions(fields) {
+		for (const name of fields) {
+			const items = [...this._form.querySelectorAll(`input[type="checkbox"][name^="${name}["]`)];
+
+			if (items.length === 0) {
+				continue;
+			}
+
+			// Zabbix標準のチェックボックス一覧（CCheckBoxList）と同じ構造にして、見た目を揃える。
+			const all = document.createElement('input');
+			all.type = 'checkbox';
+			all.className = 'checkbox-radio';
+			all.id = `et_${name}_all`;
+
+			const label = document.createElement('label');
+			label.htmlFor = all.id;
+			label.append(document.createElement('span'), <?= json_encode(_et('All (item filter)')) ?>);
+
+			const item = document.createElement('li');
+			item.append(all, label);
+
+			const list = document.createElement('ul');
+			list.className = 'checkbox-list et-all-option';
+			list.style.setProperty('--columns', '1');
+			list.append(item);
+			items[0].closest('ul').before(list);
+
+			const sync = () => {
+				all.checked = !items.some(checkbox => checkbox.checked);
+			};
+
+			all.addEventListener('change', () => {
+				// 個別選択を解除する。click() で change を発火させ、Zabbix 側（8.0のプレビュー等）にも変更を伝える。
+				for (const checkbox of items) {
+					if (checkbox.checked) {
+						checkbox.click();
+					}
+				}
+
+				sync();
+			});
+
+			for (const checkbox of items) {
+				checkbox.addEventListener('change', sync);
+			}
+
+			sync();
+		}
+	}
+
+	/**
+	 * エラー文に含まれる項目名（Invalid parameter "<項目名>": ... の引用部分）、または項目独自のエラー文
+	 * （深刻度・確認状態の「1つ以上選択」）から所属タブを特定する。
+	 * 項目名を特定できないエラー（タブ外の共通項目など）では、タブの切替も印付けも行わない。
+	 */
+	_showErrorTabs(message_box) {
+		for (const tab of this._tabs.querySelectorAll('.et-tab-error')) {
+			tab.classList.remove('et-tab-error');
+		}
+
+		for (const mark of this._tabs.querySelectorAll('.et-tab-error-mark')) {
+			mark.remove();
+		}
+
+		if (message_box === null) {
+			return;
+		}
+
+		const lines = [...message_box.querySelectorAll('li')].map(li => li.textContent);
+
+		if (lines.length === 0) {
+			lines.push(message_box.textContent);
+		}
+
+		// 引用された項目名。期間のサブ項目は "Time period/From" の形になるため、先頭の項目名でも照合する。
+		const quoted = new Set();
+
+		for (const line of lines) {
+			for (const match of line.matchAll(/["“「]([^"”」]+)["”」]/g)) {
+				quoted.add(match[1].trim());
+				quoted.add(match[1].split('/')[0].trim());
+			}
+		}
+
+		const errors = this._error_fields.filter(field => (field.label !== null && quoted.has(field.label))
+			|| (field.message !== null && lines.some(line => line.includes(field.message)))
+		);
+
+		if (errors.length === 0) {
+			return;
+		}
+
+		const panels = [...this._tabs.querySelectorAll(':scope > div[id]')];
+
+		for (const {tab} of errors) {
+			const link = this._tabs.querySelector(`a[href="#${tab}"]`);
+
+			if (link !== null && !link.closest('li').classList.contains('et-tab-error')) {
+				// 印の色は Zabbix のエラー色（テーマごとの .red）に従う。
+				const mark = document.createElement('span');
+
+				mark.className = 'et-tab-error-mark red';
+				mark.textContent = '\u25CF';
+				mark.title = <?= json_encode(_et('This tab contains errors.')) ?>;
+				link.append(mark);
+				link.closest('li').classList.add('et-tab-error');
+			}
+		}
+
+		// フォーム順で最初のエラー項目のタブを開き、その入力欄へフォーカスする。
+		const first = errors[0];
+		const index = panels.findIndex(panel => panel.id === first.tab);
+
+		if (index === -1) {
+			return;
+		}
+
+		jQuery(this._tabs).tabs('option', 'active', index);
+
+		const input = [...panels[index].querySelectorAll(`[name="${first.name}"], [name^="${first.name}["]`)]
+			.find(element => element.type !== 'hidden' && !element.disabled && element.offsetParent !== null);
+
+		if (input !== undefined) {
+			input.focus({preventScroll: false});
 		}
 	}
 
