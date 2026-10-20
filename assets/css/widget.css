@@ -557,9 +557,13 @@ form.dashboard-widget-event-timeline .et-config-tabs > .ui-tabs-nav {
 	white-space: nowrap;
 }
 
+/*
+ * タブの中身に横スクロールを付けない。Zabbix標準のチェックボックス一覧は項目に左右 -2px の余白（フォーカス枠用）
+ * を持ち、2列表示の右端が2pxはみ出すため、overflow-x: auto だと常に横スクロールバーが出る（標準の設定画面と同じく
+ * はみ出しはそのまま見せる）。
+ */
 form.dashboard-widget-event-timeline .et-config-tabs > div[id] {
 	min-width: 0;
-	overflow-x: auto;
 }
 
 /* ページング相当の設定・色設定の前の軽い区切り（Accordion や見出しは使わない）。 */

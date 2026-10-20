@@ -8,7 +8,7 @@
 ?>
 window.widget_event_timeline_form = new class {
 
-	init({form_tabs_id, error_fields}) {
+	init({form_tabs_id, error_fields, all_fields}) {
 		// フォームIDは Zabbix 7.0 では 'widget-dialogue-form'、8.0以降では 'widget-form'。
 		this._form = document.getElementById('widget-dialogue-form') ?? document.getElementById('widget-form');
 		this._tabs = document.getElementById(form_tabs_id);
@@ -22,6 +22,7 @@ window.widget_event_timeline_form = new class {
 		});
 
 		this._watchErrors();
+		this._initAllOptions(all_fields);
 
 		// Zabbix 7.0: CWidgetFieldColorView は Color Picker の初期化を行わないため、ここで jQuery colorpicker を初期化する。
 		// Zabbix 8.0以降: <z-color-picker> が自己初期化し、jQuery colorpicker は存在しない。
@@ -69,7 +70,63 @@ window.widget_event_timeline_form = new class {
 	}
 
 	/**
-	 * エラー文に含まれる項目名（Invalid parameter "<項目名>": ... の引用部分）から所属タブを特定する。
+	 * 値の型・アイテムタイプの先頭に、表示だけの「すべて」を加える（name を持たないため保存されない）。
+	 * 保存値は従来どおり個別項目だけで、「すべて」がON = 個別指定なし = 全対象。
+	 * 個別指定なしのまま「すべて」をOFFにはできない（保存仕様上「すべて」と意味が衝突するため）。
+	 */
+	_initAllOptions(fields) {
+		for (const name of fields) {
+			const items = [...this._form.querySelectorAll(`input[type="checkbox"][name^="${name}["]`)];
+
+			if (items.length === 0) {
+				continue;
+			}
+
+			// Zabbix標準のチェックボックス一覧（CCheckBoxList）と同じ構造にして、見た目を揃える。
+			const all = document.createElement('input');
+			all.type = 'checkbox';
+			all.className = 'checkbox-radio';
+			all.id = `et_${name}_all`;
+
+			const label = document.createElement('label');
+			label.htmlFor = all.id;
+			label.append(document.createElement('span'), <?= json_encode(_et('All (item filter)')) ?>);
+
+			const item = document.createElement('li');
+			item.append(all, label);
+
+			const list = document.createElement('ul');
+			list.className = 'checkbox-list et-all-option';
+			list.style.setProperty('--columns', '1');
+			list.append(item);
+			items[0].closest('ul').before(list);
+
+			const sync = () => {
+				all.checked = !items.some(checkbox => checkbox.checked);
+			};
+
+			all.addEventListener('change', () => {
+				// 個別選択を解除する。click() で change を発火させ、Zabbix 側（8.0のプレビュー等）にも変更を伝える。
+				for (const checkbox of items) {
+					if (checkbox.checked) {
+						checkbox.click();
+					}
+				}
+
+				sync();
+			});
+
+			for (const checkbox of items) {
+				checkbox.addEventListener('change', sync);
+			}
+
+			sync();
+		}
+	}
+
+	/**
+	 * エラー文に含まれる項目名（Invalid parameter "<項目名>": ... の引用部分）、または項目独自のエラー文
+	 * （深刻度・確認状態の「1つ以上選択」）から所属タブを特定する。
 	 * 項目名を特定できないエラー（タブ外の共通項目など）では、タブの切替も印付けも行わない。
 	 */
 	_showErrorTabs(message_box) {
@@ -101,7 +158,9 @@ window.widget_event_timeline_form = new class {
 			}
 		}
 
-		const errors = this._error_fields.filter(field => field.label !== null && quoted.has(field.label));
+		const errors = this._error_fields.filter(field => (field.label !== null && quoted.has(field.label))
+			|| (field.message !== null && lines.some(line => line.includes(field.message)))
+		);
 
 		if (errors.length === 0) {
 			return;

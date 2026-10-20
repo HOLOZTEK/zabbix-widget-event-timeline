@@ -7,11 +7,12 @@
 
 use Modules\EventTimeline\Includes\CWidgetFieldMultiSelectTriggerView;
 use Modules\EventTimeline\Includes\CWidgetFieldWeekStartView;
+use Modules\EventTimeline\Includes\WidgetForm;
 
 $form = new CWidgetFormView($data);
 
 /*
- * 設定画面はタブ構成（対象 / 表示 / フィルター / データ / 外観）。
+ * 設定画面はタブ構成（対象 / 表示 / フィルター / 期間 / 外観）。
  * タイプ・名前・リフレッシュ間隔・ヘッダーを表示は Zabbix 標準 Widget（グラフ・円グラフ）と同じくタブの外に置く。
  * 各タブの中身は Zabbix 標準と同じ CFormGrid で、Accordion は使わない。
  * 非選択タブは非表示になるだけで DOM は残るため、タブを切り替えても未適用の入力値は失われない。
@@ -22,7 +23,10 @@ $tabs = [
 		'fields' => [
 			new CWidgetFieldMultiSelectHostView($data['fields']['hostids']),
 			new CWidgetFieldMultiSelectGroupView($data['fields']['groupids']),
-			new CWidgetFieldMultiSelectTriggerView($data['fields']['triggerids'])
+			new CWidgetFieldMultiSelectTriggerView($data['fields']['triggerids']),
+			// 取得制御だが変更頻度が高いため、初期表示の「対象」タブに置く。
+			null,
+			new CWidgetFieldIntegerBoxView($data['fields']['max_events'])
 		]
 	],
 	'display' => [
@@ -44,18 +48,18 @@ $tabs = [
 		'fields' => [
 			new CWidgetFieldCheckBoxListView($data['fields']['severities']),
 			new CWidgetFieldCheckBoxListView($data['fields']['ack_states']),
+			// 先頭の「すべて」は widget.edit.js.php が加える表示だけの選択肢（保存値は従来どおり「個別指定なし」）。
 			(new CWidgetFieldCheckBoxListView($data['fields']['value_types']))
 				->setColumns(2)
-				->setFieldHint(makeHelpIcon(_et('If nothing is selected, all are included.'))),
+				->setFieldHint(makeHelpIcon(_et('Select "All" to include all value types.'))),
 			(new CWidgetFieldCheckBoxListView($data['fields']['item_types']))
 				->setColumns(2)
-				->setFieldHint(makeHelpIcon(_et('If nothing is selected, all are included.')))
+				->setFieldHint(makeHelpIcon(_et('Select "All" to include all item types.')))
 		]
 	],
-	'data' => [
-		'label' => _et('Data'),
+	'period' => [
+		'label' => _et('Time period'),
 		'fields' => [
-			new CWidgetFieldIntegerBoxView($data['fields']['max_events']),
 			new CWidgetFieldTimePeriodView($data['fields']['time_period']),
 			new CWidgetFieldWeekStartView($data['fields']['week_start'])
 		]
@@ -75,7 +79,7 @@ $tabs = [
 
 $form_tabs = (new CTabView(['id' => 'et_config_tabs']))->addClass('et-config-tabs');
 
-// エラー文（Invalid parameter "<項目名>": ...）から所属タブを特定するための対応表。フォーム順に並べる。
+// エラー文（Invalid parameter "<項目名>": ... または項目独自のエラー文）から所属タブを特定するための対応表。フォーム順に並べる。
 $error_fields = [];
 
 foreach ($tabs as $tab_id => $tab) {
@@ -95,7 +99,14 @@ foreach ($tabs as $tab_id => $tab) {
 		}
 
 		$name = $field_view->getName();
-		$error_fields[] = ['label' => $data['fields'][$name]->getLabel(), 'name' => $name, 'tab' => 'et_tab_'.$tab_id];
+		$error_fields[] = [
+			'label' => $data['fields'][$name]->getLabel(),
+			'message' => array_key_exists($name, WidgetForm::REQUIRED_SELECTIONS)
+				? _et(WidgetForm::REQUIRED_SELECTIONS[$name])
+				: null,
+			'name' => $name,
+			'tab' => 'et_tab_'.$tab_id
+		];
 	}
 
 	$form_tabs->addTab('et_tab_'.$tab_id, $tab['label'], $form_grid);
@@ -110,6 +121,7 @@ $form
 	->includeJsFile('widget.edit.js.php')
 	->addJavaScript('widget_event_timeline_form.init('.json_encode([
 		'form_tabs_id' => $form_tabs->getId(),
-		'error_fields' => $error_fields
+		'error_fields' => $error_fields,
+		'all_fields' => ['value_types', 'item_types']
 	], JSON_THROW_ON_ERROR).');')
 	->show();

@@ -46,7 +46,7 @@ msgstr "発生時刻"
 msgid "Incomplete data: the event limit (%1$s) was reached. Events before %2$s are not counted in this graph."
 msgstr "不完全なデータ: イベント取得上限（%1$s件）に達しました。%2$s より前のイベントはこのグラフに集計されていません。"
 
-msgid "Maximum events to retrieve"
+msgid "Event retrieval limit"
 msgstr "イベント取得上限数"
 
 msgid "Graph height"
@@ -453,8 +453,8 @@ msgstr "値の型"
 msgid "Item type"
 msgstr "アイテムタイプ"
 
-msgid "If nothing is selected, all are included."
-msgstr "未選択の場合はすべてが対象になります。"
+msgid "Select \"All\" to include all value types."
+msgstr "「すべて」を選択すると、すべての値の型を対象にします。"
 
 msgid "All (item filter)"
 msgstr "すべて"
@@ -609,8 +609,17 @@ msgstr "表示"
 msgid "Filters"
 msgstr "フィルター"
 
-msgid "Data"
-msgstr "データ"
+msgid "Time period"
+msgstr "期間"
 
 msgid "This tab contains errors."
 msgstr "このタブにエラーがあります。"
+
+msgid "Select \"All\" to include all item types."
+msgstr "「すべて」を選択すると、すべてのアイテムタイプを対象にします。"
+
+msgid "Select at least one severity."
+msgstr "深刻度を1つ以上選択してください。"
+
+msgid "Select at least one acknowledgement status."
+msgstr "確認状態を1つ以上選択してください。"
