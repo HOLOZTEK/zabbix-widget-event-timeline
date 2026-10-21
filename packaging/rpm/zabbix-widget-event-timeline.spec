@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.8
+Version:        0.2.9
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        Proprietary
@@ -102,7 +102,8 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
-* Tue Oct 20 2026 claude <noreply> - 0.2.8-0
+* Wed Oct 21 2026 claude <noreply> - 0.2.9-0
+- 0.2.8 は未リリース（issue #50 により版を改めた）。内容は次のとおり。
 - 設定画面を5タブ化（対象 / 表示 / フィルター / 期間 / 外観、issue #46）。
 - イベント取得上限数を対象タブへ移動（英語名 Event retrieval limit）。
 - 深刻度・確認状態は設定画面の適用時に1つ以上の選択を必須化。
