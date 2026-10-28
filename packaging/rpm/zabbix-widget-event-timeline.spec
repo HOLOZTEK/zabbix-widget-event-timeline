@@ -3,7 +3,8 @@ Name:           zabbix-widget-event-timeline
 Version:        0.2.9
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
-License:        Proprietary
+License:        MIT
+URL:            https://github.com/HOLOZTEK/zabbix-widget-event-timeline
 BuildArch:      noarch
 Requires:       (php >= 8.1 or php-common >= 8.1)
 
@@ -102,9 +103,12 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
-* Wed Oct 21 2026 claude <noreply> - 0.2.9-0
-- 0.2.8 は未リリース（issue #50 により版を改めた）。内容は次のとおり。
-- 設定画面を5タブ化（対象 / 表示 / フィルター / 期間 / 外観、issue #46）。
+* Wed Oct 28 2026 HOLOZTEK <ttake-55@users.noreply.github.com> - 0.2.9-0
+- 公開用に整備: ライセンスを MIT に変更、メンテナー表記を HOLOZTEK に統一、
+  manifest に author / description / url を追加、README を公開向けに改訂。
+  過去の changelog エントリは履歴として変更しない。
+- 0.2.8 は未リリース（版を改めた）。内容は次のとおり。
+- 設定画面を5タブ化（対象 / 表示 / フィルター / 期間 / 外観）。
 - イベント取得上限数を対象タブへ移動（英語名 Event retrieval limit）。
 - 深刻度・確認状態は設定画面の適用時に1つ以上の選択を必須化。
 - 値の型・アイテムタイプに「すべて」を追加（保存形式は従来どおり）。

@@ -3,7 +3,7 @@
 namespace Modules\EventTimeline\Includes;
 
 /**
- * Zabbix の ID（triggerid / templateid / prototype ID / itemid / hostid / groupid / eventid）の扱い（issue #34）。
+ * Zabbix の ID（triggerid / templateid / prototype ID / itemid / hostid / groupid / eventid）の扱い。
  *
  * Zabbix の ID は符号なし 64-bit（最大 20 桁）で、API も文字列で返す。PHP の int（符号付き 64-bit）へ変換すると
  * PHP_INT_MAX を超える ID が PHP_INT_MAX に飽和し、異なる ID が1件に衝突する。そのため ID は常に
