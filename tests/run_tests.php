@@ -737,14 +737,14 @@ check('TS §14.8 cross-host trigger held independently of host selection', TS::r
 
 
 // ---- TriggerSelectionResolver（v0.2.0 Phase 2: Canonical Trigger 正規化。指示書§17） ----
-// 実環境（172.16.32.170, Zabbix 7.0）の継承関係を模した固定データ。Trigger名は Resolver に渡さない
+// Zabbix 7.0 の典型的な継承関係を模した固定データ。Trigger名は Resolver に渡さない
 // （名前は判定に使わないため、データとしても持たせない。コメントにだけ記す）。
 $tr_db = [
 	// ICMP Ping テンプレート "ICMP Ping: Unavailable by ICMP ping"（23176）と、それを継承する Host A/B/C の実体。
 	23176 => ['templateid' => 0, 'flags' => 0],
-	25143 => ['templateid' => 23176, 'flags' => 0],	// Host A (ns01)
-	25171 => ['templateid' => 23176, 'flags' => 0],	// Host B (ntp)
-	25184 => ['templateid' => 23176, 'flags' => 0],	// Host C (172.16.0.253)
+	25143 => ['templateid' => 23176, 'flags' => 0],	// Host A
+	25171 => ['templateid' => 23176, 'flags' => 0],	// Host B
+	25184 => ['templateid' => 23176, 'flags' => 0],	// Host C
 	// 同名 "Linux: Load average is too high" が2つの別テンプレートに存在する。
 	22381 => ['templateid' => 0, 'flags' => 0],	// Linux by Zabbix agent
 	22425 => ['templateid' => 0, 'flags' => 0],	// Linux by Zabbix agent active

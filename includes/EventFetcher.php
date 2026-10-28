@@ -206,7 +206,7 @@ class EventFetcher {
 
 			// 次ページ: 直前ページの最小 eventid より小さいものだけを取得する。
 			$last = end($page);
-			// eventid は PHP の int に収まらないことがあるため、文字列のまま 1 を引く（issue #34）。
+			// eventid は PHP の int に収まらないことがあるため、文字列のまま 1 を引く。
 			$till_eventid = Ids::decrement(Ids::ref($last['eventid']));
 		}
 
@@ -526,7 +526,7 @@ class EventFetcher {
 
 	/**
 	 * trigger.get の1行を継承情報の行へ変換する（prototypeid は triggerDiscovery を取得したときだけ。無ければ '0'）。
-	 * ID は10進文字列のまま保つ（issue #34）。flags は列挙値なので int。
+	 * ID は10進文字列のまま保つ。flags は列挙値なので int。
 	 */
 	private static function inheritanceRow(array $row): array {
 		$result = [
