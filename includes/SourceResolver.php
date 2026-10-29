@@ -139,7 +139,7 @@ class SourceResolver {
 	}
 
 	/**
-	 * 複数のHost ID配列を統合し、重複を除いた昇順の ID 配列（10進文字列。issue #34）にする。
+	 * 複数のHost ID配列を統合し、重複を除いた昇順の ID 配列（10進文字列）にする。
 	 */
 	public static function mergeUnique(array ...$lists): array {
 		return Ids::unique(array_merge(...$lists));

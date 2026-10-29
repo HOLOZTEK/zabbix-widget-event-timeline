@@ -1,9 +1,10 @@
 Source: zabbix-widget-event-timeline
 Section: web
 Priority: optional
-Maintainer: claude <noreply@example.com>
+Maintainer: HOLOZTEK <ttake-55@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
+Homepage: https://github.com/HOLOZTEK/zabbix-widget-event-timeline
 
 Package: zabbix-widget-event-timeline
 Architecture: all

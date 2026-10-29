@@ -85,7 +85,7 @@ class TriggerSelection {
 
 	/**
 	 * Trigger ID 1件を正規化する。整数（>0）または数字のみの文字列（>0）であれば、先頭ゼロを除いた文字列を返す
-	 * （PHP の int へは変換しない。issue #34）。それ以外（負数・0・小数・非数値文字列・null・配列等）は null を返す。
+	 * （PHP の int へは変換しない）。それ以外（負数・0・小数・非数値文字列・null・配列等）は null を返す。
 	 */
 	private static function normalizeId($id): ?string {
 		return Ids::normalize($id);

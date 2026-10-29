@@ -1,12 +1,15 @@
-zabbix-widget-event-timeline (0.2.8) unstable; urgency=medium
+zabbix-widget-event-timeline (0.2.9) unstable; urgency=medium
 
-  * 設定画面を5タブ化（issue #46）。
+  * 公開用に整備（ライセンスを MIT に変更、メンテナー表記を HOLOZTEK に
+    統一、manifest に author / description / url を追加、README を改訂）。
+  * 0.2.8 は未リリース（版を改めた）。
+  * 設定画面を5タブ化。
   * イベント取得上限数を対象タブへ移動。
   * 深刻度・確認状態の1つ以上の選択を必須化。
   * 値の型・アイテムタイプに「すべて」を追加。
   * フィルタータブの横スクロールを解消。
 
- -- claude <noreply@example.com>  Tue, 20 Oct 2026 10:00:00 +0900
+ -- HOLOZTEK <ttake-55@users.noreply.github.com>  Wed, 28 Oct 2026 10:00:00 +0900
 
 zabbix-widget-event-timeline (0.2.7) unstable; urgency=medium
 
