@@ -49,6 +49,26 @@ Event Timeline displays Zabbix problem events as a severity-stacked bar chart ov
 - **空状態 / エラー表示**: 0件でもグラフ（軸・Grid）とフッターを残し、中央に状態を表示（下記「表示とツールチップ」）。対象Hostなし・取得失敗はエラー / 警告として表示
 - 日本語 / English ロケール対応
 
+### Features
+
+- **Targets**: union of hosts and host groups (including subgroups); duplicate hosts are counted once.
+- **Time period**: follows the dashboard time period (a widget-specific period can also be set).
+- **Events**: problem events created by triggers (one eventid = one event, suppressed events included). Severity is `event.severity` (the value when the event occurred).
+- **Severity filter**: each severity can be included or excluded (all included by default); excluded severities are removed during aggregation, not just hidden.
+- **Automatic bucket size**: from `1m, 5m, 10m, 15m, 30m, 1h, 2h, 3h, 6h, 12h, 1d, 7d, 1month`, the smallest size that gives at most 100 buckets aligned to natural boundaries.
+  - Days, weeks and months follow the local calendar (a DST day is one bucket). The first day of the week for 7d can be set per widget to any of the 7 days (Sunday for new widgets; existing widgets keep Monday). 1month is a calendar month.
+  - Bucket boundaries and event membership use `start <= clock < end`.
+  - The time zone is the logged-in user's effective time zone (bucket boundaries, axis and tooltips).
+- **Stacked bars**: stacked from Not classified (bottom) to Disaster, using the standard Zabbix severity colors.
+- **X axis labels**: hour → month/day → year; only the parts that changed since the previous tick are shown (the first tick shows all; day/week buckets omit the hour row, month buckets show month and year).
+- **Tooltip**: time range, total, the count of the hovered severity and its event details (grouped by host, with time and event name; up to 10 per bucket × severity, the rest as "N more events"). An event related to several hosts is listed under each of them (counted once).
+  - The detail order can be switched between "By host" (default) and "Chronological" with a toolbar icon (runtime only, not saved). The hovered stack is outlined.
+- **Retrieval limit**: configurable (default 100,000). When the limit is reached, a warning with the excluded period is shown above the chart.
+- **Appearance**: graph height, Y-axis minimum (a minimum for the axis maximum; 0/empty = automatic; the axis grows with the data; the axis always starts at 0), line and text colors ("Automatic" follows the Zabbix theme; custom colors via the color picker or #RRGGBB; "Use default" returns to automatic; Light/Dark supported).
+- **X axis**: ticks show only the smallest unit; month/day and year are shown as period lines below the axis (split at date/year changes).
+- **Empty state / errors**: with no events, the chart (axes, grid) and footer stay visible and the state is shown in the center (see "Display and tooltips"). No target hosts and fetch failures are shown as errors / warnings.
+- Japanese / English locales.
+
 ## Widget連携（Navigator連携）・表示画面のフィルター・集計方法
 
 - **Source**: Monitoring target と Event は独立して Fixed / Widget を選択（4通りの組み合わせ）。条件は `Monitoring target AND Event Selection`
@@ -59,6 +79,17 @@ Event Timeline displays Zabbix problem events as a severity-stacked bar chart ov
 - **Filter Reset**: 設定値へ戻す（全ONではない）。実行時状態が設定値と同じ間は無効
 - **Event Count Mode**: 発生イベント数（Eventのclockが属するBucketのみ）/ 継続イベント加算（継続期間と重なるすべてのBucketへ加算。`start < bucket_end AND end > bucket_start`。未復旧は現在時刻・期間終端まで、未来のBucketには加算しない）
 - 実行時の状態は設定を書き換えず、通常のRefreshでは保持され、ダッシュボード再表示・ウィジェット再作成で設定値に戻る
+
+### Widget integration (Navigator integration), runtime filters and counting
+
+- **Source**: Monitoring target and Event are set independently to Fixed or Widget (four combinations). The condition is `Monitoring target AND Event selection`.
+  - Monitoring target = Widget: host / host group selection of Tree Navigator (groups include subgroups; hosts are deduplicated).
+  - Triggers = Fixed: triggers are selected with the same selection UI as hosts. Triggers = Widget: the trigger selection of Event Navigator, Metric Navigator, etc. Without triggers, all events of the target hosts in the period are shown ("No target selected" when no target host is selected).
+  - When a widget source has not sent a selection yet, the widget does not widen the scope to all hosts / events; it shows "No target selected" and refreshes when a selection arrives or changes.
+- **Severity filter / acknowledgement filter**: the configured values are the initial runtime values and can be toggled in the toolbar (the severity chips double as the legend). Excluded values are removed from aggregation and the totals are recalculated. The acknowledgement status is the current value at fetch time (past states are not reconstructed).
+- **Filter reset**: returns to the configured values (not to "all on"); disabled while the runtime state equals the configuration.
+- **Event count mode**: occurred events (only the bucket containing the event clock) / continuing events (added to every bucket that overlaps the event duration: `start < bucket_end AND end > bucket_start`; unresolved events last until now or the end of the period and are never added to future buckets).
+- The runtime state never changes the configuration. It is kept on normal refresh and returns to the configured values when the dashboard is reloaded or the widget is recreated.
 
 ## トリガーの対象Host展開
 
@@ -425,7 +456,7 @@ cp -r zabbix-widget-event-timeline-v1.0.0 /usr/share/zabbix/modules/event-timeli
 ### インストール後の操作 / After installation
 
 1. PHP の実行環境を再読み込みします（例: RHEL 系の PHP-FPM 構成は `systemctl reload php-fpm`、Ubuntu の Apache 構成は `systemctl reload apache2`）。
-2. Zabbix の「管理 → 一般設定 → モジュール」で「ディレクトリのスキャン」を実行し、Event Timeline を有効にします（初回のみ）。
+2. Zabbix の「管理 → 一般設定 → モジュール」で「ディレクトリスキャン」を実行し、Event Timeline を有効にします（初回のみ）。
 3. ダッシュボードにウィジェット「Event Timeline」を追加します。
 
 1. Reload PHP (e.g. `systemctl reload php-fpm` on RHEL-compatible systems with PHP-FPM, `systemctl reload apache2` on Ubuntu with Apache).
@@ -463,7 +494,7 @@ dpkg -r zabbix-widget-event-timeline
 - 事前に、ダッシュボードから Event Timeline ウィジェットを削除するか、モジュールを無効にしてください。
 - パッケージのアンインストールでは、モジュールディレクトリ `event-timeline` も削除します。
 - 手動インストールの場合は、モジュールを無効にしてから `event-timeline` ディレクトリを削除します。
-- 削除後に PHP の実行環境を再読み込みし、「管理 → 一般設定 → モジュール」で「ディレクトリのスキャン」を実行してモジュールの登録を削除します。
+- 削除後に PHP の実行環境を再読み込みし、「管理 → 一般設定 → モジュール」で「ディレクトリスキャン」を実行してモジュールの登録を削除します。
 
 - Before uninstalling, remove the Event Timeline widgets from dashboards or disable the module.
 - Uninstalling the package also removes the module directory `event-timeline`.
