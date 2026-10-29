@@ -20,7 +20,17 @@ class EventFetcher {
 	private const RECOVERY_CHUNK = 500;
 
 	/**
-	 * @param int[]   $hostids    resolved host IDs（Source resolution の結果）
+	 * 取得系 API の呼び出し回数（method => 回数）。1リクエスト内の統計で、デバッグモード時の応答と性能試験の記録に使う。
+	 * Event 取得（event.get）・Trigger 展開（trigger.get）・Item characteristics filter（trigger.get / item.get）の経路だけを数える。
+	 */
+	public static array $api_calls = [];
+
+	private static function countCall(string $method): void {
+		self::$api_calls[$method] = (self::$api_calls[$method] ?? 0) + 1;
+	}
+
+	/**
+	 * @param string[] $hostids    resolved host IDs（Source resolution の結果）
 	 * @param int     $time_from  期間開始（UNIX時刻、含む）
 	 * @param int     $time_till  期間終了（UNIX時刻、含む）
 	 * @param int[]   $severities API側でも絞り込むSeverity（全Severityなら絞り込まない）
@@ -137,6 +147,7 @@ class EventFetcher {
 				$page_options['eventid_till'] = $till_eventid;
 			}
 
+			self::countCall('event.get');
 			$page = API::Event()->get($page_options);
 
 			if (!is_array($page)) {
@@ -195,7 +206,8 @@ class EventFetcher {
 
 			// 次ページ: 直前ページの最小 eventid より小さいものだけを取得する。
 			$last = end($page);
-			$till_eventid = (string) ((int) $last['eventid'] - 1);
+			// eventid は PHP の int に収まらないことがあるため、文字列のまま 1 を引く。
+			$till_eventid = Ids::decrement(Ids::ref($last['eventid']));
 		}
 
 		return [
@@ -217,6 +229,7 @@ class EventFetcher {
 		$clocks = [];
 
 		foreach (array_chunk($ids, self::RECOVERY_CHUNK) as $chunk) {
+			self::countCall('event.get');
 			$rows = API::Event()->get([
 				'output' => ['eventid', 'clock'],
 				'eventids' => $chunk,
@@ -280,7 +293,7 @@ class EventFetcher {
 	 * $target_hostids が null のときは関連Hostをすべて返し、指定時は対象Host集合との交差だけを返す。
 	 *
 	 * @param string[]      $eventids
-	 * @param int[]|null    $target_hostids
+	 * @param string[]|null $target_hostids
 	 *
 	 * @return array<string, array{name: string, triggerid: string, hosts: array<int, array{id: string, name: string}>,
 	 *         end: ?int}>|null  失敗時は null
@@ -338,11 +351,11 @@ class EventFetcher {
 	/**
 	 * 次元集計（By Host / By Host group / By Event）用に、Event名と関連Host（ID・名前）を取得する。
 	 * 関連Hostは対象Host集合（$target_hostids）との交差だけを返す。
-	 * triggers（eventid => triggerid）は、プロトタイプグループ表示（resolvePrototypes()）の入力にする
+	 * triggers（eventid => triggerid）は、プロトタイプグループ表示（fetchTriggerParents()）の入力にする
 	 * ためのもので、追加のAPI呼び出しは発生しない（event.get の output に objectid を足すだけ）。
 	 *
 	 * @param string[] $eventids
-	 * @param int[]    $target_hostids
+	 * @param string[] $target_hostids
 	 *
 	 * @return array{names: array<string, string>, hosts: array<string, string[]>, host_names: array<string, string>,
 	 *         triggers: array<string, string>}|null
@@ -386,41 +399,37 @@ class EventFetcher {
 	}
 
 	/**
-	 * Trigger prototype 解決（プロトタイプグループ表示用）: 指定Trigger群のうちLLD（Discovery）由来のものについて、
-	 * 生成元のTrigger prototype ID と、その表示名（description。{#MACRO} 等は未解決のまま）を返す。
-	 * 通常Trigger（Prototype由来でない）は parent に現れない。
+	 * プロトタイプグループ表示用: 指定Trigger群のうちLLD（Discovery）由来のものについて、生成元の Trigger prototype ID
+	 * （対象Host上の prototype。triggerDiscovery.parent_triggerid）を返す。通常Trigger（Prototype由来でない）は現れない。
+	 * prototype の表示名と Canonical prototype への正規化は呼び出し側（TriggerPrototypeResolver ＋ prototype 用キャッシュ）で行う。
 	 *
-	 * Event件数分のAPI呼び出しにはならないよう、triggerid をまとめて trigger.get / triggerprototype.get する
-	 * （呼び出し側で同一Renderingにつき1回だけ呼び、eventid => triggerid の解決結果はここでキャッシュしない
-	 * － 呼び出し元がRender単位で1回だけ呼ぶことでキャッシュに相当する）。
-	 * API失敗時も他のメソッドと異なりnullを返さない: プロトタイプ情報が無くてもWidget全体をエラーにはせず、
-	 * 解決できなかった分は呼び出し側で個別Event表示へFallbackする（仕様上、Prototype解決失敗は握りつぶしてよい）。
+	 * Event件数分のAPI呼び出しにはならないよう、triggerid をまとめて trigger.get する（呼び出し側で同一Renderingにつき1回）。
+	 * API失敗時は null（Phase 6 §6: 生成元 prototype が分からないまま Event 名で Group 化しない。呼び出し側はエラーにする）。
 	 *
 	 * @param string[] $triggerids
 	 *
-	 * @return array{parent: array<string, string>, names: array<string, string>}
-	 *   parent: Discovery由来のtriggerid => 生成元Trigger prototype ID。names: Trigger prototype ID => 表示名。
+	 * @return array<string, string>|null  Discovery由来のtriggerid => 生成元Trigger prototype ID。API失敗時は null
 	 */
-	public static function resolvePrototypes(array $triggerids): array {
+	public static function fetchTriggerParents(array $triggerids): ?array {
 		$ids = array_values(array_unique(array_filter(array_map('strval', $triggerids),
 			static fn(string $id): bool => $id !== '0'
 		)));
 		$parent = [];
 
 		foreach (array_chunk($ids, 500) as $chunk) {
+			self::countCall('trigger.get');
 			$rows = API::Trigger()->get([
 				'output' => ['triggerid'],
-				'selectTriggerDiscovery' => ['parent_triggerid'],
+				self::discoverySelect() => ['parent_triggerid'],
 				'triggerids' => $chunk
 			]);
 
 			if (!is_array($rows)) {
-				// 失敗しても個別Event表示へFallbackするだけなので、Widget全体は止めない。
-				continue;
+				return null;
 			}
 
 			foreach ($rows as $row) {
-				$discovery = $row['triggerDiscovery'] ?? null;
+				$discovery = self::discoveryOf($row);
 
 				if (is_array($discovery) && isset($discovery['parent_triggerid'])) {
 					$parent[(string) $row['triggerid']] = (string) $discovery['parent_triggerid'];
@@ -428,26 +437,253 @@ class EventFetcher {
 			}
 		}
 
-		$proto_ids = array_values(array_unique(array_values($parent)));
-		$names = [];
+		return $parent;
+	}
 
-		foreach (array_chunk($proto_ids, 500) as $chunk) {
-			if (!$chunk) {
-				continue;
-			}
+	/**
+	 * TriggerPrototypeResolver 用: Trigger prototype の継承情報（templateid / flags）と表示名（description。{#MACRO} は
+	 * 未解決のまま）。Host 上の prototype も Template 上の prototype も対象にする。閲覧権限のない prototype は返らない。
+	 *
+	 * @param string[] $prototypeids
+	 *
+	 * @return array<string, array{templateid: string, flags: int, description: string}>|null  API失敗時は null
+	 */
+	public static function fetchPrototypeInheritance(array $prototypeids): ?array {
+		$result = [];
 
-			$rows = API::TriggerPrototype()->get(['output' => ['triggerid', 'description'], 'triggerids' => $chunk]);
+		foreach (array_chunk(array_values(array_map('strval', $prototypeids)), 500) as $chunk) {
+			self::countCall('triggerprototype.get');
+			$rows = API::TriggerPrototype()->get([
+				'output' => ['triggerid', 'templateid', 'flags', 'description'],
+				'triggerids' => $chunk
+			]);
 
 			if (!is_array($rows)) {
-				continue;
+				return null;
 			}
 
 			foreach ($rows as $row) {
-				$names[(string) $row['triggerid']] = (string) $row['description'];
+				$result[(string) $row['triggerid']] = [
+					'templateid' => Ids::ref($row['templateid']),
+					'flags' => (int) $row['flags'],
+					'description' => (string) $row['description']
+				];
 			}
 		}
 
-		return ['parent' => $parent, 'names' => $names];
+		return $result;
+	}
+
+	/**
+	 * TriggerSelectionResolver 用: Triggerの継承情報（templateid / flags）。Host上のTriggerもテンプレート上の
+	 * Triggerも対象にする（trigger.get は templated 未指定で両方を返す）。閲覧権限のないTriggerは返らない。
+	 *
+	 * @param string[] $triggerids
+	 *
+	 * Phase 4: LLD（Discovery）由来の Trigger は生成元 Trigger prototype（triggerDiscovery.parent_triggerid）も同じ呼び出しで
+	 * 取得し、prototypeid として返す（Source の Discovered Trigger → prototype の解決に追加の呼び出しをしない）。
+	 *
+	 * @return array<string, array{templateid: string, flags: int, prototypeid: string}>|null  API失敗時は null
+	 */
+	public static function fetchTriggerInheritance(array $triggerids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_map('strval', $triggerids)), 500) as $chunk) {
+			self::countCall('trigger.get');
+			$rows = API::Trigger()->get([
+				'output' => ['triggerid', 'templateid', 'flags'],
+				self::discoverySelect() => ['parent_triggerid'],
+				'triggerids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$result[(string) $row['triggerid']] = self::inheritanceRow($row);
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * trigger.get で生成元 prototype（parent_triggerid）を取るパラメータ名。Zabbix 8.0 では selectTriggerDiscovery が
+	 * 廃止予定（API_DEPRECATED）となり、E_USER_DEPRECATED が技術的エラーとして一般ユーザーに「システムエラー」と
+	 * 表示されるため、8.0 以降は後継の selectDiscoveryData を使う（7.0 には selectDiscoveryData が無い）。
+	 */
+	private static function discoverySelect(): string {
+		return version_compare(ZABBIX_API_VERSION, '8.0.0', '>=') ? 'selectDiscoveryData' : 'selectTriggerDiscovery';
+	}
+
+	/**
+	 * trigger.get の1行から Discovery 情報（discoveryData または triggerDiscovery）を取り出す。無ければ null。
+	 */
+	private static function discoveryOf(array $row) {
+		return $row['discoveryData'] ?? $row['triggerDiscovery'] ?? null;
+	}
+
+	/**
+	 * trigger.get の1行を継承情報の行へ変換する（prototypeid は triggerDiscovery を取得したときだけ。無ければ '0'）。
+	 * ID は10進文字列のまま保つ。flags は列挙値なので int。
+	 */
+	private static function inheritanceRow(array $row): array {
+		$result = [
+			'templateid' => Ids::ref($row['templateid']),
+			'flags' => (int) $row['flags']
+		];
+
+		if (array_key_exists('triggerDiscovery', $row) || array_key_exists('discoveryData', $row)) {
+			$discovery = self::discoveryOf($row);
+			$result['prototypeid'] = is_array($discovery) && isset($discovery['parent_triggerid'])
+				? Ids::ref($discovery['parent_triggerid'])
+				: '0';
+		}
+
+		return $result;
+	}
+
+	/**
+	 * TriggerScopeExpander 用: 対象Host群の上にある Trigger の継承情報（templateid / flags）を、Host をまとめて取得する
+	 * （Host 1台ごとの呼び出しはしない）。複数Hostの Item を参照する Trigger は、参照先のいずれかが対象Hostなら返る。
+	 * 閲覧権限のない Trigger は返らない。Trigger prototype は trigger.get の対象外。
+	 *
+	 * Phase 4: $with_prototype のとき（LLD の Canonical prototype が選択されているとき）は、Discovered Trigger の生成元
+	 * prototype（triggerDiscovery.parent_triggerid）も同じ呼び出しで取得し prototypeid として返す。通常 Trigger の展開と
+	 * LLD の展開はこの1回の取得結果を共有する。
+	 *
+	 * Phase 5: $with_functions のとき（Item characteristics filter が有効なとき）は、Trigger が直接参照する Item
+	 * （functions の itemid）も同じ呼び出しで取得し itemids として返す。
+	 *
+	 * @param string[] $hostids
+	 * @param bool  $with_prototype
+	 * @param bool  $with_functions
+	 *
+	 * @return array<string, array{templateid: string, flags: int, prototypeid?: string, itemids?: string[]}>|null
+	 *         API失敗時は null
+	 */
+	public static function fetchHostTriggers(array $hostids, bool $with_prototype = false,
+			bool $with_functions = false): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_unique(array_map('strval', $hostids))), 500) as $chunk) {
+			self::countCall('trigger.get');
+			$options = [
+				'output' => ['triggerid', 'templateid', 'flags'],
+				'hostids' => $chunk
+			];
+
+			if ($with_prototype) {
+				$options[self::discoverySelect()] = ['parent_triggerid'];
+			}
+
+			if ($with_functions) {
+				$options['selectFunctions'] = ['itemid'];
+			}
+
+			$rows = API::Trigger()->get($options);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$result[(string) $row['triggerid']] = self::inheritanceRow($row);
+
+				if ($with_functions) {
+					$result[(string) $row['triggerid']]['itemids'] = self::functionItemids($row);
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Item characteristics filter（Phase 5）用: Trigger が直接参照する Item（trigger.get の functions = Zabbix が保持する
+	 * Trigger → Item の構造情報。式の文字列解析はしない）。Trigger をまとめて取得する（Trigger 1件ごとの呼び出しはしない）。
+	 * 閲覧権限のない Trigger は返らない。
+	 *
+	 * @param string[] $triggerids
+	 *
+	 * @return array<string, string[]>|null  triggerid => itemid[]。API失敗時は null
+	 */
+	public static function fetchTriggerItems(array $triggerids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_map('strval', $triggerids)), 500) as $chunk) {
+			self::countCall('trigger.get');
+			$rows = API::Trigger()->get([
+				'output' => ['triggerid'],
+				'selectFunctions' => ['itemid'],
+				'triggerids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$result[(string) $row['triggerid']] = self::functionItemids($row);
+			}
+		}
+
+		return $result;
+	}
+
+	private static function functionItemids(array $row): array {
+		$ids = [];
+
+		foreach ($row['functions'] ?? [] as $function) {
+			if (isset($function['itemid'])) {
+				$ids[] = $function['itemid'];
+			}
+		}
+
+		return Ids::unique($ids);
+	}
+
+	/**
+	 * Item characteristics filter（Phase 5）用: Item の metadata。ログインユーザーの通常の権限で取得する（権限を迂回しない）。
+	 * Item の status（Disabled 等）では絞り込まない。Web monitoring の Item も対象にする。
+	 * Item をまとめて取得する（Item 1件ごとの呼び出しはしない）。閲覧できない・存在しない Item は返らない。
+	 *
+	 * @param string[] $itemids
+	 *
+	 * @return array<string, array{type: int, value_type: int, name: string, key: string, hostid: string,
+	 *         host: string}>|null  API失敗時は null
+	 */
+	public static function fetchItemMetadata(array $itemids): ?array {
+		$result = [];
+
+		foreach (array_chunk(array_values(array_map('strval', $itemids)), 1000) as $chunk) {
+			self::countCall('item.get');
+			$rows = API::Item()->get([
+				'output' => ['itemid', 'type', 'value_type', 'name', 'name_resolved', 'key_', 'hostid'],
+				'selectHosts' => ['hostid', 'name'],
+				'itemids' => $chunk,
+				'webitems' => true
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$host = $row['hosts'][0] ?? null;
+				$result[(string) $row['itemid']] = [
+					'type' => (int) $row['type'],
+					'value_type' => (int) $row['value_type'],
+					'name' => (string) (($row['name_resolved'] ?? '') !== '' ? $row['name_resolved'] : $row['name']),
+					'key' => (string) $row['key_'],
+					'hostid' => (string) $row['hostid'],
+					'host' => is_array($host) ? (string) $host['name'] : ''
+				];
+			}
+		}
+
+		return $result;
 	}
 
 	/**
@@ -475,6 +711,40 @@ class EventFetcher {
 				foreach ($row['hostgroups'] ?? [] as $g) {
 					$map[(string) $row['hostid']][(string) $g['groupid']] = (string) $g['name'];
 				}
+			}
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Host View の Tooltip 用（UI Polish §16〜17）: Host 名（技術名）・表示名・インターフェース。表示中のページの Host
+	 * だけを1回の host.get（selectInterfaces）でまとめて取得する（Host 数分の呼び出しにはしない）。
+	 *
+	 * @param string[] $hostids
+	 *
+	 * @return array<string, array{host: string, name: string, interfaces: array[]}>|null  失敗時は null
+	 */
+	public static function fetchHostDetails(array $hostids): ?array {
+		$map = [];
+
+		foreach (array_chunk(array_values(array_unique($hostids)), 500) as $chunk) {
+			$rows = API::Host()->get([
+				'output' => ['hostid', 'host', 'name'],
+				'selectInterfaces' => ['type', 'main', 'useip', 'ip', 'dns', 'port'],
+				'hostids' => $chunk
+			]);
+
+			if (!is_array($rows)) {
+				return null;
+			}
+
+			foreach ($rows as $row) {
+				$map[(string) $row['hostid']] = [
+					'host' => (string) $row['host'],
+					'name' => (string) $row['name'],
+					'interfaces' => $row['interfaces'] ?? []
+				];
 			}
 		}
 

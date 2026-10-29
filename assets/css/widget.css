@@ -25,9 +25,35 @@
 }
 
 .et-chart {
+	position: relative;
 	flex-shrink: 0;
 	width: 100%;
 	min-width: 0;
+}
+
+/* Empty State（UI Polish §22）: Graph の軸・Grid を残したまま、中央に状態を重ねる。Graph の操作は妨げない。 */
+.et-empty-state {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 12px 16px;
+	text-align: center;
+	pointer-events: none;
+	overflow-wrap: anywhere;
+}
+
+.et-empty-title {
+	font-size: 13px;
+	font-weight: bold;
+	opacity: 0.85;
+}
+
+.et-empty-state .et-empty-sub {
+	opacity: 0.75;
 }
 
 .et-warning {
@@ -38,6 +64,11 @@
 	background: rgba(255, 140, 0, 0.18);
 	font-size: 13px;
 	font-weight: bold;
+}
+
+.et-warning-sub {
+	margin-top: 2px;
+	font-weight: normal;
 }
 
 .et-empty,
@@ -118,6 +149,32 @@
 	opacity: 0.8;
 }
 
+/* カテゴリ表示の Tooltip（UI Polish §16〜21）。長い名前は折り返す。 */
+.et-tip-category .et-tip-title {
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.et-tip-field {
+	overflow-wrap: anywhere;
+}
+
+.et-tip-iface {
+	padding-left: 12px;
+	overflow-wrap: anywhere;
+}
+
+.et-tip-section {
+	margin-top: 4px;
+	opacity: 0.8;
+}
+
+.et-tip-category .et-tip-host {
+	margin-top: 0;
+	padding-left: 12px;
+	font-weight: normal;
+}
+
 /* 1行目: 機能グループの横並び（狭い幅では折り返す）。右端に合計・間隔。 */
 .et-controls {
 	display: flex;
@@ -127,10 +184,14 @@
 }
 
 
+/* 狭幅（約290px未満）ではグループ内のボタンも折り返し、Widget の横幅を超えない（Phase 6 §16）。 */
 .et-group {
 	display: inline-flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 4px;
+	box-sizing: border-box;
+	max-width: 100%;
 	padding: 0 12px;
 	border-left: 1px solid rgba(128, 128, 128, 0.45);
 }
@@ -183,6 +244,92 @@
 .et-btn:disabled {
 	opacity: 0.4;
 	cursor: default;
+}
+
+/*
+ * Item characteristics filter（Phase 5）: 値の型 / アイテムタイプの複数選択ドロップダウン。
+ * ボタンは他のボタンと同じ外観。狭幅では表示名を省略し、全文は title で確認できる。
+ */
+.et-item-filter {
+	min-width: 0;
+	flex-wrap: wrap;
+}
+
+.et-btn.et-dd {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: min(220px, 100%);
+}
+
+.et-btn.et-dd-active {
+	background: rgba(128, 128, 128, 0.35);
+	border-color: currentColor;
+	font-weight: bold;
+}
+
+.et-btn.et-dd-open {
+	border-color: currentColor;
+}
+
+.et-dd-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.et-dd-arrow {
+	flex: none;
+	width: 0;
+	height: 0;
+	border-left: 4px solid transparent;
+	border-right: 4px solid transparent;
+	border-top: 5px solid currentColor;
+	opacity: 0.8;
+}
+
+/* 選択肢パネル: document.body 直下に固定配置。背景・枠・影は Zabbix テーマの menu-popup に従う。 */
+.et-dd-panel {
+	z-index: 1100;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	min-width: 180px;
+	max-width: min(320px, calc(100vw - 16px));
+	padding: 6px 0;
+}
+
+.et-dd-panel .et-dd-list {
+	flex: 1 1 auto;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+	overflow-y: auto;
+	list-style: none;
+}
+
+.et-dd-panel .et-dd-list li {
+	display: flex;
+	align-items: center;
+	padding: 3px 12px;
+}
+
+.et-dd-panel .et-dd-list li.et-dd-all {
+	margin-bottom: 4px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid rgba(128, 128, 128, 0.45);
+}
+
+.et-dd-panel .et-dd-list label {
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.et-dd-panel .et-dd-footer {
+	display: flex;
+	justify-content: flex-end;
+	padding: 6px 12px 0;
+	border-top: 1px solid rgba(128, 128, 128, 0.45);
 }
 
 /* 2行目: 深刻度。 */
@@ -373,4 +520,61 @@
 	justify-content: flex-end;
 	gap: 8px;
 	margin-top: 8px;
+}
+
+/* Drilldown: 行ごとの「一致したアイテム」（Item characteristics filter 有効時のみ）。列を増やさず折りたたみで表示する。 */
+.et-detail-items-row > td {
+	padding-top: 0;
+}
+
+.et-detail-items summary {
+	cursor: pointer;
+	opacity: 0.85;
+}
+
+.et-detail-items[open] summary {
+	margin-bottom: 4px;
+}
+
+.et-detail-items-table {
+	width: 100%;
+}
+
+.et-detail-key {
+	font-family: monospace;
+}
+
+/*
+ * 設定画面のタブ（対象 / 表示 / フィルター / データ / 外観）。外枠は Zabbix 標準の円グラフ設定と同じく
+ * フォームの2列を横断させる。タブの見た目自体は Zabbix 標準（jQuery UI tabs）のまま。
+ */
+form.dashboard-widget-event-timeline .et-config-tabs {
+	grid-column: 1 / -1;
+	min-width: 0;
+}
+
+form.dashboard-widget-event-timeline .et-config-tabs > .ui-tabs-nav {
+	white-space: nowrap;
+}
+
+/*
+ * タブの中身に横スクロールを付けない。Zabbix標準のチェックボックス一覧は項目に左右 -2px の余白（フォーカス枠用）
+ * を持ち、2列表示の右端が2pxはみ出すため、overflow-x: auto だと常に横スクロールバーが出る（標準の設定画面と同じく
+ * はみ出しはそのまま見せる）。
+ */
+form.dashboard-widget-event-timeline .et-config-tabs > div[id] {
+	min-width: 0;
+}
+
+/* ページング相当の設定・色設定の前の軽い区切り（Accordion や見出しは使わない）。 */
+form.dashboard-widget-event-timeline .et-form-separator {
+	grid-column: 1 / -1;
+	border-top: 1px solid rgba(128, 128, 128, 0.35);
+}
+
+/* エラーを含むタブの小さな印。色は Zabbix の .red（テーマごとのエラー色）。 */
+.et-tab-error-mark {
+	margin-left: 5px;
+	font-size: 9px;
+	vertical-align: middle;
 }

@@ -1,3 +1,99 @@
+zabbix-widget-event-timeline (0.2.9) unstable; urgency=medium
+
+  * 公開用に整備（ライセンスを MIT に変更、メンテナー表記を HOLOZTEK に
+    統一、manifest に author / description / url を追加、README を改訂）。
+  * 0.2.8 は未リリース（版を改めた）。
+  * 設定画面を5タブ化。
+  * イベント取得上限数を対象タブへ移動。
+  * 深刻度・確認状態の1つ以上の選択を必須化。
+  * 値の型・アイテムタイプに「すべて」を追加。
+  * フィルタータブの横スクロールを解消。
+
+ -- HOLOZTEK <ttake-55@users.noreply.github.com>  Wed, 28 Oct 2026 10:00:00 +0900
+
+zabbix-widget-event-timeline (0.2.7) unstable; urgency=medium
+
+  * UI Polish（issue #42）: 値の型・アイテムタイプの表示順を固定。
+  * ツールバーの全操作とグラフに Tooltip を追加。
+  * 0件表示を改善（軸・Grid・フッターを残して状態を表示）。
+  * 第6フェーズの統合レビュー修正と Zabbix 8.0 対応を含む。
+
+ -- claude <noreply@example.com>  Mon, 19 Oct 2026 10:00:00 +0900
+
+zabbix-widget-event-timeline (0.2.6) unstable; urgency=medium
+
+  * Zabbix の ID（Trigger / Trigger prototype / Item / Host / Host group / Event）を10進文字列のまま扱うよう修正。
+    PHP_INT_MAX（9223372036854775807）を超える ID が1件に衝突し、トリガー選択・展開・Item 特性フィルタが
+    誤った結果になる問題を解消（issue #34）。
+
+ -- claude <noreply@example.com>  Sun, 18 Oct 2026 23:00:00 +0900
+
+zabbix-widget-event-timeline (0.2.5) unstable; urgency=medium
+
+  * LLD / トリガープロトタイプ（Phase 4）: Discovered トリガーをプロトタイプ（parent_triggerid）から
+    Template 継承元の最上位プロトタイプへ正規化し、対象Host上の同じプロトタイプ由来のトリガーへ展開する。
+    正規化できないものは分離して部分結果の警告を表示する。
+  * Item 特性フィルタ（Phase 5）: Item の値の型・アイテムタイプで Event を絞り込む。
+  * Event View の並び順を 影響ホスト数順（既定）/ イベント発生数順 / A-Z / Z-A に変更。
+    棒の高さは影響ホスト数のまま。Host / Host group 表示の並び順は従来どおり。
+
+ -- claude <noreply@example.com>  Sun, 18 Oct 2026 21:00:00 +0900
+
+zabbix-widget-event-timeline (0.2.4) unstable; urgency=medium
+
+  * トリガーの対象Host展開（Phase 3）: 選択されたトリガーを正規化した最上位の定義を、
+    Event Timeline の対象Host（固定Host / Host group / 受信Host）へ展開し、対象Host上の
+    同じTemplateトリガーに由来するトリガーのイベントを表示する（選択元のHostには束縛しない）。
+  * Hostローカルのトリガーは所属Hostが対象Hostに含まれるときだけ使用し、LLD由来のトリガーは
+    選択されたトリガー自身のみ使用する。展開結果が0件の場合は全イベント表示へ切り替えない。
+  * 対象Host上の一部のトリガーを照合できない場合は、照合できた分を表示して部分結果の警告を表示する。
+
+ -- claude <noreply@example.com>  Sat, 17 Oct 2026 21:00:00 +0900
+
+zabbix-widget-event-timeline (0.2.3) unstable; urgency=medium
+
+  * トリガー選択の正規化（Phase 2）: 選択されたトリガーをTemplateの継承元（templateid）を
+    たどって最上位の定義へ正規化する（多段継承対応・循環検出・最大64段）。Hostローカルの
+    トリガーはそのまま扱い、LLD由来のトリガーは正規化しない。名前・式による同一判定はしない。
+  * 継承元Templateを参照する権限がなく正規化できないトリガーが1件でもある場合は、選択全体を
+    適用できないものとして扱い、全イベント表示や部分結果へフォールバックせず警告を表示する。
+  * 正規化結果のデバッグ情報は Zabbix のデバッグモードが有効なユーザーにのみ出力する。
+
+ -- claude <noreply@example.com>  Sat, 17 Oct 2026 09:00:00 +0900
+
+zabbix-widget-event-timeline (0.2.2) unstable; urgency=medium
+
+  * Zabbix 8.0（8.0.0rc1以降）対応: ウィジェット設定画面がHTTP 500（8.0で廃止された
+    PHP定数 ZBX_STYLE_COLOR_PICKER / クラス CColor の参照）やJSエラー（jQuery colorpicker の廃止、
+    設定フォームIDの widget-dialogue-form → widget-form 変更）で動作しない不具合を修正。
+    Zabbix 7.0 では従来の処理を使い、8.0以降は <z-color-picker> / CColorPicker と
+    新しいフォームIDを使う。Zabbix 7.0 系での動作は従来と同一。
+
+ -- claude <noreply@example.com>  Sat, 03 Oct 2026 09:00:00 +0900
+
+zabbix-widget-event-timeline (0.2.1) unstable; urgency=medium
+
+  * RPM only: relaxed the PHP dependency from "php >= 8.1" to
+    "(php >= 8.1 or php-common >= 8.1)" so that the package stays
+    installable when the php metapackage is absent (e.g. while switching
+    from PHP 8.3 to php8.4-* packages). Minimum PHP version unchanged.
+    No changes to the DEB dependencies or the widget code.
+
+ -- claude <noreply@example.com>  Fri, 02 Oct 2026 18:19:55 +0000
+
+zabbix-widget-event-timeline (0.2.0) unstable; urgency=medium
+
+  * Added the Trigger Selection receiving foundation (v0.2.0 Phase 1): in
+    addition to fixed triggers, the widget now accepts a _triggerids
+    broadcast (plain triggerids[]) from e.g. Metric Navigator 0.4.2+.
+    Resolved independently of the Host Selection (TriggerSelection::resolve()).
+    In Phase 1 the received state is only exposed for inspection; event
+    extraction and aggregation results are identical to 0.1.5.
+  * Renamed the configuration field label from "Events" to "Triggers".
+  * Added includes/TriggerSelection.php to the RPM/DEB file lists.
+
+ -- claude <noreply@example.com>  Fri, 02 Oct 2026 00:00:00 +0000
+
 zabbix-widget-event-timeline (0.1.5) unstable; urgency=medium
 
   * Switched the release workflow to a compact release-branch model
@@ -8,7 +104,7 @@ zabbix-widget-event-timeline (0.1.5) unstable; urgency=medium
     documented behaviour in line with the 0.1.4 implementation (configurable
     week-start day, ui/modules-first install path, etc.).
 
- -- HOLOZTEK <ttake-55@users.noreply.github.com>  Tue, 29 Sep 2026 00:00:00 +0000
+ -- claude <noreply@example.com>  Tue, 29 Sep 2026 00:00:00 +0000
 
 zabbix-widget-event-timeline (0.1.4) unstable; urgency=high
 

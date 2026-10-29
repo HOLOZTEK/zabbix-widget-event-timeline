@@ -4,10 +4,10 @@
 	"type": "widget",
 	"name": "Event Timeline",
 	"namespace": "EventTimeline",
+	"version": "0.2.9",
 	"author": "HOLOZTEK",
-	"description": "Zabbix dashboard widget that visualizes problem events over time or by host, host group, and event.",
 	"url": "https://github.com/HOLOZTEK/zabbix-widget-event-timeline",
-	"version": "0.1.5",
+	"description": "Zabbix dashboard widget that visualizes problem events by time, host, host group or event, with linked targets, trigger and LLD expansion, runtime controls, item-characteristic filters and drilldown.",
 	"widget": {
 		"size": {"width": 12, "height": 5},
 		"js_class": "CWidgetEventTimeline",

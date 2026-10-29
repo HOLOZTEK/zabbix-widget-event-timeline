@@ -31,7 +31,8 @@ class WidgetForm extends CWidgetForm {
 
 	// Drilldown（詳細一覧）の対象。dd_severity の DETAIL_SEVERITY_ALL は「Severityを限定しない」。
 	public const DETAIL_SEVERITY_ALL = 6;
-	public const DETAIL_KEY_MAX_LENGTH = 2048;
+	// Event名（Zabbix の events.name は最大2048文字）＋プロトタイプグループの Group key の接頭辞（'n:' / 'p:'）。
+	public const DETAIL_KEY_MAX_LENGTH = 2050;
 
 	public const XLABEL_AUTO = 0;
 	public const XLABEL_HORIZONTAL = 1;
@@ -64,6 +65,8 @@ class WidgetForm extends CWidgetForm {
 
 	// Popup（Hover Tooltip）に列挙するHost名の上限。超えた分は「ほか N台」（§21）。設定項目ではない。
 	public const POPUP_HOST_LIMIT = 5;
+	// Host View の Tooltip に出すインターフェースの最大数（UI Polish §16）。
+	public const POPUP_INTERFACE_LIMIT = 3;
 
 	// ページング（グラフ）。
 	public const PAGE_SIZES         = [10, 20, 50];
@@ -78,6 +81,44 @@ class WidgetForm extends CWidgetForm {
 	public const MAX_EVENTS_MAX     = 1000000;
 	public const MAX_EVENTS_DEFAULT = 100000;
 
+	// 設定画面から保存するときに1つ以上の選択を必須とする項目と、そのエラー文（翻訳前）。
+	public const REQUIRED_SELECTIONS = [
+		'severities' => 'Select at least one severity.',
+		'ack_states' => 'Select at least one acknowledgement status.'
+	];
+
+	/**
+	 * 値の型（Item の value_type）の選択肢。現在の Zabbix が定義する ITEM_VALUE_TYPE_* 定数すべてと、
+	 * Zabbix 本体の表示名・翻訳（itemValueTypeString()）。Event Timeline 側で一覧・翻訳を持たない（Phase 5 Q3）。
+	 * 並びは ItemCharacteristicsFilter::VALUE_TYPE_ORDER（UI Polish §3）。8.0 では JSON が加わる。
+	 *
+	 * @return array<int, string>  value_type => 表示名
+	 */
+	public static function valueTypeOptions(): array {
+		$options = [];
+
+		foreach (get_defined_constants(true)['user'] ?? [] as $name => $value) {
+			if (strncmp($name, 'ITEM_VALUE_TYPE_', 16) === 0 && is_int($value)) {
+				$options[$value] = itemValueTypeString($value);
+			}
+		}
+
+		return ItemCharacteristicsFilter::orderOptions($options, ItemCharacteristicsFilter::VALUE_TYPE_ORDER);
+	}
+
+	/**
+	 * アイテムタイプ（Item の type）の選択肢。Zabbix 本体の定義・表示名・翻訳（item_type2str()）をそのまま使う
+	 * （Phase 5 Q3）。並びは ItemCharacteristicsFilter::ITEM_TYPE_ORDER（UI Polish §4）。
+	 * 8.0 では Nested / Telemetry query が加わる。
+	 *
+	 * @return array<int, string>  type => 表示名
+	 */
+	public static function itemTypeOptions(): array {
+		return ItemCharacteristicsFilter::orderOptions(item_type2str(),
+			ItemCharacteristicsFilter::ITEM_TYPE_ORDER
+		);
+	}
+
 	public function addFields(): self {
 		$severities = [];
 
@@ -86,8 +127,9 @@ class WidgetForm extends CWidgetForm {
 		}
 
 		return $this
-			// 対象の指定。Host / Host group / Event（Trigger）の各フィールド自身が「固定指定」または
-			// 「他ウィジェット（Tree Navigator / Event Navigator）の参照」のどちらかを持つ（manifest.json の "in"）。
+			// Host Selection（「どのHostで発生したEventを見るか」）。Trigger Selectionとは独立した条件
+			// （v0.2.0 §3.1）。Host / Host group の各フィールド自身が「固定指定」または「他ウィジェット
+			// （Tree Navigator等）の参照」のどちらかを持つ（manifest.json の "in"）。
 			->addField(
 				(new CWidgetFieldMultiSelectHost('hostids', _('Hosts')))
 					->setMultiple(true)
@@ -96,8 +138,10 @@ class WidgetForm extends CWidgetForm {
 				(new CWidgetFieldMultiSelectGroup('groupids', _('Host groups')))
 					->setMultiple(true)
 			)
+			// Trigger Selection: 固定Trigger指定 または Navigator（Metric Navigator等）からのWidget参照。
+			// どちらのTriggerに関するEventを見るかを示す、Host Selectionとは独立した条件（v0.2.0 §3.2/§4）。
 			->addField(
-				(new CWidgetFieldMultiSelectTrigger('triggerids', _et('Events')))
+				(new CWidgetFieldMultiSelectTrigger('triggerids', _et('Triggers')))
 					->setMultiple(true)
 			)
 			// Severity: configured_filter（表示画面の runtime_filter の初期値）。
@@ -114,6 +158,15 @@ class WidgetForm extends CWidgetForm {
 				]))
 					->setDefault([self::ACK_ACKNOWLEDGED, self::ACK_UNACKNOWLEDGED])
 					->setFlags(CWidgetField::FLAG_NOT_EMPTY | CWidgetField::FLAG_LABEL_ASTERISK)
+			)
+			// Item characteristics filter（Phase 5）の初期値。未選択 = すべて（条件なし）。選択肢は Zabbix 本体の定義・翻訳。
+			->addField(
+				(new CWidgetFieldCheckBoxList('value_types', _et('Value type'), self::valueTypeOptions()))
+					->setDefault([])
+			)
+			->addField(
+				(new CWidgetFieldCheckBoxList('item_types', _et('Item type'), self::itemTypeOptions()))
+					->setDefault([])
 			)
 			// Event Count Mode の初期値（表示画面から切り替え可能）。
 			->addField(
@@ -144,7 +197,9 @@ class WidgetForm extends CWidgetForm {
 				(new CWidgetFieldSelect('sort_order', _et('Sort order'), [
 					DimensionAggregator::SORT_COUNT => _et('By count'),
 					DimensionAggregator::SORT_ASC => _et('A to Z'),
-					DimensionAggregator::SORT_DESC => _et('Z to A')
+					DimensionAggregator::SORT_DESC => _et('Z to A'),
+					// Event mode でのみ意味を持つ（Host / Host group では件数順と同じ並び）。
+					DimensionAggregator::SORT_EVENTS => _et('Sort by event count')
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			// ページング（Host / Host group / Event の各モードで使う）。
@@ -177,7 +232,7 @@ class WidgetForm extends CWidgetForm {
 			->addField(
 				(new CWidgetFieldSelect('rt_sort', '', [
 					DimensionAggregator::SORT_COUNT => '', DimensionAggregator::SORT_ASC => '',
-					DimensionAggregator::SORT_DESC => ''
+					DimensionAggregator::SORT_DESC => '', DimensionAggregator::SORT_EVENTS => ''
 				]))->setDefault(DimensionAggregator::SORT_COUNT)
 			)
 			->addField((new CWidgetFieldIntegerBox('rt_page', '', 1, 1000000))->setDefault(1))
@@ -198,12 +253,18 @@ class WidgetForm extends CWidgetForm {
 				]))->setDefault([])
 			)
 			->addField(
+				(new CWidgetFieldCheckBoxList('rt_value_types', '', self::valueTypeOptions()))->setDefault([])
+			)
+			->addField(
+				(new CWidgetFieldCheckBoxList('rt_item_types', '', self::itemTypeOptions()))->setDefault([])
+			)
+			->addField(
 				(new CWidgetFieldSelect('rt_count_mode', '', [
 					self::COUNT_OCCURRENCE => '', self::COUNT_CONTINUOUS => ''
 				]))->setDefault(self::COUNT_OCCURRENCE)
 			)
 			->addField(
-				(new CWidgetFieldIntegerBox('max_events', _et('Maximum events to retrieve'),
+				(new CWidgetFieldIntegerBox('max_events', _et('Event retrieval limit'),
 					self::MAX_EVENTS_MIN, self::MAX_EVENTS_MAX
 				))->setDefault(self::MAX_EVENTS_DEFAULT)
 			)
@@ -254,6 +315,25 @@ class WidgetForm extends CWidgetForm {
 					->setDefaultPeriod(['from' => 'now-24h', 'to' => 'now'])
 					->setFlags(CWidgetField::FLAG_NOT_EMPTY | CWidgetField::FLAG_LABEL_ASTERISK)
 			);
+	}
+
+	/**
+	 * 深刻度・確認状態の「1つ以上選択」は設定画面からの保存（widget.check の strict 検証）でだけ求める。
+	 * 表示時・ダッシュボード保存時の検証（非strict）では全解除のまま受け入れ、保存済みの既存Widgetの表示
+	 * （該当Eventなし）を変えない。Zabbix の FLAG_NOT_EMPTY はチェックボックス一覧の空を検証しないため自前で行う。
+	 */
+	public function validate(bool $strict = false): array {
+		$errors = parent::validate($strict);
+
+		if ($strict) {
+			foreach (self::REQUIRED_SELECTIONS as $name => $message) {
+				if ($this->getFieldValue($name) === []) {
+					$errors[] = _et($message);
+				}
+			}
+		}
+
+		return $errors;
 	}
 
 	// 週の開始曜日の選択肢（日曜〜土曜の順。内部値はBucketPlannerのWEEKDAY_*定数と共通）。

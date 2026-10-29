@@ -2,40 +2,74 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.2.9 - 2026-10-28
+
+- Prepared the project for public distribution under the MIT License and the HOLOZTEK identity.
+- Reorganized the widget settings into Targets, Display, Filters, Time period, and Appearance tabs.
+- Moved the event retrieval limit to Targets and made at least one severity and acknowledgement state mandatory.
+- Added explicit All choices for value-type and item-type filters and corrected the Filters tab layout.
+- Rewrote the public documentation to describe the complete v0.2.x feature set.
+
+## v0.2.7 - 2026-10-19
+
+- Stabilized value-type and item-type ordering.
+- Added help tooltips to runtime controls and category charts.
+- Improved empty-result states while retaining the axes, grid, and footer.
+- Completed integration fixes and Zabbix 8.0 compatibility work.
+
+## v0.2.6 - 2026-10-18
+
+- Preserved Zabbix IDs as decimal strings, avoiding collisions for IDs greater than `PHP_INT_MAX`.
+
+## v0.2.5 - 2026-10-18
+
+- Added LLD trigger-prototype normalization and expansion across target hosts.
+- Added event filtering by the value type and item type of directly referenced items.
+- Added Event-view sorting by affected hosts, event count, or name.
+
+## v0.2.4 - 2026-10-17
+
+- Expanded a selected template trigger to corresponding inherited triggers on all target hosts.
+- Added fail-closed and partial-result behavior when trigger matching is unavailable or incomplete.
+
+## v0.2.3 - 2026-10-17
+
+- Added canonical template-trigger normalization across multi-level inheritance.
+- Added permission-safe failure behavior and debug-only resolution details.
+
+## v0.2.2 - 2026-10-03
+
+- Added Zabbix 8.0 compatibility for the settings form and color picker while retaining Zabbix 7.0 behavior.
+
+## v0.2.1 - 2026-10-02
+
+- Allowed RPM installation when either `php` or `php-common` 8.1 or later provides the PHP runtime.
+
+## v0.2.0 - 2026-10-02
+
+- Added fixed or widget-linked trigger selection, independently resolved from host selection.
+- Renamed the configuration field from Events to Triggers.
+
 ## v0.1.5 - 2026-09-29
 
-- Updated the release metadata from v0.1.4 to v0.1.5.
-- Carried forward the documentation updates for configurable week boundaries and the preferred Zabbix frontend module path.
-- No functional widget or package-content changes were introduced after v0.1.4.
+- Adopted the release-branch workflow and aligned release metadata without functional changes from v0.1.4.
 
 ## v0.1.4 - 2026-09-28
 
-- Added the missing CWidgetFieldSelectAlwaysSaved.php, CWidgetFieldWeekStartView.php, and DetailSelector.php files to the RPM and DEB package definitions.
-- Corrected a package failure that prevented dashboards containing Event Timeline from loading.
+- Added three missing runtime classes to the RPM and Debian package definitions.
 
 ## v0.1.3 - 2026-09-27
 
-- Added a drilldown dialog for event bar segments.
-- Added a configurable first day of the week for seven-day buckets.
-- Improved date label spacing, runtime-control wrapping, tooltip behavior after time-period changes, and paging labels.
-- Confirmed that automatic bucket widths intentionally move directly from one day to seven days.
+- Added event drilldown, configurable week boundaries, and timeline layout and tooltip fixes.
 
 ## v0.1.2 - 2026-09-21
 
-- Added Timeline, Host, Host group, and Event display modes.
-- Added category sorting, paging, automatic paging, and configurable X-axis label direction.
-- Added fixed or widget-based host, host group, and trigger inputs.
-- Completed Japanese and English user-interface labels for the new controls.
+- Added Timeline, Host, Host group, and Event views, sorting, paging, linked inputs, and X-axis label controls.
 
 ## v0.1.1 - 2026-09-20
 
-- Added fixed and widget-linked monitoring targets and event selections.
-- Added runtime severity and acknowledgement filters.
-- Added Occurred and Continuing count modes, tooltip ordering, and condition reset.
-- Reorganized the settings form and moved summary information below the chart.
+- Added linked targets, runtime controls, Occurred and Continuing count modes, and settings reorganization.
 
 ## v0.1.0 - 2026-09-19
 
-- Initial release.
-- Added severity-stacked problem-event counts over automatically selected time buckets.
-- Added event-detail tooltips, period labels, Y-axis scaling, theme-aware colors, and English/Japanese locale support.
+- Initial release with severity-stacked problem-event timelines, automatic buckets, tooltips, theming, and English/Japanese locales.

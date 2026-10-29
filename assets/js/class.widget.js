@@ -22,8 +22,12 @@ class CWidgetEventTimeline extends CWidget {
 
 	// Runtime Filter / Count Mode（設定値ではない。設定を書き換えず、設定値を初期値として最初の応答で作る）。
 	// 通常のWidget更新（Refresh）では維持し、ダッシュボードの再表示・Widget再生成で設定値から初期化し直す。
-	// 形式: {severities, ack, count_mode, mode, sort, page}
+	// 形式: {severities, ack, count_mode, mode, sort, page, value_types, item_types}
 	#runtime = null;
+
+	// Item characteristics filter（Phase 5）のドロップダウン（開いている間だけ）。
+	// 形式: {axis, label, options, pending: Set, panel, button, listeners}
+	#dropdown = null;
 
 	// 自動ページ送りのタイマー（表示画面上の状態。設定値ではない）。
 	#auto_timer = null;
@@ -81,12 +85,15 @@ class CWidgetEventTimeline extends CWidget {
 			fields.rt_mode = this.#runtime.mode;
 			fields.rt_sort = this.#runtime.sort;
 			fields.rt_page = this.#runtime.page;
+			fields.rt_value_types = this.#runtime.value_types;
+			fields.rt_item_types = this.#runtime.item_types;
 		}
 
 		return fields;
 	}
 
 	onStop() {
+		this.#closeDropdown(false);
 		this.#stopAutoPage();
 		this.#disposeChart();
 	}
@@ -118,14 +125,22 @@ class CWidgetEventTimeline extends CWidget {
 	setContents(response) {
 		super.setContents(response);
 
+		if (response.trigger_selection) {
+			// デバッグ専用（§19）: source / canonical / type / chain / status。Zabbix のデバッグモードが有効なユーザーにだけ
+			// サーバーが応答へ含める（通常は送られないため出力されない）。画面には出さない。
+			console.debug('[Event Timeline] trigger selection', response.trigger_selection);
+		}
+
 		this.#disposeChart();
 
 		if (response.error) {
+			this.#closeDropdown(false);
 			this.#renderMessage(response.error, 'et-error');
 			return;
 		}
 
 		if (!response.chart_data) {
+			this.#closeDropdown(false);
 			this.#renderMessage(t('No events'), 'et-empty');
 			return;
 		}
@@ -141,7 +156,9 @@ class CWidgetEventTimeline extends CWidget {
 				count_mode: this.#data.configured.count_mode,
 				mode: this.#data.configured.mode,
 				sort: this.#data.configured.sort,
-				page: 1
+				page: 1,
+				value_types: [...this.#data.configured.value_types],
+				item_types: [...this.#data.configured.item_types]
 			};
 		}
 
@@ -190,35 +207,38 @@ class CWidgetEventTimeline extends CWidget {
 		this._body.innerHTML = '';
 
 		this._body.appendChild(this.#buildToolbar(data));
+		this.#restoreDropdown();
 
 		if (data.truncated) {
 			this._body.appendChild(this.#buildTruncationWarning(data));
 		}
 
-		if (data.empty_reason !== null) {
-			const empty = document.createElement('div');
-			empty.className = 'et-empty';
+		if (data.trigger_partial && data.empty_reason !== 'trigger_unresolvable') {
+			// 対象Host上に、継承元Templateを参照できず選択Triggerと同じものか判定できないTriggerがある（Phase 3）。
+			// 一致を確定できたTriggerのEventだけを表示しているため、結果が不完全な可能性を示す（表示自体は継続）。
+			this._body.appendChild(this.#buildTriggerPartialWarning());
+		}
 
-			const title = document.createElement('div');
-			// 「対象が選択されていません」と「イベントはありません」は別の状態として表示する。モードごとに空状態の文言を変える。
-			title.textContent = data.empty_reason === 'no_selection'
-				? t('No target selected')
-				: this.#emptyText(data.empty_reason);
-			empty.appendChild(title);
+		if (data.item_partial) {
+			// Item characteristics filter（Phase 5）: 候補Triggerが参照するItemの一部を確認できず、一致/不一致を判定できない
+			// Triggerがある。判定できたTriggerのEventだけを表示しているため、結果が不完全な可能性を示す（表示は継続）。
+			this._body.appendChild(this.#buildItemPartialWarning());
+		}
 
-			const reason = {
-				no_hosts: t('No target hosts.'),
-				filtered: t('All events are excluded by the current filters.')
-			}[data.empty_reason];
+		if (data.category?.event_display === 'prototype' && data.category.prototype_partial) {
+			// プロトタイプグループの一部の Event について、継承元の Canonical Trigger prototype を解決できず、生成元（Host上）の
+			// prototype の単位で分離して表示している（Phase 4）。Event 集合は変わらないため、表示は継続する。
+			this._body.appendChild(this.#buildPrototypePartialWarning());
+		}
 
-			if (reason) {
-				const sub = document.createElement('div');
-				sub.className = 'et-empty-sub';
-				sub.textContent = reason;
-				empty.appendChild(sub);
-			}
+		if (data.empty_reason === 'trigger_unresolvable') {
+			// Trigger Selection を適用できない（継承元Templateの参照権限不足）。正常な0件（No events）とは区別し、
+			// 既存の警告表示（取得上限警告と同じ et-warning）で原因を示す。Event は表示しない（fail-closed）。
+			this._body.appendChild(this.#buildTriggerPermissionWarning());
 
-			this._body.appendChild(empty);
+			const filler = document.createElement('div');
+			filler.className = 'et-empty';
+			this._body.appendChild(filler);
 			this._body.appendChild(this.#buildFooter(data));
 
 			return;
@@ -232,6 +252,13 @@ class CWidgetEventTimeline extends CWidget {
 		this._body.appendChild(this.#buildFooter(data));
 
 		this.#chart = echarts.init(holder, null, {renderer: 'canvas'});
+
+		if (data.empty_reason !== null) {
+			// Empty State（UI Polish §22〜26）: 0件でも Graph 領域（軸・Grid・基線）と footer を残し、中央に状態を重ねて表示する。
+			// ERROR（取得失敗・Trigger Selection 適用不能）はここへ来ない（既存のエラー・警告表示のまま）。
+			// echarts.init はコンテナの子要素を置き換えるため、初期化後に追加する。
+			holder.appendChild(this.#buildEmptyState(data));
+		}
 		this.#data = data;
 		this.#chart.on('click', params => this.#onChartClick(params));
 
@@ -253,16 +280,59 @@ class CWidgetEventTimeline extends CWidget {
 		return this.#runtime.mode !== CWidgetEventTimeline.MODE_TIMELINE;
 	}
 
-	// 空状態の文言（モード別）。Timeline は従来どおり。
-	#emptyText(reason) {
-		if (this.#isCategory() && reason !== 'filtered') {
-			return {
-				[CWidgetEventTimeline.MODE_HOST]: t('No target hosts.'),
-				[CWidgetEventTimeline.MODE_GROUP]: t('No target host groups.')
-			}[this.#runtime.mode] ?? t('No events');
+	// Empty State の重ね表示。「対象が選択されていない」「対象Hostがない」は従来の文言。0件は、Event を実際に限定している条件
+	// （サーバーの active_filters: Severity / 確認状態 / 値の型 / アイテムタイプ / Trigger Selection）があれば
+	// 「現在の条件に一致するイベントはありません」、なければ「対象期間にイベントはありません」。
+	// 条件を外した場合の件数は求めない（追加の取得はしない。Q2）。
+	#buildEmptyState(data) {
+		const empty = document.createElement('div');
+		empty.className = 'et-empty-state';
+		empty.dataset.reason = data.empty_reason;
+
+		const add = (text, class_name) => {
+			const div = document.createElement('div');
+			div.className = class_name;
+			div.textContent = text;
+			empty.appendChild(div);
+		};
+
+		const filters = data.active_filters ?? [];
+
+		if (data.empty_reason === 'no_selection') {
+			add(t('No target selected'), 'et-empty-title');
+		}
+		else if (data.empty_reason === 'no_hosts') {
+			add(t('No target hosts.'), 'et-empty-title');
+		}
+		else if (filters.length > 0 || data.empty_reason === 'filtered') {
+			empty.dataset.reason = 'filtered';
+			add(t('No events match the current conditions'), 'et-empty-title');
+			add(t('Change the filters or display conditions.'), 'et-empty-sub');
+
+			if (!this.#isConfiguredState(data)) {
+				add(t('Use "Reset conditions" to restore the initial state.'), 'et-empty-sub');
+			}
+
+			const names = {
+				severity: t('Severity'),
+				ack: t('Ack status'),
+				value_type: t('Value type'),
+				item_type: t('Item type'),
+				trigger: t('Trigger')
+			};
+
+			if (filters.length > 0) {
+				add(sprintf(t('Active conditions: %1$s'), filters.map(f => names[f] ?? f).join(', ')),
+					'et-empty-sub et-empty-filters'
+				);
+			}
+		}
+		else {
+			empty.dataset.reason = 'no_events';
+			add(t('No events in the target period'), 'et-empty-title');
 		}
 
-		return t('No events');
+		return empty;
 	}
 
 	// ─── Drilldown（詳細一覧） ──────────────────────────────────────
@@ -585,6 +655,17 @@ class CWidgetEventTimeline extends CWidget {
 			}
 
 			tbody.appendChild(tr);
+
+			if (detail.item_filter && Array.isArray(r.items)) {
+				// Item characteristics filter（Phase 5）: この行の Trigger が条件に一致した理由（一致した参照 Item）。
+				const sub = el('tr', 'et-detail-items-row');
+				const td = el('td');
+
+				td.colSpan = columns.length;
+				td.appendChild(this.#buildMatchedItems(r.items, el));
+				sub.appendChild(td);
+				tbody.appendChild(sub);
+			}
 		}
 
 		table.appendChild(tbody);
@@ -754,6 +835,7 @@ class CWidgetEventTimeline extends CWidget {
 			row1.appendChild(this.#buildTipModeGroup());
 		}
 
+		row1.appendChild(this.#buildItemFilterGroup(data));
 		row1.appendChild(this.#buildResetGroup(data));
 
 		bar.appendChild(row1);
@@ -835,13 +917,13 @@ class CWidgetEventTimeline extends CWidget {
 	#buildModeGroup() {
 		const group = this.#buildGroup(t('Display mode'));
 
-		for (const [mode, label] of [
-			[CWidgetEventTimeline.MODE_TIMELINE, t('Timeline')],
-			[CWidgetEventTimeline.MODE_HOST, t('Host')],
-			[CWidgetEventTimeline.MODE_GROUP, t('Host group')],
-			[CWidgetEventTimeline.MODE_EVENT, t('Event')]
+		for (const [mode, label, title] of [
+			[CWidgetEventTimeline.MODE_TIMELINE, t('Timeline'), t('Shows when events occurred along the time axis.')],
+			[CWidgetEventTimeline.MODE_HOST, t('Host'), t('Aggregates events by host.')],
+			[CWidgetEventTimeline.MODE_GROUP, t('Host group'), t('Aggregates events by host group.')],
+			[CWidgetEventTimeline.MODE_EVENT, t('Event'), t('Aggregates events by trigger / event type.')]
 		]) {
-			this.#buildChoice(group, label, this.#runtime.mode === mode, '', () => {
+			this.#buildChoice(group, label, this.#runtime.mode === mode, title, () => {
 				this.#runtime.mode = mode;
 				this.#applyRuntimeChange();
 			});
@@ -851,11 +933,29 @@ class CWidgetEventTimeline extends CWidget {
 	}
 
 	// 並び順（次元モードのみ）: 件数順 / A→Z / Z→A。
+	// Event mode は 影響ホスト数順 / イベント発生数順 / A-Z / Z-A（Phase 5 §50。影響ホスト数順は件数順と同じ処理、
+	// 棒の高さは影響ホスト数のまま）。Host / Host group ではイベント発生数順は件数順と同じ並びのため、
+	// ボタンを出さず件数順を選択中として表示する。
 	#buildSortGroup() {
 		const group = this.#buildGroup(t('Sort order'));
+		const by_event = this.#runtime.mode === CWidgetEventTimeline.MODE_EVENT;
+		const current = !by_event && this.#runtime.sort === 3 ? 0 : this.#runtime.sort;
+		// Tooltip（UI Polish §12〜13）: 並び順を変えても棒の高さ（集計値）は変わらないことを示す。
+		const choices = by_event
+			? [
+				[0, t('Sort by affected hosts'), t('Sorts events by the number of affected hosts, highest first. The bar height also shows the number of affected hosts.')],
+				[3, t('Sort by event count'), t('Sorts events by the number of occurrences, highest first. The bar height still shows the number of affected hosts.')],
+				[1, t('A-Z'), t('Sorts events by name in ascending order.')],
+				[2, t('Z-A'), t('Sorts events by name in descending order.')]
+			]
+			: [
+				[0, t('By count'), t('Sorts targets by event count, highest first.')],
+				[1, t('A to Z'), t('Sorts by name in ascending order.')],
+				[2, t('Z to A'), t('Sorts by name in descending order.')]
+			];
 
-		for (const [sort, label] of [[0, t('By count')], [1, t('A to Z')], [2, t('Z to A')]]) {
-			this.#buildChoice(group, label, this.#runtime.sort === sort, '', () => {
+		for (const [sort, label, title] of choices) {
+			this.#buildChoice(group, label, current === sort, title, () => {
 				this.#runtime.sort = sort;
 				this.#applyRuntimeChange();
 			});
@@ -873,11 +973,20 @@ class CWidgetEventTimeline extends CWidget {
 			this.#applyRuntimeChange();
 		};
 
+		// Tooltip は表示モードで変える（時間軸: Bucket ごと / カテゴリ表示: 対象ごと。UI Polish §7）。
+		const category = this.#isCategory();
+
 		this.#buildChoice(group, t('Occurred count'), current === CWidgetEventTimeline.COUNT_OCCURRENCE,
-			t('Number of events that started in each bucket'), pick(CWidgetEventTimeline.COUNT_OCCURRENCE)
+			category
+				? t('Counts events that occurred in the displayed period for each target.')
+				: t('Counts events that newly occurred in each time bucket.'),
+			pick(CWidgetEventTimeline.COUNT_OCCURRENCE)
 		);
 		this.#buildChoice(group, t('Continuing count'), current === CWidgetEventTimeline.COUNT_CONTINUOUS,
-			t('Number of events overlapping each bucket'), pick(CWidgetEventTimeline.COUNT_CONTINUOUS)
+			category
+				? t('Counts events for each target, including events continuing in the displayed period.')
+				: t('Counts events in each time bucket, including events that are still continuing.'),
+			pick(CWidgetEventTimeline.COUNT_CONTINUOUS)
 		);
 
 		return group;
@@ -888,9 +997,12 @@ class CWidgetEventTimeline extends CWidget {
 		const group = this.#buildGroup(t('Ack status'));
 		const current = CWidgetEventTimeline.#ackMode(this.#runtime.ack);
 
-		for (const [mode, label] of [['all', t('All')], ['unack', t('Unacknowledged')],
-				['ack', t('Acknowledged')]]) {
-			this.#buildChoice(group, label, current === mode, '', () => {
+		for (const [mode, label, title] of [
+			['all', t('All'), t('Shows all events regardless of acknowledgement status.')],
+			['unack', t('Unacknowledged'), t('Shows only unacknowledged events.')],
+			['ack', t('Acknowledged'), t('Shows only acknowledged events.')]
+		]) {
+			this.#buildChoice(group, label, current === mode, title, () => {
 				this.#runtime.ack = CWidgetEventTimeline.#ackFromMode(mode);
 				this.#applyRuntimeChange();
 			});
@@ -903,8 +1015,11 @@ class CWidgetEventTimeline extends CWidget {
 	#buildTipModeGroup() {
 		const group = this.#buildGroup(t('Tooltip order'));
 
-		for (const [mode, label] of [['host', t('By host')], ['time', t('Chronological')]]) {
-			this.#buildChoice(group, label, this.#tip_mode === mode, '', () => {
+		for (const [mode, label, title] of [
+			['host', t('By host'), t('Groups the events shown in the details by host. The aggregated graph does not change.')],
+			['time', t('Chronological'), t('Shows the events shown in the details in order of occurrence. The aggregated graph does not change.')]
+		]) {
+			this.#buildChoice(group, label, this.#tip_mode === mode, title, () => {
 				this.#tip_mode = mode;
 				// Resetの有効/無効を更新するため、ツールバーを含めて再描画する（再取得は不要）。
 				this.#render();
@@ -915,15 +1030,24 @@ class CWidgetEventTimeline extends CWidget {
 	}
 
 	// リセット: 集計・確認・深刻度・詳細を設定初期値へ戻す（「全ON」ではない）。設定値と同じ状態のときは無効。
-	#buildResetGroup(data) {
+	// Runtime 状態が設定値（条件リセット後の状態）と同じか。同じなら条件リセットは無効。
+	#isConfiguredState(data) {
 		const configured = data.configured;
-		const same = CWidgetEventTimeline.#sameSet(this.#runtime.severities, configured.severities)
+
+		return CWidgetEventTimeline.#sameSet(this.#runtime.severities, configured.severities)
 			&& CWidgetEventTimeline.#ackMode(this.#runtime.ack) === CWidgetEventTimeline.#ackMode(configured.ack)
 			&& this.#runtime.count_mode === configured.count_mode
 			&& this.#runtime.mode === configured.mode
 			&& this.#runtime.sort === configured.sort
 			&& this.#runtime.page === 1
+			&& CWidgetEventTimeline.#sameSet(this.#runtime.value_types, configured.value_types)
+			&& CWidgetEventTimeline.#sameSet(this.#runtime.item_types, configured.item_types)
 			&& this.#tip_mode === CWidgetEventTimeline.TIP_MODE_DEFAULT;
+	}
+
+	#buildResetGroup(data) {
+		const configured = data.configured;
+		const same = this.#isConfiguredState(data);
 
 		const group = document.createElement('div');
 		// et-group-end: 折り返し時に単独で行の先頭へ取り残されて見えないよう、常に行の右端へ寄せる（§4）。
@@ -935,7 +1059,7 @@ class CWidgetEventTimeline extends CWidget {
 		button.className = 'et-btn et-reset';
 		button.disabled = same;
 		button.textContent = t('Reset conditions');
-		button.title = t('Reset filters to the configured values');
+		button.title = t('Restores the filters and display conditions to the initial state set in the widget configuration.');
 
 		button.addEventListener('click', () => {
 			this.#runtime = {
@@ -944,15 +1068,252 @@ class CWidgetEventTimeline extends CWidget {
 				count_mode: configured.count_mode,
 				mode: configured.mode,
 				sort: configured.sort,
-				page: 1
+				page: 1,
+				value_types: [...configured.value_types],
+				item_types: [...configured.item_types]
 			};
 			this.#tip_mode = CWidgetEventTimeline.TIP_MODE_DEFAULT;
+			this.#closeDropdown(false);
 			this.#applyRuntimeChange();
 		});
 
 		group.appendChild(button);
 
 		return group;
+	}
+
+	// Item characteristics filter（Phase 5）: 値の型 / アイテムタイプ。選択肢が多いためボタン群にせず、
+	// 複数選択のドロップダウンにする。未選択 = すべて。選択肢・表示名はサーバーが Zabbix 本体の定義・翻訳から渡す。
+	#buildItemFilterGroup(data) {
+		const group = this.#buildGroup(t('Item filter'));
+		group.classList.add('et-item-filter');
+
+		group.appendChild(this.#buildDropdownButton('value_types', t('Value type'), data.value_type_options ?? []));
+		group.appendChild(this.#buildDropdownButton('item_types', t('Item type'), data.item_type_options ?? []));
+
+		return group;
+	}
+
+	#buildDropdownButton(axis, label, options) {
+		const selected = this.#runtime[axis] ?? [];
+		const names = options.filter(o => selected.includes(o.id)).map(o => o.name);
+		const button = document.createElement('button');
+
+		button.type = 'button';
+		button.className = 'et-btn et-dd' + (names.length > 0 ? ' et-dd-active' : '');
+		button.dataset.axis = axis;
+		button.setAttribute('aria-haspopup', 'true');
+		button.setAttribute('aria-expanded', 'false');
+		// Tooltip: 何で絞り込むか（UI Polish §14）と、現在の選択。
+		button.title = (axis === 'value_types'
+			? t('Filters events by the value type of the items referenced by the trigger. When several are selected, items matching any of them are used.')
+			: t('Filters events by the item type of the items referenced by the trigger. When several are selected, items matching any of them are used.'))
+			+ '\n' + t('When both value type and item type are set, the same item must match both.')
+			+ '\n' + label + ': ' + (names.length > 0 ? names.join(', ') : t('All (item filter)'));
+
+		const text = document.createElement('span');
+		text.className = 'et-dd-text';
+		text.textContent = label + ': ' + (names.length === 0
+			? t('All (item filter)')
+			: (names.length === 1 ? names[0] : sprintf(t('%1$s selected'), names.length)));
+
+		const arrow = document.createElement('span');
+		arrow.className = 'et-dd-arrow';
+		arrow.setAttribute('aria-hidden', 'true');
+
+		button.append(text, arrow);
+		button.addEventListener('click', () => {
+			if (this.#dropdown?.axis === axis) {
+				this.#closeDropdown(true);
+			}
+			else {
+				this.#openDropdown(axis, label, options, button);
+			}
+		});
+
+		return button;
+	}
+
+	// ドロップダウンの選択肢パネル。Widget の表示領域で切れないよう document.body 直下に固定配置する（Zabbix の
+	// menu-popup の外観を使い、Light / Dark テーマに追従する）。チェックの変更はパネルを閉じたとき（パネル外のクリック・
+	// 適用ボタン・同じボタンの再クリック）にまとめて反映し、Esc では取り消す。
+	#openDropdown(axis, label, options, button, pending = null) {
+		this.#closeDropdown(true);
+
+		if (this.#dropdown !== null) {
+			// 直前のドロップダウンの変更を反映して再取得中。
+			return;
+		}
+
+		const state = {axis, label, options, button, pending: new Set(pending ?? this.#runtime[axis]), listeners: []};
+		const panel = document.createElement('div');
+
+		panel.className = 'menu-popup et-dd-panel';
+		panel.setAttribute('role', 'dialog');
+		panel.setAttribute('aria-label', label);
+		state.panel = panel;
+
+		const list = document.createElement('ul');
+		list.className = 'et-dd-list';
+
+		const boxes = [];
+		const id_base = `et-dd-${this._widgetid ?? this._unique_id ?? 'w'}-${axis}`;
+		const addOption = (id, name, checked, onChange, class_name = '') => {
+			const li = document.createElement('li');
+			li.className = class_name;
+
+			const input = document.createElement('input');
+			input.type = 'checkbox';
+			input.className = 'checkbox-radio';
+			input.id = `${id_base}-${id}`;
+			input.checked = checked;
+			input.addEventListener('change', () => onChange(input.checked));
+
+			const lbl = document.createElement('label');
+			lbl.htmlFor = input.id;
+			lbl.append(document.createElement('span'), document.createTextNode(name));
+
+			li.append(input, lbl);
+			list.appendChild(li);
+
+			return input;
+		};
+
+		const all = addOption('all', t('All (item filter)'), state.pending.size === 0, (checked) => {
+			if (checked) {
+				state.pending.clear();
+				boxes.forEach(b => b.checked = false);
+			}
+			else {
+				all.checked = state.pending.size === 0;
+			}
+		}, 'et-dd-all');
+
+		for (const o of options) {
+			boxes.push(addOption(o.id, o.name, state.pending.has(o.id), (checked) => {
+				if (checked) {
+					state.pending.add(o.id);
+				}
+				else {
+					state.pending.delete(o.id);
+				}
+
+				all.checked = state.pending.size === 0;
+			}));
+		}
+
+		const footer = document.createElement('div');
+		footer.className = 'et-dd-footer';
+
+		const apply = document.createElement('button');
+		apply.type = 'button';
+		apply.className = 'btn-alt et-dd-apply';
+		apply.textContent = t('Apply');
+		apply.addEventListener('click', () => this.#closeDropdown(true));
+
+		footer.appendChild(apply);
+		panel.append(list, footer);
+		document.body.appendChild(panel);
+
+		const on = (target, type, fn, capture = false) => {
+			target.addEventListener(type, fn, capture);
+			state.listeners.push(() => target.removeEventListener(type, fn, capture));
+		};
+
+		on(document, 'mousedown', (e) => {
+			if (!panel.contains(e.target) && !state.button.contains(e.target)) {
+				this.#closeDropdown(true);
+			}
+		}, true);
+		on(document, 'keydown', (e) => {
+			if (e.key === 'Escape') {
+				e.stopPropagation();
+				this.#closeDropdown(false);
+			}
+		}, true);
+		on(window, 'resize', () => this.#positionDropdown());
+		on(window, 'scroll', () => this.#positionDropdown(), true);
+
+		this.#dropdown = state;
+		button.setAttribute('aria-expanded', 'true');
+		button.classList.add('et-dd-open');
+		this.#positionDropdown();
+		(boxes.find(b => b.checked) ?? all).focus({preventScroll: true});
+	}
+
+	#positionDropdown() {
+		const dd = this.#dropdown;
+
+		if (dd === null) {
+			return;
+		}
+
+		if (!dd.button.isConnected) {
+			this.#closeDropdown(false);
+			return;
+		}
+
+		const rect = dd.button.getBoundingClientRect();
+		const margin = 8;
+		const panel = dd.panel;
+
+		panel.style.position = 'fixed';
+		panel.style.top = `${Math.round(rect.bottom + 2)}px`;
+		panel.style.maxHeight = `${Math.max(120, window.innerHeight - rect.bottom - 2 - margin)}px`;
+
+		const width = panel.offsetWidth;
+		panel.style.left = `${Math.round(Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)))}px`;
+	}
+
+	// 再描画（自動更新・Runtime 変更）でツールバーが作り直されても、開いているドロップダウンを新しいボタンへ付け替えて維持する。
+	#restoreDropdown() {
+		const dd = this.#dropdown;
+
+		if (dd === null) {
+			return;
+		}
+
+		const button = this._body.querySelector(`.et-dd[data-axis="${dd.axis}"]`);
+
+		if (button === null) {
+			this.#closeDropdown(false);
+			return;
+		}
+
+		dd.button = button;
+		button.setAttribute('aria-expanded', 'true');
+		button.classList.add('et-dd-open');
+		requestAnimationFrame(() => this.#positionDropdown());
+	}
+
+	#closeDropdown(apply) {
+		const dd = this.#dropdown;
+
+		if (dd === null) {
+			return;
+		}
+
+		this.#dropdown = null;
+		dd.listeners.forEach(off => off());
+		dd.panel.remove();
+		dd.button.setAttribute('aria-expanded', 'false');
+		dd.button.classList.remove('et-dd-open');
+
+		if (!apply) {
+			return;
+		}
+
+		// 定義済みの値をすべて選んだ場合は「すべて」と同じ（サーバーと同じ正規化。Reset の比較を一致させる）。
+		let values = dd.options.map(o => o.id).filter(id => dd.pending.has(id));
+
+		if (values.length === dd.options.length) {
+			values = [];
+		}
+
+		if (!CWidgetEventTimeline.#sameSet(values, this.#runtime[dd.axis])) {
+			this.#runtime[dd.axis] = values;
+			this.#applyRuntimeChange();
+		}
 	}
 
 	// 深刻度: Severity Filter 専用行。色付きラベルチップ（ON=Severity色で塗り / OFF=枠のみ・薄く）。
@@ -976,7 +1337,7 @@ class CWidgetEventTimeline extends CWidget {
 			button.style.setProperty('--et-sev-color', s.color);
 			button.style.setProperty('--et-sev-text', CWidgetEventTimeline.#contrastText(s.color));
 			button.textContent = labels[s.id] ?? s.name;
-			button.title = s.name + '\n' + sprintf(t('%1$s events'), count);
+			button.title = s.name + '\n' + sprintf(t('%1$s events'), count) + '\n' + t('Click to show or hide.');
 			button.setAttribute('aria-pressed', on ? 'true' : 'false');
 
 			button.addEventListener('click', () => {
@@ -1003,6 +1364,114 @@ class CWidgetEventTimeline extends CWidget {
 		const [r, g, b] = [m[1], m[2], m[3]].map(v => parseInt(v, 16));
 
 		return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#1f2c33' : '#fff';
+	}
+
+	// Trigger Selection を適用できない（ERROR。Event は表示しない）。
+	#buildTriggerPermissionWarning() {
+		const warn = document.createElement('div');
+		warn.className = 'et-warning et-trigger-warning';
+		warn.setAttribute('role', 'alert');
+
+		const title = document.createElement('div');
+		title.textContent = t('The selected triggers cannot be resolved.');
+
+		const sub = document.createElement('div');
+		sub.className = 'et-warning-sub';
+		sub.textContent = t('Check access permissions for the inherited templates.');
+
+		warn.append(title, sub);
+
+		return warn;
+	}
+
+	#buildTriggerPartialWarning() {
+		const warn = document.createElement('div');
+		warn.className = 'et-warning et-trigger-warning';
+		warn.setAttribute('role', 'alert');
+
+		const title = document.createElement('div');
+		title.textContent = t('Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete.');
+
+		const sub = document.createElement('div');
+		sub.className = 'et-warning-sub';
+		sub.textContent = t('Check access permissions for the inherited templates.');
+
+		warn.append(title, sub);
+
+		return warn;
+	}
+
+	#buildMatchedItems(items, el) {
+		const details = el('details', 'et-detail-items');
+		details.appendChild(el('summary', null, sprintf(t('Matching items (%1$s)'), items.length)));
+
+		if (items.length === 0) {
+			details.appendChild(el('div', 'et-detail-message', t('No matching data.')));
+			return details;
+		}
+
+		const table = el('table', 'list-table et-detail-items-table');
+		const head = el('tr');
+
+		for (const c of [t('Host'), t('Item name'), t('Item key'), t('Value type'), t('Item type')]) {
+			head.appendChild(el('th', null, c));
+		}
+
+		const thead = el('thead');
+		thead.appendChild(head);
+		table.appendChild(thead);
+
+		const tbody = el('tbody');
+
+		for (const i of items) {
+			const tr = el('tr');
+
+			tr.appendChild(el('td', 'et-detail-wrap', i.host));
+			tr.appendChild(el('td', 'et-detail-wrap', i.name));
+			tr.appendChild(el('td', 'et-detail-wrap et-detail-key', i.key));
+			tr.appendChild(el('td', 'et-detail-nowrap', i.value_type));
+			tr.appendChild(el('td', 'et-detail-nowrap', i.type));
+			tbody.appendChild(tr);
+		}
+
+		table.appendChild(tbody);
+		details.appendChild(table);
+
+		return details;
+	}
+
+	#buildItemPartialWarning() {
+		const warn = document.createElement('div');
+		warn.className = 'et-warning et-item-warning';
+		warn.setAttribute('role', 'alert');
+
+		const title = document.createElement('div');
+		title.textContent = t('Some item information could not be confirmed. The result may be incomplete.');
+
+		const sub = document.createElement('div');
+		sub.className = 'et-warning-sub';
+		sub.textContent = t('Triggers whose referenced items could not be checked are not shown.');
+
+		warn.append(title, sub);
+
+		return warn;
+	}
+
+	#buildPrototypePartialWarning() {
+		const warn = document.createElement('div');
+		warn.className = 'et-warning et-prototype-warning';
+		warn.setAttribute('role', 'alert');
+
+		const title = document.createElement('div');
+		title.textContent = t('Some events could not be grouped by their inherited trigger prototype. Some prototype groups may be split by host.');
+
+		const sub = document.createElement('div');
+		sub.className = 'et-warning-sub';
+		sub.textContent = t('Check access permissions for the inherited templates.');
+
+		warn.append(title, sub);
+
+		return warn;
 	}
 
 	// Event取得上限に達した場合、グラフは実際より少ない件数を示す。目立つ警告を常時表示する。
@@ -1115,11 +1584,8 @@ class CWidgetEventTimeline extends CWidget {
 				splitLine: {lineStyle: {color: colors.line, opacity: 0.6}}
 			},
 			tooltip: {
+				...this.#tooltipBox(colors),
 				trigger: 'item',
-				confine: true,
-				backgroundColor: colors.background,
-				borderColor: colors.line,
-				textStyle: {color: colors.text},
 				formatter: params => this.#tooltipHtml(data, params, enabled)
 			},
 			series
@@ -1189,7 +1655,8 @@ class CWidgetEventTimeline extends CWidget {
 
 	#buildCategoryOption(data) {
 		const colors = this.#resolveColors(data.style);
-		const rows = data.category.rows;
+		// 0件（Empty State）では category が無い場合もある。空のカテゴリ軸と 0〜1 の値軸だけを描く。
+		const rows = data.category?.rows ?? [];
 		const by_event = this.#runtime.mode === CWidgetEventTimeline.MODE_EVENT;
 		const enabled = data.severities.filter(s => s.enabled);
 		const width = this.#chart.getWidth();
@@ -1235,14 +1702,14 @@ class CWidgetEventTimeline extends CWidget {
 					ellipsis: '\u2026'
 				},
 				triggerEvent: true,
-				tooltip: {show: true, formatter: p => CWidgetEventTimeline.#escape(p.value)}
+				tooltip: {show: true, formatter: p => this.#categoryTooltipHtml(data, p, enabled, by_event)}
 			},
 			yAxis: {
 				type: 'value',
 				name: by_event ? t('Affected hosts') : t('Event count'),
 				nameTextStyle: {color: colors.text, align: 'left'},
 				min: 0,
-				max: y_min_scale > 0 && data_max <= y_min_scale ? y_min_scale : undefined,
+				max: y_min_scale > 0 && data_max <= y_min_scale ? y_min_scale : (rows.length === 0 ? 1 : undefined),
 				minInterval: 1,
 				axisLine: {show: true, lineStyle: {color: colors.line}},
 				axisTick: {show: true, lineStyle: {color: colors.line}},
@@ -1250,48 +1717,125 @@ class CWidgetEventTimeline extends CWidget {
 				splitLine: {lineStyle: {color: colors.line, opacity: 0.6}}
 			},
 			tooltip: {
+				...this.#tooltipBox(colors),
 				trigger: 'item',
-				confine: true,
-				backgroundColor: colors.background,
-				borderColor: colors.line,
-				textStyle: {color: colors.text},
 				formatter: params => this.#categoryTooltipHtml(data, params, enabled, by_event)
 			},
 			series
 		};
 	}
 
-	// カテゴリTooltip: 名称（省略なし）、合計、Hoverしている深刻度の件数。By Event の件数は影響ホスト数。
-	// Event mode（個別イベント／プロトタイプグループ共通）では、影響Host名の一覧（上限超過は「ほかN台」）を追加する。
-	// プロトタイプグループのGroupでは、さらに該当イベント数（Filter後の実Event数）も示す（§20〜24）。
+	// Graph の Tooltip 共通の枠。Widget の幅を超えないよう最大幅を Graph の幅に合わせ、長い名前は折り返す（UI Polish §28）。
+	// 高さも Graph の高さまでに抑え、狭幅で行数が増えても Widget の外へはみ出さない（超えた分は省略）。
+	#tooltipBox(colors) {
+		const width = this.#chart ? this.#chart.getWidth() : 0;
+		const height = this.#chart ? this.#chart.getHeight() : 0;
+
+		return {
+			confine: true,
+			backgroundColor: colors.background,
+			borderColor: colors.line,
+			textStyle: {color: colors.text},
+			extraCssText: 'white-space: normal; overflow-wrap: anywhere;'
+				+ (width > 0 ? ` max-width: ${Math.max(width - 16, 160)}px;` : '')
+				+ (height > 0 ? ` box-sizing: border-box; max-height: ${Math.max(height - 8, 80)}px; overflow: hidden;` : '')
+		};
+	}
+
+	// カテゴリTooltip（棒・X軸ラベル共通。UI Polish §16〜21）: 名称（省略なし）と、モードごとの補足情報・深刻度内訳。
+	//   Host       : Host名（技術名）/ 表示名 / インターフェース（main 優先・数件まで）/ イベント件数
+	//   Host group : 対象ホスト数（現在の対象範囲）/ 影響ホスト数 / イベント件数
+	//   Event      : 影響ホスト数 / イベント発生数 / 最新発生時刻 /（Item Filter 有効時）一致アイテム数 / 影響Host名
+	// 数値はサーバーの集計値そのもので、並び順を変えても変わらない。棒の上では Hover している深刻度を強調する。
 	#categoryTooltipHtml(data, params, enabled, by_event) {
 		const p = Array.isArray(params) ? params[0] : params;
+		const rows = data.category?.rows ?? [];
+		const on_axis = p?.componentType === 'xAxis';
+		const row = on_axis
+			? (rows[p.dataIndex]?.label === p.value ? rows[p.dataIndex] : rows.find(r => r.label === p.value))
+			: rows[p?.dataIndex];
+		const hovered = on_axis ? null : enabled[p?.seriesIndex];
+		const esc = CWidgetEventTimeline.#escape;
 
-		if (p?.componentType === 'xAxis') {
-			return `<div class="et-tip">${CWidgetEventTimeline.#escape(p.value)}</div>`;
+		if (!row) {
+			return on_axis ? `<div class="et-tip">${esc(p.value)}</div>` : '';
 		}
 
-		const row = data.category.rows[p?.dataIndex];
-		const severity = enabled[p?.seriesIndex];
-
-		if (!row || !severity) {
+		if (!on_axis && !hovered) {
 			return '';
 		}
 
-		const esc = CWidgetEventTimeline.#escape;
-		const total_label = by_event ? t('Affected hosts') : t('Event count');
+		const line = (label, value, class_name = 'et-tip-total') =>
+			`<div class="${class_name}">${esc(label)}: <b>${esc(String(value))}</b></div>`;
+		const mode = this.#runtime.mode;
 
-		let html = `<div class="et-tip"><div class="et-tip-range">${esc(row.label)}</div>` +
-			`<div class="et-tip-total"><b>${esc(total_label)}: ${row.total}</b></div>`;
+		let html = `<div class="et-tip et-tip-category"><div class="et-tip-range et-tip-title">${esc(row.label)}</div>`;
 
-		if (typeof row.event_count === 'number') {
-			html += `<div class="et-tip-total"><b>${esc(t('Number of events'))}: ${row.event_count}</b></div>`;
+		if (mode === CWidgetEventTimeline.MODE_HOST) {
+			if (row.host !== undefined) {
+				html += line(t('Host name'), row.host, 'et-tip-field');
+				html += line(t('Visible name'), row.display_name, 'et-tip-field');
+
+				if (row.interfaces?.length > 0) {
+					html += `<div class="et-tip-field">${esc(t('Interfaces'))}:</div>`;
+
+					for (const i of row.interfaces) {
+						html += `<div class="et-tip-iface">${esc(i.type)}: ${esc(i.address)}`
+							+ (i.port !== '' ? `:${esc(i.port)}` : '') + '</div>';
+					}
+
+					if (row.interfaces_more > 0) {
+						html += `<div class="et-tip-iface et-tip-more">`
+							+ `${esc(sprintf(t('%1$s more interfaces'), row.interfaces_more))}</div>`;
+					}
+				}
+			}
+
+			html += line(t('Event count'), row.total);
+		}
+		else if (mode === CWidgetEventTimeline.MODE_GROUP) {
+			if (typeof row.target_hosts === 'number') {
+				html += line(t('Target hosts (current scope)'), row.target_hosts);
+				html += line(t('Affected hosts'), row.affected_hosts);
+			}
+
+			html += line(t('Event count'), row.total);
+		}
+		else {
+			html += line(t('Affected hosts'), row.total);
+
+			if (typeof row.event_count === 'number') {
+				html += line(t('Number of events'), row.event_count);
+			}
+
+			if (row.last_time) {
+				html += line(t('Last occurred'), row.last_time);
+			}
+
+			if (typeof row.matched_items === 'number') {
+				html += line(t('Matching items'), row.matched_items);
+			}
 		}
 
-		html += `<div class="et-tip-row"><span class="et-tip-dot" style="background:${esc(severity.color)}"></span>` +
-			`${esc(severity.name)}: ${row.counts[severity.id]}</div>`;
+		// 深刻度内訳（重大度の高い順、0件は省略）。Event mode の内訳は影響ホスト数（Host ごとの最大深刻度）。
+		const breakdown = [...enabled].reverse().filter(s => (row.counts[s.id] ?? 0) > 0);
 
-		if (Array.isArray(row.hosts)) {
+		if (breakdown.length > 0) {
+			html += `<div class="et-tip-field et-tip-section">`
+				+ `${esc(by_event ? t('Affected hosts by severity') : t('Events by severity'))}</div>`;
+
+			for (const s of breakdown) {
+				const strong = hovered !== null && s.id === hovered.id;
+
+				html += `<div class="et-tip-row${strong ? ' et-tip-hovered' : ''}">`
+					+ `<span class="et-tip-dot" style="background:${esc(s.color)}"></span>`
+					+ `${esc(s.name)}: ${strong ? `<b>${row.counts[s.id]}</b>` : row.counts[s.id]}</div>`;
+			}
+		}
+
+		if (Array.isArray(row.hosts) && row.hosts.length > 0) {
+			html += `<div class="et-tip-field et-tip-section">${esc(t('Affected hosts'))}</div>`;
+
 			for (const host of row.hosts) {
 				html += `<div class="et-tip-host">${esc(host)}</div>`;
 			}
