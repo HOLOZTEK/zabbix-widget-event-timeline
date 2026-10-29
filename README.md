@@ -2,11 +2,32 @@
 
 固定したHost / Host groupのProblem Eventを、ダッシュボードの表示期間に合わせた時間Bucketで集計し、Severity別の積み上げ棒グラフで表示するウィジェットです。
 
-> **v0.2.9**: 設定画面を5タブ（対象 / 表示 / フィルター / 期間 / 外観）に整理し、深刻度・確認状態の必須チェックと、値の型・アイテムタイプの「すべて」を追加しました。
->
-> **v0.2.7**: 表示・操作性を改善しました（型の表示順・ツールバーとグラフのツールチップ・0件表示）。
->
-> **v0.2.6**: Source連携・トリガーの対象Host展開・LLD対応・アイテム条件フィルタ・Host / Host group / Event ビュー・Drilldown を統合しました。対象ホスト・ホストグループ・トリガーは固定またはウィジェット参照（Tree Navigator / Metric Navigator 連携）で指定できます。
+Event Timeline displays Zabbix problem events as a severity-stacked bar chart over time buckets that follow the dashboard time period. (English descriptions follow each Japanese section.)
+
+## 概要
+
+- 時間軸に加えて、ホスト / ホストグループ / イベント（トリガー・トリガープロトタイプ）単位の集計表示と、イベント一覧のドリルダウンを備えます。
+- 対象ホスト・ホストグループ・トリガーは、固定指定またはウィジェット参照（Tree Navigator / Event Navigator / Metric Navigator 等との連携）で指定できます。
+- 選択したトリガーは継承元のTemplateトリガー（LLDではトリガープロトタイプ）を基準に、対象ホスト上の同じトリガーへ展開します。
+- 深刻度・確認状態・値の型・アイテムタイプで、表示画面から一時的に絞り込めます。
+- Zabbix の権限を迂回せず、トリガーを特定できない場合は条件なしの表示へ切り替えません（fail-closed）。
+
+### Overview
+
+- Besides the timeline, events can be aggregated by host, host group or event (trigger / trigger prototype), with a drilldown event list.
+- Target hosts, host groups and triggers are either fixed or taken from other widgets (Tree Navigator, Event Navigator, Metric Navigator, etc.).
+- A selected trigger is expanded to the same trigger on the target hosts, based on its inherited template trigger (trigger prototype for LLD).
+- Severity, acknowledgement status, value type and item type can be narrowed temporarily in the view.
+- Zabbix permissions are never bypassed, and an unresolvable trigger selection never falls back to unfiltered events (fail-closed).
+
+## 動作環境 / Requirements
+
+| 項目 / Item | 要件 / Requirement |
+|------|------|
+| Zabbix | 7.0.x（7.0.31 で動作確認）/ 8.0.0rc2 で動作確認。Zabbix 8.0 正式版は未確認です。 / 7.0.x (tested with 7.0.31); tested with 8.0.0rc2. The Zabbix 8.0 final release has not been tested. |
+| PHP | 8.1 以上（8.3 / 8.4 で動作確認） / 8.1 or later (tested with 8.3 / 8.4) |
+| OS（パッケージ / packages） | RHEL / Rocky Linux / AlmaLinux 9・10 系（RPM）、Ubuntu 22.04 / 24.04（DEB） / RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
+| 権限 / Permissions | ウィジェットを表示するユーザーに、対象ホストの読み取り権限が必要です。Template由来のトリガーを選択する場合は継承元Templateの参照権限も必要です（「トリガー連携の権限」参照）。 / Read access to the target hosts; for template-inherited triggers, also access to the inherited templates (see "Permissions for trigger integration"). |
 
 ## 機能
 
@@ -25,14 +46,14 @@
 - **取得上限**: 設定画面で変更可能（既定100,000件）。上限に達した場合はグラフ上部に警告を表示し、集計対象外となる期間を明示
 - **外観設定**: グラフ高さ、Y軸最小値（軸の最大値の最低保証。0/空=自動、データがそれを超えれば自動拡張。軸下端は常に0）、線の色・文字色（「自動」= Zabbixテーマ追従。カスタムはカラーピッカーまたは #RRGGBB 入力。「デフォルトを使用」で自動へ戻す。Light/Dark対応）
 - **X軸**: 目盛りは最小単位のみ表示し、月日・年は軸下部の期間線（日付/年の切れ目で分割）で表示
-- **空状態 / エラー表示**: 0件でもグラフ（軸・Grid）とフッターを残し、中央に状態を表示（下記「表示・操作性の改善」）。対象Hostなし・取得失敗は従来どおり
+- **空状態 / エラー表示**: 0件でもグラフ（軸・Grid）とフッターを残し、中央に状態を表示（下記「表示とツールチップ」）。対象Hostなし・取得失敗はエラー / 警告として表示
 - 日本語 / English ロケール対応
 
-## Widget連携・表示画面のフィルター・集計方法
+## Widget連携（Navigator連携）・表示画面のフィルター・集計方法
 
 - **Source**: Monitoring target と Event は独立して Fixed / Widget を選択（4通りの組み合わせ）。条件は `Monitoring target AND Event Selection`
   - Monitoring target = Widget: Tree Navigator の Host / Host group 選択（Groupはサブグループ含む・Hostは重複排除）
-  - トリガー（Triggers。旧称Event） = Fixed: Trigger をホスト等と同じ選択UIで指定。Triggers = Widget: Event Navigator / Metric Navigator等の Trigger 選択を参照。トリガー未指定なら対象Hostの期間内の全Eventを表示（対象Hostが未選択のときは「対象が選択されていません」）
+  - トリガー（Triggers） = Fixed: Trigger をホスト等と同じ選択UIで指定。Triggers = Widget: Event Navigator / Metric Navigator等の Trigger 選択を参照。トリガー未指定なら対象Hostの期間内の全Eventを表示（対象Hostが未選択のときは「対象が選択されていません」）
   - Widget Source で選択が届いていない場合は全Host・全Eventへ広げず「対象が選択されていません」を表示し、選択の到着・変更で再取得
 - **Severity Filter / Acknowledged Filter**: 設定値が実行時の初期値。表示画面のツールバーでON/OFF（Severityチップは凡例を兼ねる）。OFFは集計から除外され、合計は現在のフィルター下で再計算。確認状態は取得時点の現在値（過去時点の再構成なし）
 - **Filter Reset**: 設定値へ戻す（全ONではない）。実行時状態が設定値と同じ間は無効
@@ -49,9 +70,9 @@
 - 複数のトリガーを選択した場合は、それぞれの展開結果の和集合（OR、重複なし）です。
 - 対象Hostに該当Templateが適用されていない場合、そのHostには一致するトリガーがなく、イベントが表示されないだけです（エラー・警告にはしません）。
 - 展開の結果、一致するトリガーが0件の場合は「イベントなし」です。トリガー条件なしの全イベント表示へは切り替えません。
-- トリガー未選択の場合は従来どおり、対象Hostの期間内の全イベントを表示します。
+- トリガー未選択の場合は、対象Hostの期間内の全イベントを表示します。
 - **Hostへ直接作成されたローカルトリガー**は他Hostへ展開しません。そのトリガー自身の所属Hostが対象Hostに含まれるときだけ使用します（他Hostの同名トリガーは対象外）。
-- 展開にもTemplate参照権限が必要です（次節）。選択したトリガー自体を正規化できない場合は、従来どおり選択全体を適用せず警告を表示します。
+- 展開にもTemplate参照権限が必要です（次節）。選択したトリガー自体を正規化できない場合は、選択全体を適用せず警告を表示します。
 - **部分結果の警告**: 選択したトリガーは正規化できたものの、対象Host上の一部のトリガーについて継承元Templateを参照できず照合できなかった場合は、照合できたトリガーのイベントだけを表示し、グラフ上部に「対象ホスト上に、選択されたトリガーと照合できないトリガーがあります。結果が不完全な可能性があります。」を表示します。
 - 対象Host上のトリガーはHost数に比例しない一括取得で照合します（Host数に応じてAPI呼び出し回数が増える構造にはしていません）。
 
@@ -70,9 +91,9 @@ When a trigger selection is combined with a host selection, the widget shows eve
 - Multiple selected triggers are combined with OR and deduplicated.
 - A target host without the template simply has no matching trigger (no error or warning).
 - If no trigger matches after expansion, the result is "No events"; it never falls back to unfiltered events.
-- Without a trigger selection, all events of the target hosts are shown as before.
+- Without a trigger selection, all events of the target hosts are shown.
 - **Host-local triggers** are not expanded to other hosts. They are used only when their own host is in the target hosts.
-- Template access permission is also required for expansion (see below). If a selected trigger itself cannot be resolved, the whole selection is rejected with a warning as before.
+- Template access permission is also required for expansion (see below). If a selected trigger itself cannot be resolved, the whole selection is rejected with a warning.
 - **Partial result warning**: if the selected triggers are resolved but some triggers on the target hosts cannot be matched because their inherited templates are not accessible, only the matched triggers' events are shown with the warning "Some triggers on the target hosts could not be matched with the selected triggers. The result may be incomplete."
 - Triggers on the target hosts are fetched in bulk; the number of API calls does not grow with the number of hosts.
 
@@ -102,7 +123,10 @@ LLD（ディスカバリ）で生成されたトリガー（Discovered Trigger�
 **対象外・既知の挙動**
 
 - **複数Hostのアイテムを参照するトリガープロトタイプ**は正式対応外です。生成されたトリガーは1つのトリガーとして扱われ、通常の複数Host参照トリガーと同じく、参照先Hostのいずれかが対象Hostに含まれると一致します。
-- Zabbix 8.0 のネストしたLLD（ディスカバリで生成されたプロトタイプ）は**未検証**です（対応済みではありません）。Zabbix 8.0 正式版での実データ確認を v1.0.0 公開前の確認項目としています。
+- **Zabbix 8.0 のネストしたLLD**（LLDルールプロトタイプで生成されたプロトタイプ由来のトリガー）は、Zabbix 8.0.0rc2 で動作を確認しています。ただし次の制約があります（「制約事項」参照）。
+  - ネストしたLLDのトリガーは、外側のLLDで**Hostごと・外側の検出行ごとに生成されたトリガープロトタイプ**を Canonical として扱います（Template上のトリガープロトタイプまでは遡りません）。
+  - そのため、ネストしたLLDのトリガーを選択した場合の展開先は、**選択したトリガーと同じHost・同じ外側の検出行**から生成されたトリガーに限られます。他Hostや他の外側行の同じプロトタイプ由来のトリガーは対象になりません。
+  - 表示モード「イベント」のプロトタイプグループも、Host×外側の検出行ごとに分かれて表示されます（この場合、分割の警告は表示しません）。イベントの集合と件数は変わりません。
 
 ### Expanding LLD triggers (trigger prototypes) to target hosts
 
@@ -125,7 +149,10 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 **Out of scope / known behavior**
 
 - **Trigger prototypes referencing items of multiple hosts** are not officially supported. The generated trigger is treated as one trigger and, like normal triggers referencing multiple hosts, matches when any of its hosts is in the target hosts.
-- Nested LLD in Zabbix 8.0 (prototypes created by discovery) is **not verified** (not supported yet). Verification with real data on the Zabbix 8.0 final release is planned before v1.0.0.
+- **Nested LLD in Zabbix 8.0** (triggers from prototypes created by LLD rule prototypes) has been tested with Zabbix 8.0.0rc2, with the following limitations (see "Known limitations"):
+  - For a nested LLD trigger, the canonical prototype is the **trigger prototype discovered by the outer LLD per host and per outer discovery row** (it is not traced back to the trigger prototype on the template).
+  - Therefore a selected nested LLD trigger is expanded only to triggers created from **the same host and the same outer discovery row**. Triggers from the same template prototype on other hosts or other outer rows are not included.
+  - In display mode "Event", prototype groups are also split per host and outer discovery row (no split warning is shown in this case). The set and number of events are unchanged.
 
 ## アイテム条件による絞り込み
 
@@ -145,7 +172,7 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 - **依存アイテム**: トリガーが依存アイテムを直接参照する場合、アイテムタイプは「依存アイテム」として判定します。マスターアイテムのタイプへ自動的に遡りません（マスターが SNMP トラップでも「SNMPトラップ」には一致しません）。
 - **複数Hostのアイテムを参照するトリガー**: 参照するすべてのアイテム（対象Host以外のHostのアイテムを含む）を判定に使います。
 - **無効なアイテム**: アイテムの状態（有効/無効）は条件にしません。無効化されたアイテムを参照するトリガーの過去のイベントも、型が一致すれば表示します。
-- 条件を指定しない場合はトリガー・アイテムの追加取得を行わず、従来と同じイベントを表示します。条件を指定した場合も、トリガーとアイテムの情報は一括取得（アイテムは1,000件単位）で、Host数・トリガー数に比例してAPI呼び出し回数が増える構造にはしていません。
+- 条件を指定しない場合はトリガー・アイテムの追加取得を行いません。条件を指定した場合も、トリガーとアイテムの情報は一括取得（アイテムは1,000件単位）で、Host数・トリガー数に比例してAPI呼び出し回数が増える構造にはしていません。
 
 **詳細表示（ドリルダウン）**
 
@@ -158,10 +185,10 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 ```
 
 - 表示モード「イベント」の並び順は「影響ホスト数順」「イベント発生数順」「A-Z」「Z-A」です（既定は影響ホスト数順）。
-  - 影響ホスト数順: 影響ホスト数の多い順（従来の「件数順」と同じ並び）。
+  - 影響ホスト数順: 影響ホスト数の多い順。
   - イベント発生数順: 該当イベント数の多い順（同数は影響ホスト数の多い順、さらに名前順）。1台のHostで大量に発生しているトリガーを見つけるときに使います。
   - どの並び順でも、グラフの棒の高さは**影響ホスト数**です（並び順だけが変わります）。イベント数はツールチップの「該当イベント数」で確認できます。
-- 表示モード「ホスト」「ホストグループ」の並び順は従来どおり「件数順」「A→Z」「Z→A」です（グラフの値がイベント数のため、イベント発生数順は件数順と同じ並びになり、ボタンは表示しません）。
+- 表示モード「ホスト」「ホストグループ」の並び順は「件数順」「A→Z」「Z→A」です（グラフの値がイベント数のため、イベント発生数順は件数順と同じ並びになり、ボタンは表示しません）。
 - 設定画面の「並び順」では「イベント発生数順」を選べます（表示モード「イベント」以外では件数順として動作します）。
 
 または「アイテムタイプ = SNMPトラップ」で、SNMPトラップ由来のイベントだけに絞り込めます。
@@ -174,7 +201,7 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 
 **対象外・既知の挙動**
 
-- Zabbix 8.0 のネストしたLLD（ディスカバリで生成されたプロトタイプ）由来のトリガー・アイテムでの判定は**未検証**です。
+- Zabbix 8.0 のネストしたLLD由来のトリガーも、**実際に生成されたアイテム**の型で判定します（Zabbix 8.0.0rc2 で確認）。アイテムタイプ「ネストされた」はLLDルール（プロトタイプ）の種別で、トリガーが参照するアイテムには通常該当しないため、この条件では0件になります。
 
 ### Filtering events by item characteristics
 
@@ -194,7 +221,7 @@ Events can be filtered by the **value type** and **item type** of the items **di
 - **Dependent items**: if a trigger directly references a dependent item, its item type is "Dependent item". The master item's type is not followed (a dependent item whose master is an SNMP trap item does not match "SNMP trap").
 - **Triggers referencing items of multiple hosts**: all referenced items (including items on hosts outside the target hosts) are evaluated.
 - **Disabled items**: item status is not a condition. Past events of triggers referencing disabled items are shown if the type matches.
-- Without conditions no additional trigger/item queries are made and the result is the same as before. With conditions, triggers and items are fetched in bulk (items in chunks of 1,000); the number of API calls does not grow with the number of hosts or triggers.
+- Without conditions no additional trigger/item queries are made. With conditions, triggers and items are fetched in bulk (items in chunks of 1,000); the number of API calls does not grow with the number of hosts or triggers.
 
 **Drilldown**
 
@@ -207,7 +234,7 @@ Value type = Log → Display mode "Host" (by count) to find the source host → 
 ```
 
 - In display mode "Event", the sort orders are "Affected hosts", "Event count", "A-Z" and "Z-A" (default: Affected hosts).
-  - Affected hosts: by the number of affected hosts, descending (same order as the former "By count").
+  - Affected hosts: by the number of affected hosts, descending.
   - Event count: by the number of matching events, descending (ties by affected hosts, then by name). Use it to find a trigger that fires many events on a single host.
   - With every sort order the bar height is the **number of affected hosts**; only the order changes. The event count is shown as "Events" in the tooltip.
 - Display modes "Host" and "Host group" keep "By count", "A to Z" and "Z to A" (the chart value already is the event count, so "Event count" would give the same order as "By count"; the button is not shown).
@@ -223,14 +250,14 @@ Or use "Item type = SNMP trap" to narrow down to events from SNMP trap items.
 
 **Out of scope / known behavior**
 
-- Triggers and items from nested LLD in Zabbix 8.0 (prototypes created by discovery) are **not verified**.
+- Triggers from nested LLD in Zabbix 8.0 are also judged by their **discovered items** (tested with Zabbix 8.0.0rc2). The item type "Nested" is the type of LLD rules (prototypes) and normally does not apply to items referenced by triggers, so this condition gives no events.
 
-## 表示・操作性の改善
+## 表示とツールチップ
 
-集計・取得の仕様は変えず、表示とツールチップだけを改善しています（追加の event.get なし）。
+表示順・ツールチップ・0件表示は、集計・取得とは独立しています（表示のための追加の event.get はありません）。
 
 - **値の型の表示順**（実行時フィルター・設定画面とも）: すべて、数値 (浮動小数)、数値 (整数)、文字列、テキスト、ログ、バイナリ、（Zabbix 8.0）JSON。表示名は Zabbix 本体の翻訳です。
-- **アイテムタイプの表示順**（見出し・区切りなし、そのバージョンに存在するものだけ）: Zabbixエージェント、Zabbixエージェント(アクティブ)、SNMPエージェント、SNMPトラップ、Zabbixトラッパー、Zabbixインターナル、シンプルチェック、外部チェック、データベースモニタ、HTTPエージェント、IPMIエージェント、SSHエージェント、TELNETエージェント、JMXエージェント、Web監視、計算、依存アイテム、スクリプト、ブラウザ、（8.0）ネストされた（Zabbix 8.0rc1 の翻訳）、Telemetry query。
+- **アイテムタイプの表示順**（見出し・区切りなし、そのバージョンに存在するものだけ）: Zabbixエージェント、Zabbixエージェント(アクティブ)、SNMPエージェント、SNMPトラップ、Zabbixトラッパー、Zabbixインターナル、シンプルチェック、外部チェック、データベースモニタ、HTTPエージェント、IPMIエージェント、SSHエージェント、TELNETエージェント、JMXエージェント、Web監視、計算、依存アイテム、スクリプト、ブラウザ、（8.0）ネストされた、Telemetry query（表示名は Zabbix 本体の翻訳。Telemetry query は 8.0.0rc2 時点で未翻訳）。
 - **操作ボタンのツールチップ**: ツールバーのすべての操作（表示モード・並び順・発生数/継続数・確認状態・深刻度・詳細の並び・値の型/アイテムタイプ・条件リセット）に、押すと何が変わるかを表示します。発生数/継続数の説明は「時間軸」と「ホスト / ホストグループ / イベント」で変わります。「ホスト順 / 時系列」は詳細の並びだけを変え、グラフの集計は変わりません。
 - **グラフのツールチップ**（棒・X軸ラベル共通。名前は省略せず折り返し、Widget の外へはみ出しません。狭い Widget でグラフの高さを超える分は省略されます）
   - ホスト: ホスト名（技術名）、表示名、インターフェース（メインを優先・種別付き・最大3件、IP がない場合は DNS 名）、イベント数、深刻度別の内訳。インターフェースは表示中のページのホストだけを host.get 1回でまとめて取得します。
@@ -240,11 +267,11 @@ Or use "Item type = SNMP trap" to narrow down to events from SNMP trap items.
 - **0件の表示（Empty State）**: グラフの軸・Grid・フッターを残し、中央に状態を表示します。
   - 絞り込み条件なし: 「対象期間にイベントはありません」
   - 深刻度・確認状態・値の型・アイテムタイプ・トリガー選択のいずれかで実際に絞り込んでいる場合: 「現在の条件に一致するイベントはありません」「フィルターまたは表示条件を変更してください。」と、有効な条件。設定値から変更している場合は「条件リセット」の案内も表示します。
-  - 取得失敗・トリガー選択を適用できない場合は従来のエラー / 警告表示のままで、正常な0件には見せません。取得上限などの警告がある0件は、警告を残したうえで0件を表示します。
+  - 取得失敗・トリガー選択を適用できない場合はエラー / 警告として表示し、正常な0件には見せません。取得上限などの警告がある0件は、警告を残したうえで0件を表示します。
 
-### Display and usability improvements
+### Display and tooltips
 
-Only the presentation and tooltips are improved; fetching and aggregation are unchanged (no additional event.get).
+Display order, tooltips and the empty state are independent of fetching and aggregation (no additional event.get for display).
 
 - **Value type order** (runtime filter and configuration): All, Numeric (float), Numeric (unsigned), Character, Text, Log, Binary, (Zabbix 8.0) JSON. Labels come from Zabbix translations.
 - **Item type order** (no headings or separators; only types that exist in the running version): Zabbix agent, Zabbix agent (active), SNMP agent, SNMP trap, Zabbix trapper, Zabbix internal, Simple check, External check, Database monitor, HTTP agent, IPMI agent, SSH agent, TELNET agent, JMX agent, Web monitoring, Calculated, Dependent item, Script, Browser, (8.0) Nested, Telemetry query.
@@ -257,7 +284,7 @@ Only the presentation and tooltips are improved; fetching and aggregation are un
 - **Empty state**: the axes, grid and footer stay visible and the state is shown in the center.
   - No narrowing condition: "No events in the target period".
   - Narrowed by severity, ack status, value type, item type or trigger selection: "No events match the current conditions", "Change the filters or display conditions." and the active conditions, plus a hint to use "Reset conditions" when the state differs from the configuration.
-  - Fetch errors and unresolvable trigger selections keep the existing error / warning display and are never shown as a normal empty result. An empty result with a warning (e.g. the fetch limit) keeps the warning and shows the empty state.
+  - Fetch errors and unresolvable trigger selections are shown as errors / warnings and are never shown as a normal empty result. An empty result with a warning (e.g. the fetch limit) keeps the warning and shows the empty state.
 
 ## 設定画面（タブ構成）
 
@@ -273,9 +300,8 @@ Only the presentation and tooltips are improved; fetching and aggregation are un
 
 - 設定画面を開くと常に「対象」タブから表示します。タブを切り替えても、適用前の入力値は保持されます。
 - イベント取得上限数は意味上は取得制御ですが、変更頻度が高いため初期表示の「対象」タブに置いています。
-- 深刻度・確認状態は、設定画面から適用するときにそれぞれ1つ以上の選択が必要です（「深刻度を1つ以上選択してください。」「確認状態を1つ以上選択してください。」）。表示画面で一時的に切り替える条件には影響しません。なお Zabbix は空の選択を保存しないため、旧版で全解除して保存した Widget も、再読み込み後は既定値（すべて選択）で表示されていました。新版でもこの表示は変わりません。
-- 値の型・アイテムタイプの先頭に「すべて」を表示します。「すべて」がONの状態は個別指定なし（すべてが対象）で、保存形式は従来どおりです（「すべて」用の値は保存しません）。個別の項目を選ぶと「すべて」はOFFになり、最後の個別項目を外すとONに戻ります。「すべて」を選ぶと個別の選択を解除します。個別指定がないまま「すべて」をOFFにはできません。
-- 固定指定と Widget 参照（ホスト・ホストグループ・トリガー）の動作、設定項目名、保存形式、表示画面の動作は変わりません。
+- 深刻度・確認状態は、設定画面から適用するときにそれぞれ1つ以上の選択が必要です（「深刻度を1つ以上選択してください。」「確認状態を1つ以上選択してください。」）。表示画面で一時的に切り替える条件には影響しません。なお Zabbix は空の選択を保存しないため、この必須チェックがない状態で全解除して保存された Widget は、既定値（すべて選択）で表示されます。
+- 値の型・アイテムタイプの先頭に「すべて」を表示します。「すべて」がONの状態は個別指定なし（すべてが対象）です（「すべて」用の値は保存しません）。個別の項目を選ぶと「すべて」はOFFになり、最後の個別項目を外すとONに戻ります。「すべて」を選ぶと個別の選択を解除します。個別指定がないまま「すべて」をOFFにはできません。
 - 適用時のエラーは Zabbix 標準どおり設定画面上部に表示します。加えて、エラーのある項目を含むタブにエラー色の印（●）を付け、フォーム順で最初のエラーのタブを開いてその入力欄へフォーカスします。再度適用すると印は付け直されます。タブ外の項目のエラーなど所属タブを特定できない場合は、タブの切替も印付けも行いません。
 - 補足（Zabbix 標準の動作）: 「追加」ダイアログでタイプを切り替えると、Zabbix は同じ名前の設定項目の値を引き継ぎます。そのため直前のタイプに同名の項目（例: `max_events`）がある場合、範囲外の値が入って適用時にエラーになることがあります。この場合は該当タブ（例: 対象）へ誘導されるので、値を直して適用してください。
 
@@ -293,9 +319,8 @@ The configuration form has five tabs. Type, Name, Refresh interval and Show head
 
 - The form always opens on the Targets tab. Unsaved values are kept when switching tabs.
 - Event retrieval limit controls data retrieval, but it is placed on the Targets tab (opened first) because it is changed often.
-- When applying the form, at least one severity and at least one acknowledgement status must be selected ("Select at least one severity.", "Select at least one acknowledgement status."). Temporary conditions changed in the view are not affected. Zabbix does not store an empty selection, so a widget saved with everything cleared in an earlier version was already shown with the default (all selected) after reloading; this does not change.
-- Value type and Item type start with an "All" option. "All" checked means no individual selection (everything included), stored in the same format as before (no value is stored for "All"). Selecting an individual option clears "All"; clearing the last individual option checks "All" again; selecting "All" clears the individual options. "All" cannot be cleared while nothing else is selected.
-- Fixed selection and widget references (hosts, host groups, triggers), field names, the saved format and the runtime behavior are unchanged.
+- When applying the form, at least one severity and at least one acknowledgement status must be selected ("Select at least one severity.", "Select at least one acknowledgement status."). Temporary conditions changed in the view are not affected. Zabbix does not store an empty selection, so a widget saved with everything cleared without this check is shown with the default (all selected).
+- Value type and Item type start with an "All" option. "All" checked means no individual selection (everything included), (no value is stored for "All"). Selecting an individual option clears "All"; clearing the last individual option checks "All" again; selecting "All" clears the individual options. "All" cannot be cleared while nothing else is selected.
 - Validation errors are shown at the top of the form as in standard Zabbix. In addition, every tab that contains an invalid field gets a mark (●) in the Zabbix error color, the tab of the first invalid field (in form order) is opened and the field is focused. The marks are recalculated on every Apply. When the tab cannot be determined (e.g. an error in a field outside the tabs), no tab is switched or marked.
 - Note (standard Zabbix behavior): when the type is changed in the "Add widget" dialog, Zabbix carries over values of fields with the same name. If the previous type has a field with the same name (e.g. `max_events`), an out-of-range value may be carried over and rejected on Apply; the form then guides you to the relevant tab (e.g. Targets) so you can correct it.
 
@@ -323,106 +348,155 @@ When template-inherited triggers are used with Event Timeline, the logged-in use
 
 ## 制約事項
 
-- Event取得はページング（5,000件単位）で、上限件数に達すると古いEventから集計対象外になります（警告表示あり）。
-- 約8年を超える期間では1 monthでもBucket数が100を超える場合があります（Zabbixの Time period 上限は730日のため通常は発生しません）。
-- Host指定は監視有効/無効を区別しません。
-- 継続イベント加算モードの復旧時刻はEventの復旧Event（r_eventid）から取得します。取得上限は期間前に発生したEventの取得分も含みます。
-制約事項の分類（各機能の節に詳細）:
+以下は v1.0.0 の仕様上の制約です（詳細は各機能の節を参照）。
 
-- **仕様上の制約**: 削除済みのトリガー / アイテムの過去イベントは対象外（名前等から推測しない）、依存アイテムはマスターアイテムのタイプへ遡らない、継承元Templateを参照できないトリガー選択は適用しない（fail-closed）、判定不能（PARTIAL）の過大計上（下記）、狭幅表示（下記）
-- **将来対応**: Zabbix 8.0 の多段LLD（ディスカバリで作成されるプロトタイプ）の実データ検証（v1.0.0 前に 8.0 正式版で実施予定）、DrilldownダイアログでのPARTIAL警告の再表示
-
-- **狭幅表示**: 実用上の最小幅は約216px（1800px幅ダッシュボードの10列相当）です。約400px未満ではツールバーのボタンが折り返し、グラフはWidget内の縦スクロールで表示されます（横方向にはWidget枠を超えません）。
+- **取得上限**: Event取得はページング（5,000件単位）で、取得上限（既定100,000件）に達すると古いEventから集計対象外になります（グラフ上部に警告と対象外期間を表示）。継続イベント加算モードでは、期間前に発生したEventの取得分も上限に含みます。継続イベント加算モードの復旧時刻は復旧Event（r_eventid）から取得します。
+- **Bucket数**: 約8年を超える期間では1 monthでもBucket数が100を超える場合があります（Zabbixの Time period 上限は730日のため通常は発生しません）。
+- **Host指定**: 監視の有効 / 無効を区別しません。
+- **削除済みのトリガー / アイテム**: Zabbix から取得できないため、過去のイベントも対象外です（名前等から推測しません）。
+- **依存アイテム**: アイテムタイプの判定でマスターアイテムのタイプへ遡りません。
+- **継承元Templateを参照できないトリガー選択**: 選択全体を適用しません（fail-closed。「トリガー連携の権限」参照）。
+- **複数Hostのアイテムを参照するトリガー / トリガープロトタイプ**: 正式対応外です。1つのトリガーとして扱い、参照先Hostのいずれかが対象Hostに含まれると一致します。
+- **Zabbix 8.0 のネストしたLLD**（Zabbix 8.0.0rc2 で確認）: ネストしたLLDのトリガーは、外側のLLDでHostごと・外側の検出行ごとに生成されたトリガープロトタイプを Canonical として扱います。そのため、選択したトリガーの展開先は同じHost・同じ外側の検出行から生成されたトリガーに限られ、表示モード「イベント」のプロトタイプグループもHost×外側の検出行ごとに分かれます（分割の警告は表示しません。イベントの集合と件数は変わりません）。
 - **判定不能（PARTIAL）件数の過大計上**: 選択したトリガーの正規化結果（Canonical）がTemplate上のトリガー、または対象Host外のHostローカルトリガーの場合、継承元を参照できない対象Host上のトリガーを、実際には選択と無関係でも「判定不能」として計上することがあります。所有者の判定には追加のAPI呼び出しが必要で、誤判定すると条件を満たさないイベントを表示（fail-open）してしまうため、安全側（過大計上）にしています。選択がすべて対象Host上のHostローカルトリガーの場合は計上しません。
-- Drilldownダイアログには判定不能（PARTIAL）の警告を再表示しません（本体の表示には警告が出ます）。
+- **Drilldownダイアログ**: 判定不能（PARTIAL）の警告を再表示しません（本体の表示には警告が出ます）。
+- **狭幅表示**: 実用上の最小幅は約216px（1800px幅ダッシュボードの10列相当）です。約400px未満ではツールバーのボタンが折り返し、グラフはWidget内の縦スクロールで表示されます（横方向にはWidget枠を超えません）。
+- **Zabbix 8.0 正式版**: 動作確認は 8.0.0rc2 までです。
 - デバッグ情報（トリガー選択の解決結果など）はZabbixのデバッグモードが有効なユーザーにだけ応答へ含め、ブラウザのコンソール（console.debug）へ出力します。画面には表示しません。
-- Zabbix 8.0以降では、LLD生成元の取得に`trigger.get`の`selectDiscoveryData`を使用します（8.0で廃止予定となった`selectTriggerDiscovery`は使用しません）。7.0系では従来どおり`selectTriggerDiscovery`を使用します。
+- Zabbix 8.0以降では、LLD生成元の取得に`trigger.get`の`selectDiscoveryData`を使用します（8.0で非推奨となった`selectTriggerDiscovery`は使用しません）。7.0系では`selectTriggerDiscovery`を使用します。
 
 ### Known limitations
 
-Classification (details in each feature section):
+The following are limitations of v1.0.0 by design (details in each feature section).
 
-- **By design**: past events of deleted triggers / items are not shown (nothing is inferred from names); dependent items are not traced to the master item type; trigger selections whose inherited templates cannot be accessed are not applied (fail-closed); over-counting of PARTIAL (below); narrow widgets (below)
-- **Future work**: verification of nested LLD on Zabbix 8.0 (prototypes created by discovery) with real data on the 8.0 final release before v1.0.0; repeating the PARTIAL warning in the drilldown dialog
-
-- **Narrow widgets**: The practical minimum width is about 216 px (10 columns of a 1800 px wide dashboard). Below about 400 px the toolbar buttons wrap and the chart is shown with vertical scrolling inside the widget (nothing overflows the widget horizontally).
+- **Retrieval limit**: Events are fetched in pages of 5,000. When the retrieval limit (default 100,000) is reached, the oldest events are excluded (a warning with the excluded period is shown above the chart). In the continuing-count mode, events that started before the period also count toward the limit. Recovery times in that mode are taken from the recovery event (r_eventid).
+- **Number of buckets**: For periods longer than about 8 years, even 1 month buckets may exceed 100 (this does not occur normally because the Zabbix time period is limited to 730 days).
+- **Host selection**: Monitored and unmonitored hosts are not distinguished.
+- **Deleted triggers / items**: They cannot be retrieved from Zabbix, so their past events are not shown (nothing is inferred from names).
+- **Dependent items**: The item type filter does not follow the master item's type.
+- **Trigger selections whose inherited templates cannot be accessed**: The whole selection is not applied (fail-closed; see "Permissions for trigger integration").
+- **Triggers / trigger prototypes referencing items of multiple hosts**: Not officially supported. Such a trigger is treated as one trigger and matches when any of its hosts is in the target hosts.
+- **Nested LLD in Zabbix 8.0** (tested with Zabbix 8.0.0rc2): For a nested LLD trigger, the canonical prototype is the trigger prototype discovered by the outer LLD per host and per outer discovery row. A selected trigger is therefore expanded only to triggers from the same host and the same outer discovery row, and in display mode "Event" the prototype groups are split per host and outer discovery row (no split warning is shown; the set and number of events are unchanged).
 - **Over-counting of unresolvable (PARTIAL) events**: When a selected trigger resolves to a template trigger or to a host-local trigger outside the target hosts, triggers on the target hosts whose inherited templates cannot be accessed may be counted as "unresolvable" even if they are unrelated to the selection. Determining the owner would require additional API calls, and a wrong decision would show events that do not match the selection (fail-open), so the widget errs on the side of over-counting. Nothing is counted when all selected triggers are host-local triggers on the target hosts.
-- The drilldown dialog does not repeat the PARTIAL warning (it is shown in the main view).
+- **Drilldown dialog**: The PARTIAL warning is not repeated in the drilldown dialog (it is shown in the main view).
+- **Narrow widgets**: The practical minimum width is about 216 px (10 columns of a 1800 px wide dashboard). Below about 400 px the toolbar buttons wrap and the chart is shown with vertical scrolling inside the widget (nothing overflows the widget horizontally).
+- **Zabbix 8.0 final release**: Tested up to 8.0.0rc2.
 - Debug information (e.g. the resolved trigger selection) is included in the response only for users with Zabbix debug mode enabled and is written to the browser console (console.debug); it is never shown on screen.
-- On Zabbix 8.0 and later, `selectDiscoveryData` of `trigger.get` is used to obtain the LLD parent (the `selectTriggerDiscovery` parameter, deprecated in 8.0, is not used). On 7.0, `selectTriggerDiscovery` is used as before.
+- On Zabbix 8.0 and later, `selectDiscoveryData` of `trigger.get` is used to obtain the LLD parent (the `selectTriggerDiscovery` parameter, deprecated in 8.0, is not used). On 7.0, `selectTriggerDiscovery` is used.
 
-## 動作環境
+## インストール / Installation
 
-| 項目 | 要件 |
-|------|------|
-| Zabbix | 7.0 以上（7.0.31 / 8.0rc1で動作確認） |
-| PHP | 8.1 以上（8.3 / 8.4で動作確認） |
+RPM / DEB パッケージ、またはソース ZIP から手動でインストールできます。いずれも GitHub の Releases（https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases）に添付されたファイルを使用してください。ソース ZIP は添付の `zabbix-widget-event-timeline-v1.0.0.zip` が正式な配布物です（Releases に自動で表示される「Source code」アーカイブとは展開後のディレクトリ名が異なります）。
 
-## インストール
-
-RPM / DEB パッケージ、またはソース ZIP から手動でインストールできます。パッケージとソース ZIP は GitHub の Releases から入手してください（https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases）。
+Install from the RPM / DEB package or manually from the source ZIP attached to the GitHub Releases. The official source archive is the attached `zabbix-widget-event-timeline-v1.0.0.zip` (the automatically generated "Source code" archives extract to a different directory name).
 
 ### RPMパッケージ（RHEL / Rocky Linux / AlmaLinux 9・10 系）
 
 ```bash
-# インストール
-rpm -Uvh zabbix-widget-event-timeline-0.2.9.noarch.rpm
-# アップデート（新しいバージョンの RPM で同じコマンド）
-rpm -Uvh zabbix-widget-event-timeline-<新しいバージョン>.noarch.rpm
-# アンインストール
-rpm -e zabbix-widget-event-timeline
+rpm -Uvh zabbix-widget-event-timeline-1.0.0.noarch.rpm
 ```
 
 ### DEBパッケージ（Ubuntu 22.04 / 24.04）
 
 ```bash
-# インストール
-dpkg -i zabbix-widget-event-timeline_0.2.9_all.deb
-# アップデート（新しいバージョンの DEB で同じコマンド）
-dpkg -i zabbix-widget-event-timeline_<新しいバージョン>_all.deb
-# アンインストール
-dpkg -r zabbix-widget-event-timeline
+dpkg -i zabbix-widget-event-timeline_1.0.0_all.deb
 ```
 
-### パッケージの配置先
+### パッケージの配置先 / Package layout
 
 - パッケージは `/usr/share/zabbix-widget-event-timeline/` にファイルを置き、インストール時にモジュールディレクトリ `event-timeline` へコピーします。
   - `/usr/share/zabbix/ui/modules` が存在すればそちらを優先し、なければ `/usr/share/zabbix/modules` へ配置します。
   - どちらも存在しない場合は警告を表示し、モジュールディレクトリへは配置しません。
-- アップデート時はモジュールディレクトリを入れ替えます。アンインストール時はモジュールディレクトリも削除します。
 - `tests/` はパッケージに含みません。
+- The package installs its files to `/usr/share/zabbix-widget-event-timeline/` and copies them to the module directory `event-timeline` under `/usr/share/zabbix/ui/modules` (preferred) or `/usr/share/zabbix/modules`. If neither exists, a warning is shown and nothing is copied. `tests/` is not included in the packages.
 
-### 手動インストール（ソース ZIP）
+### 手動インストール（ソース ZIP） / Manual installation (source ZIP)
 
 ```bash
-unzip zabbix-widget-event-timeline-v0.2.9.zip
-# /usr/share/zabbix/ui/modules が存在する環境はこちらを優先
-cp -r zabbix-widget-event-timeline-v0.2.9 /usr/share/zabbix/ui/modules/event-timeline
-# 上記が存在しない環境
-cp -r zabbix-widget-event-timeline-v0.2.9 /usr/share/zabbix/modules/event-timeline
+unzip zabbix-widget-event-timeline-v1.0.0.zip
+# /usr/share/zabbix/ui/modules が存在する環境はこちらを優先 / preferred when this directory exists
+cp -r zabbix-widget-event-timeline-v1.0.0 /usr/share/zabbix/ui/modules/event-timeline
+# 上記が存在しない環境 / otherwise
+cp -r zabbix-widget-event-timeline-v1.0.0 /usr/share/zabbix/modules/event-timeline
 ```
 
-`tests/` は動作に不要です（配置しても動作に影響しません）。
+`tests/` は動作に不要です（配置しても動作に影響しません）。 / `tests/` is not required at runtime.
 
-### インストール後の操作
+### インストール後の操作 / After installation
 
 1. PHP の実行環境を再読み込みします（例: RHEL 系の PHP-FPM 構成は `systemctl reload php-fpm`、Ubuntu の Apache 構成は `systemctl reload apache2`）。
 2. Zabbix の「管理 → 一般設定 → モジュール」で「ディレクトリのスキャン」を実行し、Event Timeline を有効にします（初回のみ）。
 3. ダッシュボードにウィジェット「Event Timeline」を追加します。
 
-## テスト
+1. Reload PHP (e.g. `systemctl reload php-fpm` on RHEL-compatible systems with PHP-FPM, `systemctl reload apache2` on Ubuntu with Apache).
+2. In Zabbix, open Administration → General → Modules, click "Scan directory" and enable Event Timeline (first time only).
+3. Add the "Event Timeline" widget to a dashboard.
+
+## アップデート / Update
+
+```bash
+# RPM
+rpm -Uvh zabbix-widget-event-timeline-<version>.noarch.rpm
+# DEB
+dpkg -i zabbix-widget-event-timeline_<version>_all.deb
+```
+
+- パッケージのアップデートでは、モジュールディレクトリ `event-timeline` を新しい版に入れ替えます。
+- 手動インストールの場合は、既存の `event-timeline` ディレクトリを削除してから、新しい版の ZIP を展開したディレクトリを同じ名前でコピーします（上書きコピーでは削除されたファイルが残ります）。
+- アップデート後に PHP の実行環境を再読み込みしてください。モジュールの再登録・再有効化は不要です。
+- モジュールID（`event-timeline`）と設定の保存形式は変わらないため、既存のウィジェット設定はそのまま使用できます（移行作業は不要です）。
+
+- Updating a package replaces the module directory `event-timeline` with the new version.
+- For a manual installation, delete the existing `event-timeline` directory and copy the extracted directory of the new ZIP under the same name (copying over the old directory would leave removed files behind).
+- Reload PHP after updating. The module does not need to be scanned or enabled again.
+- The module ID (`event-timeline`) and the saved configuration format are unchanged, so existing widget configurations keep working without migration.
+
+## アンインストール / Uninstall
+
+```bash
+# RPM
+rpm -e zabbix-widget-event-timeline
+# DEB
+dpkg -r zabbix-widget-event-timeline
+```
+
+- 事前に、ダッシュボードから Event Timeline ウィジェットを削除するか、モジュールを無効にしてください。
+- パッケージのアンインストールでは、モジュールディレクトリ `event-timeline` も削除します。
+- 手動インストールの場合は、モジュールを無効にしてから `event-timeline` ディレクトリを削除します。
+- 削除後に PHP の実行環境を再読み込みし、「管理 → 一般設定 → モジュール」で「ディレクトリのスキャン」を実行してモジュールの登録を削除します。
+
+- Before uninstalling, remove the Event Timeline widgets from dashboards or disable the module.
+- Uninstalling the package also removes the module directory `event-timeline`.
+- For a manual installation, disable the module and delete the `event-timeline` directory.
+- Then reload PHP and click "Scan directory" in Administration → General → Modules to remove the module registration.
+
+## テスト / Tests
 
 ```bash
 php tests/run_tests.php
+php tests/run_final_tests.php
 ```
 
-Bucket選択・境界（09:59:59 / 10:00:00 / 10:59:59 / 11:00:00）・DST・週開始曜日（全7曜日）・Severity集計などの純粋ロジックを検証します。週境界・タイムゾーン・Bucket自動選択の追加試験は `php tests/run_final_tests.php` を参照。
+Bucket選択・境界（09:59:59 / 10:00:00 / 10:59:59 / 11:00:00）・DST・週開始曜日（全7曜日）・Severity集計などの純粋ロジックを検証します。`tests/` はソース ZIP にだけ含まれます。
 
-## ライセンス
+These scripts test the pure logic (bucket selection and boundaries, DST, first day of week, severity aggregation, etc.). `tests/` is included only in the source ZIP.
 
-MIT License（`LICENSE` 参照）。
+## 今後の拡張候補 / Future work
+
+- Zabbix 8.0 正式版での動作確認
+- ネストしたLLDのトリガーを、Template上のトリガープロトタイプ単位で照合・集計すること
+- Drilldownダイアログでの判定不能（PARTIAL）警告の再表示
+
+- Testing with the Zabbix 8.0 final release
+- Matching and grouping nested LLD triggers by the trigger prototype on the template
+- Repeating the PARTIAL warning in the drilldown dialog
+
+## ライセンス / License
+
+MIT License（`LICENSE` 参照 / see `LICENSE`）。
 
 Copyright (c) 2026 ttake-55
 HOLOZTEK by ttake-55
 
 同梱の Apache ECharts（`assets/js/echarts.min.js`、ZRender を含む）は Apache License 2.0 です（`NOTICE` / `THIRD_PARTY_NOTICES.md` 参照）。
+The bundled Apache ECharts (`assets/js/echarts.min.js`, including ZRender) is licensed under the Apache License 2.0 (see `NOTICE` / `THIRD_PARTY_NOTICES.md`).
