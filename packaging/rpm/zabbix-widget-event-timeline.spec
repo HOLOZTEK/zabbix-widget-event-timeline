@@ -107,7 +107,7 @@ fi
 - 最初の正式安定版。機能・設定の保存形式は 0.2.9 から変更なし（移行作業不要）。
 - README を正式版の構成に改訂（動作環境・アップデート・アンインストール・
   制約事項・今後の拡張候補）。
-- Zabbix 7.0.31 / Zabbix 8.0.0rc2 で動作確認。Zabbix 8.0 のネストした LLD の
+- Zabbix 7.0.31 / Zabbix 8.0.0rc3 で動作確認。Zabbix 8.0 のネストした LLD の
   制約を制約事項に記載。
 
 * Wed Oct 28 2026 HOLOZTEK <ttake-55@users.noreply.github.com> - 0.2.9-0
