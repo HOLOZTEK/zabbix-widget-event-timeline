@@ -24,7 +24,7 @@ Event Timeline displays Zabbix problem events as a severity-stacked bar chart ov
 
 | 項目 / Item | 要件 / Requirement |
 |------|------|
-| Zabbix | 7.0.x（7.0.31 で動作確認）/ 8.0.0rc2 で動作確認。Zabbix 8.0 正式版は未確認です。 / 7.0.x (tested with 7.0.31); tested with 8.0.0rc2. The Zabbix 8.0 final release has not been tested. |
+| Zabbix | 7.0.x（7.0.31 で動作確認）/ 8.0.0rc3 で動作確認。Zabbix 8.0 正式版は未確認です。 / 7.0.x (tested with 7.0.31); tested with 8.0.0rc3. The Zabbix 8.0 final release has not been tested. |
 | PHP | 8.1 以上（8.3 / 8.4 で動作確認） / 8.1 or later (tested with 8.3 / 8.4) |
 | OS（パッケージ / packages） | RHEL / Rocky Linux / AlmaLinux 9・10 系（RPM）、Ubuntu 22.04 / 24.04（DEB） / RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
 | 権限 / Permissions | ウィジェットを表示するユーザーに、対象ホストの読み取り権限が必要です。Template由来のトリガーを選択する場合は継承元Templateの参照権限も必要です（「トリガー連携の権限」参照）。 / Read access to the target hosts; for template-inherited triggers, also access to the inherited templates (see "Permissions for trigger integration"). |
@@ -154,7 +154,7 @@ LLD（ディスカバリ）で生成されたトリガー（Discovered Trigger�
 **対象外・既知の挙動**
 
 - **複数Hostのアイテムを参照するトリガープロトタイプ**は正式対応外です。生成されたトリガーは1つのトリガーとして扱われ、通常の複数Host参照トリガーと同じく、参照先Hostのいずれかが対象Hostに含まれると一致します。
-- **Zabbix 8.0 のネストしたLLD**（LLDルールプロトタイプで生成されたプロトタイプ由来のトリガー）は、Zabbix 8.0.0rc2 で動作を確認しています。ただし次の制約があります（「制約事項」参照）。
+- **Zabbix 8.0 のネストしたLLD**（LLDルールプロトタイプで生成されたプロトタイプ由来のトリガー）は、Zabbix 8.0.0rc3 で動作を確認しています。ただし次の制約があります（「制約事項」参照）。
   - ネストしたLLDのトリガーは、外側のLLDで**Hostごと・外側の検出行ごとに生成されたトリガープロトタイプ**を Canonical として扱います（Template上のトリガープロトタイプまでは遡りません）。
   - そのため、ネストしたLLDのトリガーを選択した場合の展開先は、**選択したトリガーと同じHost・同じ外側の検出行**から生成されたトリガーに限られます。他Hostや他の外側行の同じプロトタイプ由来のトリガーは対象になりません。
   - 表示モード「イベント」のプロトタイプグループも、Host×外側の検出行ごとに分かれて表示されます（この場合、分割の警告は表示しません）。イベントの集合と件数は変わりません。
@@ -180,7 +180,7 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 **Out of scope / known behavior**
 
 - **Trigger prototypes referencing items of multiple hosts** are not officially supported. The generated trigger is treated as one trigger and, like normal triggers referencing multiple hosts, matches when any of its hosts is in the target hosts.
-- **Nested LLD in Zabbix 8.0** (triggers from prototypes created by LLD rule prototypes) has been tested with Zabbix 8.0.0rc2, with the following limitations (see "Known limitations"):
+- **Nested LLD in Zabbix 8.0** (triggers from prototypes created by LLD rule prototypes) has been tested with Zabbix 8.0.0rc3, with the following limitations (see "Known limitations"):
   - For a nested LLD trigger, the canonical prototype is the **trigger prototype discovered by the outer LLD per host and per outer discovery row** (it is not traced back to the trigger prototype on the template).
   - Therefore a selected nested LLD trigger is expanded only to triggers created from **the same host and the same outer discovery row**. Triggers from the same template prototype on other hosts or other outer rows are not included.
   - In display mode "Event", prototype groups are also split per host and outer discovery row (no split warning is shown in this case). The set and number of events are unchanged.
@@ -232,7 +232,7 @@ When a discovered (LLD) trigger is selected, the widget shows events of **all di
 
 **対象外・既知の挙動**
 
-- Zabbix 8.0 のネストしたLLD由来のトリガーも、**実際に生成されたアイテム**の型で判定します（Zabbix 8.0.0rc2 で確認）。アイテムタイプ「ネストされた」はLLDルール（プロトタイプ）の種別で、トリガーが参照するアイテムには通常該当しないため、この条件では0件になります。
+- Zabbix 8.0 のネストしたLLD由来のトリガーも、**実際に生成されたアイテム**の型で判定します（Zabbix 8.0.0rc3 で確認）。アイテムタイプ「ネストされた」はLLDルール（プロトタイプ）の種別で、トリガーが参照するアイテムには通常該当しないため、この条件では0件になります。
 
 ### Filtering events by item characteristics
 
@@ -281,14 +281,14 @@ Or use "Item type = SNMP trap" to narrow down to events from SNMP trap items.
 
 **Out of scope / known behavior**
 
-- Triggers from nested LLD in Zabbix 8.0 are also judged by their **discovered items** (tested with Zabbix 8.0.0rc2). The item type "Nested" is the type of LLD rules (prototypes) and normally does not apply to items referenced by triggers, so this condition gives no events.
+- Triggers from nested LLD in Zabbix 8.0 are also judged by their **discovered items** (tested with Zabbix 8.0.0rc3). The item type "Nested" is the type of LLD rules (prototypes) and normally does not apply to items referenced by triggers, so this condition gives no events.
 
 ## 表示とツールチップ
 
 表示順・ツールチップ・0件表示は、集計・取得とは独立しています（表示のための追加の event.get はありません）。
 
 - **値の型の表示順**（実行時フィルター・設定画面とも）: すべて、数値 (浮動小数)、数値 (整数)、文字列、テキスト、ログ、バイナリ、（Zabbix 8.0）JSON。表示名は Zabbix 本体の翻訳です。
-- **アイテムタイプの表示順**（見出し・区切りなし、そのバージョンに存在するものだけ）: Zabbixエージェント、Zabbixエージェント(アクティブ)、SNMPエージェント、SNMPトラップ、Zabbixトラッパー、Zabbixインターナル、シンプルチェック、外部チェック、データベースモニタ、HTTPエージェント、IPMIエージェント、SSHエージェント、TELNETエージェント、JMXエージェント、Web監視、計算、依存アイテム、スクリプト、ブラウザ、（8.0）ネストされた、Telemetry query（表示名は Zabbix 本体の翻訳。Telemetry query は 8.0.0rc2 時点で未翻訳）。
+- **アイテムタイプの表示順**（見出し・区切りなし、そのバージョンに存在するものだけ）: Zabbixエージェント、Zabbixエージェント(アクティブ)、SNMPエージェント、SNMPトラップ、Zabbixトラッパー、Zabbixインターナル、シンプルチェック、外部チェック、データベースモニタ、HTTPエージェント、IPMIエージェント、SSHエージェント、TELNETエージェント、JMXエージェント、Web監視、計算、依存アイテム、スクリプト、ブラウザ、（8.0）ネストされた、Telemetry query（表示名は Zabbix 本体の翻訳。Telemetry query は 8.0.0rc3 時点で未翻訳）。
 - **操作ボタンのツールチップ**: ツールバーのすべての操作（表示モード・並び順・発生数/継続数・確認状態・深刻度・詳細の並び・値の型/アイテムタイプ・条件リセット）に、押すと何が変わるかを表示します。発生数/継続数の説明は「時間軸」と「ホスト / ホストグループ / イベント」で変わります。「ホスト順 / 時系列」は詳細の並びだけを変え、グラフの集計は変わりません。
 - **グラフのツールチップ**（棒・X軸ラベル共通。名前は省略せず折り返し、Widget の外へはみ出しません。狭い Widget でグラフの高さを超える分は省略されます）
   - ホスト: ホスト名（技術名）、表示名、インターフェース（メインを優先・種別付き・最大3件、IP がない場合は DNS 名）、イベント数、深刻度別の内訳。インターフェースは表示中のページのホストだけを host.get 1回でまとめて取得します。
@@ -388,11 +388,11 @@ When template-inherited triggers are used with Event Timeline, the logged-in use
 - **依存アイテム**: アイテムタイプの判定でマスターアイテムのタイプへ遡りません。
 - **継承元Templateを参照できないトリガー選択**: 選択全体を適用しません（fail-closed。「トリガー連携の権限」参照）。
 - **複数Hostのアイテムを参照するトリガー / トリガープロトタイプ**: 正式対応外です。1つのトリガーとして扱い、参照先Hostのいずれかが対象Hostに含まれると一致します。
-- **Zabbix 8.0 のネストしたLLD**（Zabbix 8.0.0rc2 で確認）: ネストしたLLDのトリガーは、外側のLLDでHostごと・外側の検出行ごとに生成されたトリガープロトタイプを Canonical として扱います。そのため、選択したトリガーの展開先は同じHost・同じ外側の検出行から生成されたトリガーに限られ、表示モード「イベント」のプロトタイプグループもHost×外側の検出行ごとに分かれます（分割の警告は表示しません。イベントの集合と件数は変わりません）。
+- **Zabbix 8.0 のネストしたLLD**（Zabbix 8.0.0rc3 で確認）: ネストしたLLDのトリガーは、外側のLLDでHostごと・外側の検出行ごとに生成されたトリガープロトタイプを Canonical として扱います。そのため、選択したトリガーの展開先は同じHost・同じ外側の検出行から生成されたトリガーに限られ、表示モード「イベント」のプロトタイプグループもHost×外側の検出行ごとに分かれます（分割の警告は表示しません。イベントの集合と件数は変わりません）。
 - **判定不能（PARTIAL）件数の過大計上**: 選択したトリガーの正規化結果（Canonical）がTemplate上のトリガー、または対象Host外のHostローカルトリガーの場合、継承元を参照できない対象Host上のトリガーを、実際には選択と無関係でも「判定不能」として計上することがあります。所有者の判定には追加のAPI呼び出しが必要で、誤判定すると条件を満たさないイベントを表示（fail-open）してしまうため、安全側（過大計上）にしています。選択がすべて対象Host上のHostローカルトリガーの場合は計上しません。
 - **Drilldownダイアログ**: 判定不能（PARTIAL）の警告を再表示しません（本体の表示には警告が出ます）。
 - **狭幅表示**: 実用上の最小幅は約216px（1800px幅ダッシュボードの10列相当）です。約400px未満ではツールバーのボタンが折り返し、グラフはWidget内の縦スクロールで表示されます（横方向にはWidget枠を超えません）。
-- **Zabbix 8.0 正式版**: 動作確認は 8.0.0rc2 までです。
+- **Zabbix 8.0 正式版**: 動作確認は 8.0.0rc3 までです。
 - デバッグ情報（トリガー選択の解決結果など）はZabbixのデバッグモードが有効なユーザーにだけ応答へ含め、ブラウザのコンソール（console.debug）へ出力します。画面には表示しません。
 - Zabbix 8.0以降では、LLD生成元の取得に`trigger.get`の`selectDiscoveryData`を使用します（8.0で非推奨となった`selectTriggerDiscovery`は使用しません）。7.0系では`selectTriggerDiscovery`を使用します。
 
@@ -407,11 +407,11 @@ The following are limitations of v1.0.0 by design (details in each feature secti
 - **Dependent items**: The item type filter does not follow the master item's type.
 - **Trigger selections whose inherited templates cannot be accessed**: The whole selection is not applied (fail-closed; see "Permissions for trigger integration").
 - **Triggers / trigger prototypes referencing items of multiple hosts**: Not officially supported. Such a trigger is treated as one trigger and matches when any of its hosts is in the target hosts.
-- **Nested LLD in Zabbix 8.0** (tested with Zabbix 8.0.0rc2): For a nested LLD trigger, the canonical prototype is the trigger prototype discovered by the outer LLD per host and per outer discovery row. A selected trigger is therefore expanded only to triggers from the same host and the same outer discovery row, and in display mode "Event" the prototype groups are split per host and outer discovery row (no split warning is shown; the set and number of events are unchanged).
+- **Nested LLD in Zabbix 8.0** (tested with Zabbix 8.0.0rc3): For a nested LLD trigger, the canonical prototype is the trigger prototype discovered by the outer LLD per host and per outer discovery row. A selected trigger is therefore expanded only to triggers from the same host and the same outer discovery row, and in display mode "Event" the prototype groups are split per host and outer discovery row (no split warning is shown; the set and number of events are unchanged).
 - **Over-counting of unresolvable (PARTIAL) events**: When a selected trigger resolves to a template trigger or to a host-local trigger outside the target hosts, triggers on the target hosts whose inherited templates cannot be accessed may be counted as "unresolvable" even if they are unrelated to the selection. Determining the owner would require additional API calls, and a wrong decision would show events that do not match the selection (fail-open), so the widget errs on the side of over-counting. Nothing is counted when all selected triggers are host-local triggers on the target hosts.
 - **Drilldown dialog**: The PARTIAL warning is not repeated in the drilldown dialog (it is shown in the main view).
 - **Narrow widgets**: The practical minimum width is about 216 px (10 columns of a 1800 px wide dashboard). Below about 400 px the toolbar buttons wrap and the chart is shown with vertical scrolling inside the widget (nothing overflows the widget horizontally).
-- **Zabbix 8.0 final release**: Tested up to 8.0.0rc2.
+- **Zabbix 8.0 final release**: Tested up to 8.0.0rc3.
 - Debug information (e.g. the resolved trigger selection) is included in the response only for users with Zabbix debug mode enabled and is written to the browser console (console.debug); it is never shown on screen.
 - On Zabbix 8.0 and later, `selectDiscoveryData` of `trigger.get` is used to obtain the LLD parent (the `selectTriggerDiscovery` parameter, deprecated in 8.0, is not used). On 7.0, `selectTriggerDiscovery` is used.
 
