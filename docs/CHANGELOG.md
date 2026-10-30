@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## v1.0.0 - 2026-10-31
+
+- Declared the first stable release with no functional or saved-configuration changes from v0.2.9.
+- Expanded the bilingual README with supported environments, package installation, upgrade, uninstallation, limitations, and future-work guidance.
+- Verified Zabbix 7.0.31 and Zabbix 8.0.0rc3 behavior and documented the nested-LLD limitations observed on Zabbix 8.0.
+- Published RPM, Debian, and official source ZIP artifacts for the release.
+
 ## v0.2.9 - 2026-10-28
 
 - Prepared the project for public distribution under the MIT License and the HOLOZTEK identity.
