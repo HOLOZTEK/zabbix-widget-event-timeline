@@ -10,6 +10,7 @@ Package: zabbix-widget-event-timeline
 Architecture: all
 Depends: ${misc:Depends}, php (>= 2:8.1~)
 Description: Event Timeline widget for Zabbix dashboard
- Visualizes problem events by time, host, host group or event. Supports fixed
- or widget-linked targets, canonical trigger and LLD prototype expansion,
- runtime controls, item-characteristic filters, paging and drilldown.
+ Zabbix dashboard widget that shows how many problem events occurred over
+ time as a stacked bar chart by severity. Supports host / host group
+ selection, severity filter, automatic time buckets, per-severity event
+ details in the tooltip, and theme-aware or custom line/text colors.

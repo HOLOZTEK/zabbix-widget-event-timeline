@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        0.2.9
+Version:        1.0.0
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        MIT
@@ -9,16 +9,23 @@ BuildArch:      noarch
 Requires:       (php >= 8.1 or php-common >= 8.1)
 
 %description
-Zabbix dashboard widget that visualizes problem events by time, host, host
-group or event.
+Zabbix dashboard widget that shows how many problem events occurred over time
+as a stacked bar chart (by severity).
 
 Features:
-- Timeline, Host, Host group and Event views with sorting and paging
-- Fixed or widget-linked host, host-group and trigger targets
-- Canonical template-trigger and LLD trigger-prototype expansion across targets
-- Runtime severity, acknowledgement, value-type and item-type filters
-- Occurred or Continuing counts, tooltips and event/item drilldown
-- Calendar-aligned automatic time buckets and theme-aware appearance controls
+- Host / Host group and trigger selection (fixed or from Tree Navigator / Event Navigator),
+  runtime Severity / acknowledgement filters, dashboard Time period support
+- Automatic bucket width (at most 100 buckets, 1 minute to 1 month, calendar
+  aligned in the user's time zone; the 7-day bucket's week-start day is
+  configurable per widget across all 7 weekdays, new widgets default to
+  Sunday and existing widgets keep Monday)
+- Stacked bars per Severity with hover emphasis; tooltip with per-severity
+  event details (host / time / event name; host-grouped or chronological)
+- Drilldown dialog showing the detailed event list when clicking an event
+  bar / stack segment
+- X axis: smallest-unit tick labels plus date/year period lines below the axis
+- Y axis minimum scale setting, line/text colors (Auto follows the Zabbix theme,
+  custom via color picker or hex input)
 - Japanese and English locale support
 
 %prep
@@ -27,7 +34,6 @@ Features:
 %install
 SRCDIR=%{_sourcedir}/zabbix-widget-event-timeline
 STAGEDIR=%{buildroot}/usr/share/zabbix-widget-event-timeline
-LICENSEDIR=%{buildroot}%{_licensedir}/%{name}
 
 install -D -m 644 ${SRCDIR}/actions/WidgetView.php ${STAGEDIR}/actions/WidgetView.php
 install -D -m 644 ${SRCDIR}/assets/css/widget.css ${STAGEDIR}/assets/css/widget.css
@@ -69,10 +75,8 @@ install -D -m 644 ${SRCDIR}/views/widget.edit.js.php ${STAGEDIR}/views/widget.ed
 install -D -m 644 ${SRCDIR}/views/widget.edit.php ${STAGEDIR}/views/widget.edit.php
 install -D -m 644 ${SRCDIR}/views/widget.view.php ${STAGEDIR}/views/widget.view.php
 install -D -m 644 ${SRCDIR}/Widget.php ${STAGEDIR}/Widget.php
-install -D -m 644 ${SRCDIR}/LICENSE ${LICENSEDIR}/LICENSE
 
 %files
-%license %{_licensedir}/%{name}/LICENSE
 /usr/share/zabbix-widget-event-timeline/
 
 %post
@@ -99,6 +103,13 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Thu Oct 29 2026 HOLOZTEK <ttake-55@users.noreply.github.com> - 1.0.0-0
+- 最初の正式安定版。機能・設定の保存形式は 0.2.9 から変更なし（移行作業不要）。
+- README を正式版の構成に改訂（動作環境・アップデート・アンインストール・
+  制約事項・今後の拡張候補）。
+- Zabbix 7.0.31 / Zabbix 8.0.0rc3 で動作確認。Zabbix 8.0 のネストした LLD の
+  制約を制約事項に記載。
+
 * Wed Oct 28 2026 HOLOZTEK <ttake-55@users.noreply.github.com> - 0.2.9-0
 - 公開用に整備: ライセンスを MIT に変更、メンテナー表記を HOLOZTEK に統一、
   manifest に author / description / url を追加、README を公開向けに改訂。

@@ -2,6 +2,8 @@
 
 The staging README intentionally contains no screenshots. Add only sanitized captures from a demo Zabbix environment.
 
+Store captures under `docs/images/`. Use lowercase kebab-case PNG names without a version suffix so that later releases can replace the same logical image. Add `-ja` before `.png` only when a separate Japanese-localized capture is required.
+
 ## Required captures
 
 These twelve images cover the behavior a prospective user cannot fully understand from text alone.
@@ -28,7 +30,7 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 - `event-timeline-lld-expansion.png`: one trigger prototype expanded to discovered triggers on several hosts.
 - `event-timeline-runtime-filters.png`: close-up of severity, acknowledgement, value-type, item-type, and count-mode controls.
 - `event-timeline-empty-state.png`: the filtered/no-events empty state with chart structure retained.
-- `event-timeline-partial-warning.png`: a safe demo of partial trigger-matching results.
+- `event-timeline-partial-result-warning.png`: a safe demo of partial trigger-matching results.
 - `event-timeline-event-limit-warning.png`: event retrieval limit warning.
 - `event-timeline-auto-paging.png`: page indicator and automatic page rotation.
 - `event-timeline-dark-theme.png`: theme-aware colors on the Zabbix dark theme.
@@ -40,5 +42,5 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 - Use the same time range, locale, theme, and demo dataset across related view captures.
 - Include enough events to make severity, grouping, filtering, and cross-host expansion visually obvious; avoid both empty and overcrowded charts.
 - Prefer PNG at 2x density. Compose overview/view images for a README width of about 750 px and settings images for about 620 px.
-- Capture English for the default README. Add Japanese equivalents only when localization itself needs demonstration.
+- The README is bilingual. Use one consistent UI language for the main set and add `-ja` variants only when localization itself needs demonstration.
 - Review every image at full resolution before commit; thumbnails can hide sensitive text.

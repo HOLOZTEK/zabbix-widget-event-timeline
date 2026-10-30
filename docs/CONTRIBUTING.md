@@ -12,7 +12,7 @@ This repository is prepared for public distribution of the Event Timeline widget
 - Preserve Zabbix IDs as decimal strings; JavaScript numbers and PHP integers cannot safely represent every supported ID.
 - Preserve fail-closed behavior when permissions prevent trigger normalization or expansion.
 - Do not commit generated packages, local configuration, credentials, or environment-specific files.
-- Update both `README.md` and `README.ja.md` when user-visible behavior or compatibility changes.
+- Keep the Japanese and English sections of the bilingual `README.md` synchronized when user-visible behavior or compatibility changes.
 - Update `manifest.json`, the RPM spec, and the Debian changelog together when the version changes.
 - Add release-facing changes to `docs/CHANGELOG.md`.
 - Keep English and Japanese locale catalogs and compiled message files synchronized.
