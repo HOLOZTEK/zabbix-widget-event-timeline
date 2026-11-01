@@ -82,6 +82,7 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 | イベントなし | 取得上限の警告 |
 | --- | --- |
+| 現在の条件に一致する障害イベントがない場合も、軸、グリッド、集計情報を残して状態を明示します。 | イベント取得上限に達した場合は、結果が一部であることと集計対象外の期間を警告します。 |
 | [![イベントなしの表示](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
 
 </details>
@@ -89,7 +90,10 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 <details>
 <summary><strong>テーマ</strong></summary>
 
-<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="ダークテーマ" /></a>
+| ダークテーマ |
+| --- |
+| Zabbix のダークテーマに合わせて線と文字の色を調整し、グラフの視認性を維持します。 |
+| <a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="ダークテーマ" /></a> |
 
 </details>
 

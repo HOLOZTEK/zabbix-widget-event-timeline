@@ -82,6 +82,7 @@ Configure targets, display behavior, filters, time period, and appearance on sep
 
 | No events | Retrieval-limit warning |
 | --- | --- |
+| Keeps the axes, grid, and summary visible and clearly states when no problem events match the current conditions. | Warns that results are partial and identifies the excluded period when the event retrieval limit is reached. |
 | [![No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
 
 </details>
@@ -89,7 +90,10 @@ Configure targets, display behavior, filters, time period, and appearance on sep
 <details>
 <summary><strong>Theme</strong></summary>
 
-<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a>
+| Dark theme |
+| --- |
+| Adjusts line and text colors for the Zabbix dark theme to keep the chart readable. |
+| <a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a> |
 
 </details>
 
