@@ -20,8 +20,10 @@ The timeline shows event counts, severities, and runtime filters for the dashboa
 
 | Timeline | Host |
 | --- | --- |
+| Splits the displayed period into automatically selected time buckets and shows problem-event counts as severity-stacked bars. | Compares problem-event counts by host and supports sorting and paging. |
 | [![Timeline view](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
 | **Host group** | **Event** |
+| Compares problem-event counts by host group to identify where the impact is concentrated. | Compares affected-host and event counts by trigger or top-level inherited prototype. |
 | [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
 ### Event details
@@ -48,15 +50,30 @@ The timeline shows event counts, severities, and runtime filters for the dashboa
 
 Configure targets, display behavior, filters, time period, and appearance on separate tabs.
 
-| Targets | Display |
-| --- | --- |
-| [![Target settings](docs/images/event-timeline-settings-targets.png)](docs/images/event-timeline-settings-targets.png) | [![Display settings](docs/images/event-timeline-settings-display.png)](docs/images/event-timeline-settings-display.png) |
-
-| Filters | Time period |
-| --- | --- |
-| [![Filter settings](docs/images/event-timeline-settings-filters.png)](docs/images/event-timeline-settings-filters.png) | [![Time-period settings](docs/images/event-timeline-settings-time-period.png)](docs/images/event-timeline-settings-time-period.png) |
-
-[![Appearance settings](docs/images/event-timeline-settings-appearance.png)](docs/images/event-timeline-settings-appearance.png)
+<table>
+  <tr>
+    <td align="center" valign="top" width="20%">
+      <strong>Targets</strong><br>
+      <a href="docs/images/event-timeline-settings-targets.png"><img src="docs/images/event-timeline-settings-targets.png" width="120" alt="Target settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Display</strong><br>
+      <a href="docs/images/event-timeline-settings-display.png"><img src="docs/images/event-timeline-settings-display.png" width="120" alt="Display settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Filters</strong><br>
+      <a href="docs/images/event-timeline-settings-filters.png"><img src="docs/images/event-timeline-settings-filters.png" width="120" alt="Filter settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Time period</strong><br>
+      <a href="docs/images/event-timeline-settings-time-period.png"><img src="docs/images/event-timeline-settings-time-period.png" width="120" alt="Time-period settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Appearance</strong><br>
+      <a href="docs/images/event-timeline-settings-appearance.png"><img src="docs/images/event-timeline-settings-appearance.png" width="120" alt="Appearance settings" /></a>
+    </td>
+  </tr>
+</table>
 
 </details>
 
