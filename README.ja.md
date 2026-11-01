@@ -12,91 +12,6 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 [![Event Timeline の概要](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
 
-## スクリーンショット
-
-タイムライン表示では、ダッシュボードの表示期間に合わせたイベント件数、深刻度、実行時フィルターを一画面で確認できます。画像を選択すると原寸で表示できます。
-
-### 表示モード
-
-| タイムライン | ホスト |
-| --- | --- |
-| 表示期間を自動選択した時間単位に分け、障害イベント数を深刻度別の積み上げ棒グラフで表示します。 | ホストごとの障害イベント数を深刻度別に比較します。並び替えとページ送りを利用できます。 |
-| [![タイムライン表示](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![ホスト単位の集計](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
-| **ホストグループ** | **イベント** |
-| ホストグループごとの障害イベント数を比較し、影響が集中しているグループを確認します。 | トリガーまたは最上位プロトタイプごとに、影響ホスト数とイベント発生数を比較します。 |
-| [![ホストグループ単位の集計](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![イベント単位の集計](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
-
-### 詳細表示
-
-| ツールチップ | ドリルダウン |
-| --- | --- |
-| 時間単位と深刻度に含まれるイベントをホスト単位または時系列で確認できます。 | 棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。 |
-| [![イベントのツールチップ](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![イベントのドリルダウン](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
-
-### Widget 連携と実行時操作
-
-| Navigator 連携 | LLD トリガー展開 |
-| --- | --- |
-| ナビゲータウィジェットのホスト・ホストグループ選択を表示対象に利用できます。 | 選択したトリガープロトタイプを、対象ホスト上の自動生成されたトリガーへ展開できます。 |
-| [![ナビゲータウィジェットとの連携](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![LLD トリガーの展開](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
-
-| 実行時フィルター | 自動ページ切替 |
-| --- | --- |
-| 深刻度、確認状態、値の型、アイテムタイプ、イベント数の数え方を一時的に変更できます。 | ホスト、ホストグループ、イベント表示をページ分割し、設定した間隔で自動切替できます。 |
-| [![実行時フィルター](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) | [![自動ページ切替](docs/images/event-timeline-auto-paging.png)](docs/images/event-timeline-auto-paging.png) |
-
-<details>
-<summary><strong>設定画面</strong></summary>
-
-対象、表示、フィルター、期間、外観をタブごとに設定します。
-
-<table>
-  <tr>
-    <td align="center" valign="top" width="20%">
-      <strong>対象</strong><br>
-      <a href="docs/images/event-timeline-settings-targets-ja.png"><img src="docs/images/event-timeline-settings-targets-ja.png" width="120" alt="対象の設定" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>表示</strong><br>
-      <a href="docs/images/event-timeline-settings-display-ja.png"><img src="docs/images/event-timeline-settings-display-ja.png" width="120" alt="表示の設定" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>フィルター</strong><br>
-      <a href="docs/images/event-timeline-settings-filters-ja.png"><img src="docs/images/event-timeline-settings-filters-ja.png" width="120" alt="フィルターの設定" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>期間</strong><br>
-      <a href="docs/images/event-timeline-settings-time-period-ja.png"><img src="docs/images/event-timeline-settings-time-period-ja.png" width="120" alt="期間の設定" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>外観</strong><br>
-      <a href="docs/images/event-timeline-settings-appearance-ja.png"><img src="docs/images/event-timeline-settings-appearance-ja.png" width="120" alt="外観の設定" /></a>
-    </td>
-  </tr>
-</table>
-
-</details>
-
-<details>
-<summary><strong>状態表示</strong></summary>
-
-| イベントなし | 取得上限の警告 |
-| --- | --- |
-| 現在の条件に一致する障害イベントがない場合も、軸、グリッド、集計情報を残して状態を明示します。 | イベント取得上限に達した場合は、結果が一部であることと集計対象外の期間を警告します。 |
-| [![イベントなしの表示](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
-
-</details>
-
-<details>
-<summary><strong>テーマ</strong></summary>
-
-| ダークテーマ |
-| --- |
-| Zabbix のダークテーマに合わせて線と文字の色を調整し、グラフの視認性を維持します。 |
-| <a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="ダークテーマ" /></a> |
-
-</details>
-
 ## 主な機能
 
 - **4つの表示モード**: タイムライン、ホスト、ホストグループ、イベントを切り替え、ツールチップとドリルダウンで詳細を確認できます。
@@ -126,6 +41,13 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 - Widget から選択が届いていない場合は全ホスト・全イベントへ広げず、「対象が選択されていません」を表示します。
 - 実行時の変更は保存設定を書き換えません。通常の Refresh では保持され、ダッシュボード再表示またはウィジェット再作成で設定値へ戻ります。
 
+### ナビゲータ連携と実行時フィルター
+
+| ナビゲータ連携 | 実行時フィルター |
+| --- | --- |
+| ナビゲータウィジェットのホスト・ホストグループ選択を表示対象に利用できます。 | 深刻度、確認状態、値の型、アイテムタイプ、イベント数の数え方を一時的に変更できます。 |
+| [![ナビゲータウィジェットとの連携](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![実行時フィルター](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) |
+
 ### イベント数の数え方
 
 - **発生イベント数**: イベントの開始時刻が属する時間単位に1回だけ加算します。境界は `start <= clock < end` です。
@@ -151,6 +73,11 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 ## LLD トリガーの対象ホスト展開
 
 自動生成されたトリガーを選択すると、生成元トリガープロトタイプからテンプレート継承をたどり、継承元を持たない最上位のトリガープロトタイプ（以下「最上位プロトタイプ」）を特定します。対象ホスト上で同じ最上位プロトタイプに由来する自動生成されたトリガーのイベントを表示します。
+
+| LLD トリガーの展開 |
+| --- |
+| 選択したトリガープロトタイプを、対象ホスト上の自動生成されたトリガーへ展開した結果を確認できます。 |
+| [![LLD トリガーの展開](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
 
 - `{#IFNAME}` などの LLD マクロ値では絞り込みません。同じプロトタイプから生成されたすべてのトリガーが対象です。
 - 判定にはプロトタイプ ID、継承関係、生成元の関係だけを使い、名前、条件式、深刻度、マクロ値から推測しません。
@@ -178,13 +105,49 @@ Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側
 
 ## 表示とツールチップ
 
+### 表示モード
+
+| タイムライン | ホスト |
+| --- | --- |
+| 表示期間を自動選択した時間単位に分け、障害イベント数を深刻度別の積み上げ棒グラフで表示します。 | ホストごとの障害イベント数を深刻度別に比較します。並び替えとページ送りを利用できます。 |
+| [![タイムライン表示](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![ホスト単位の集計](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
+| **ホストグループ** | **イベント** |
+| ホストグループごとの障害イベント数を比較し、影響が集中しているグループを確認します。 | トリガーまたは最上位プロトタイプごとに、影響ホスト数とイベント発生数を比較します。 |
+| [![ホストグループ単位の集計](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![イベント単位の集計](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
+
 - **タイムライン**: Y軸は現在の実行時フィルター下のイベント件数です。
 - **ホスト / ホストグループ**: 1本の棒が1ホストまたは1グループで、深刻度を積み上げます。件数順、A–Z、Z–A で並べ替えられます。
 - **イベント**: 1本の棒が1トリガーまたはプロトタイプグループで、高さは影響ホスト数です。影響ホスト数順、イベント発生数順、A–Z、Z–A を選べます。
 - **ツールチップ**: 時間単位の範囲、合計、Hover した深刻度、時間単位 × 深刻度あたり最大10件の詳細を表示し、残りを「ほか N イベント」とまとめます。
 - **詳細**: 棒をクリックするとページング付きのイベント一覧を開きます。イベント名から利用可能な Zabbix 標準イベントメニューを開けます。
-- **空状態**: イベント0件でも軸、Grid、フッターを残し、状態を中央に表示します。
-- **自動ページ切替**: 1間隔後に開始し、Hover 中やページ非表示時は停止します。操作後は次の間隔から再開します。
+
+### 詳細表示
+
+| ツールチップ | ドリルダウン |
+| --- | --- |
+| 時間単位と深刻度に含まれるイベントをホスト単位または時系列で確認できます。 | 棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。 |
+| [![イベントのツールチップ](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![イベントのドリルダウン](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
+
+### 自動ページ切替
+
+ホスト、ホストグループ、イベント表示をページ分割し、設定した間隔で自動切替できます。Hover 中やページ非表示時は停止し、操作後は次の間隔から再開します。
+
+<a href="docs/images/event-timeline-auto-paging.png"><img src="docs/images/event-timeline-auto-paging.png" width="420" alt="自動ページ切替" /></a>
+
+### 状態表示
+
+| イベントなし | 取得上限の警告 |
+| --- | --- |
+| 現在の条件に一致する障害イベントがない場合も、軸、グリッド、集計情報を残して状態を明示します。 | イベント取得上限に達した場合は、結果が一部であることと集計対象外の期間を警告します。 |
+| [![イベントなしの表示](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
+
+### テーマ
+
+#### ダークテーマ
+
+Zabbix のダークテーマに合わせて線と文字の色を調整し、グラフの視認性を維持します。
+
+<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="ダークテーマ" /></a>
 
 ## 設定画面
 
@@ -199,6 +162,33 @@ Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側
 | 外観 | グラフの高さ、Y軸最小値、X軸ラベル、線の色、文字の色 |
 
 設定画面は「対象」タブで開き、タブ移動中も未保存値を保持します。入力エラーがあるタブへ印を付け、最初のエラータブを開いて項目へフォーカスします。深刻度と確認状態は最低1件の選択が必要です。値の型とアイテムタイプの「すべて」は、条件なしを表す排他的な選択肢です。
+
+各画像を選択すると、設定項目を原寸で確認できます。
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="20%">
+      <strong>対象</strong><br>
+      <a href="docs/images/event-timeline-settings-targets-ja.png"><img src="docs/images/event-timeline-settings-targets-ja.png" width="120" alt="対象の設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>表示</strong><br>
+      <a href="docs/images/event-timeline-settings-display-ja.png"><img src="docs/images/event-timeline-settings-display-ja.png" width="120" alt="表示の設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>フィルター</strong><br>
+      <a href="docs/images/event-timeline-settings-filters-ja.png"><img src="docs/images/event-timeline-settings-filters-ja.png" width="120" alt="フィルターの設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>期間</strong><br>
+      <a href="docs/images/event-timeline-settings-time-period-ja.png"><img src="docs/images/event-timeline-settings-time-period-ja.png" width="120" alt="期間の設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>外観</strong><br>
+      <a href="docs/images/event-timeline-settings-appearance-ja.png"><img src="docs/images/event-timeline-settings-appearance-ja.png" width="120" alt="外観の設定" /></a>
+    </td>
+  </tr>
+</table>
 
 ## トリガー連携に必要な権限
 
