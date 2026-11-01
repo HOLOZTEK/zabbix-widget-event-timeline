@@ -12,91 +12,6 @@ Targets and triggers can be fixed or received from compatible navigator widgets.
 
 [![Event Timeline overview](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
 
-## Screenshots
-
-The timeline shows event counts, severities, and runtime filters for the dashboard time period in one view. Select an image to open it at full size.
-
-### Display modes
-
-| Timeline | Host |
-| --- | --- |
-| Splits the displayed period into automatically selected time buckets and shows problem-event counts as severity-stacked bars. | Compares problem-event counts by host and supports sorting and paging. |
-| [![Timeline view](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
-| **Host group** | **Event** |
-| Compares problem-event counts by host group to identify where the impact is concentrated. | Compares affected-host and event counts by trigger or top-level inherited prototype. |
-| [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
-
-### Event details
-
-| Tooltip | Drilldown |
-| --- | --- |
-| Events in a bucket and severity can be inspected by host or chronologically. | Open the event list from a bar to inspect status, acknowledgement, recovery, and matching items. |
-| [![Event tooltip](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![Event drilldown](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
-
-### Widget integration and runtime controls
-
-| Navigator integration | LLD trigger expansion |
-| --- | --- |
-| Host and host-group selections from a navigator widget can drive the displayed targets. | A selected trigger prototype can be expanded to discovered triggers on the target hosts. |
-| [![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
-
-| Runtime filters | Automatic paging |
-| --- | --- |
-| Temporarily change severity, acknowledgement, value type, item type, and event-count mode. | Host, host-group, and event views can be paged and rotated automatically at the configured interval. |
-| [![Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) | [![Automatic paging](docs/images/event-timeline-auto-paging.png)](docs/images/event-timeline-auto-paging.png) |
-
-<details>
-<summary><strong>Configuration form</strong></summary>
-
-Configure targets, display behavior, filters, time period, and appearance on separate tabs.
-
-<table>
-  <tr>
-    <td align="center" valign="top" width="20%">
-      <strong>Targets</strong><br>
-      <a href="docs/images/event-timeline-settings-targets.png"><img src="docs/images/event-timeline-settings-targets.png" width="120" alt="Target settings" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>Display</strong><br>
-      <a href="docs/images/event-timeline-settings-display.png"><img src="docs/images/event-timeline-settings-display.png" width="120" alt="Display settings" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>Filters</strong><br>
-      <a href="docs/images/event-timeline-settings-filters.png"><img src="docs/images/event-timeline-settings-filters.png" width="120" alt="Filter settings" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>Time period</strong><br>
-      <a href="docs/images/event-timeline-settings-time-period.png"><img src="docs/images/event-timeline-settings-time-period.png" width="120" alt="Time-period settings" /></a>
-    </td>
-    <td align="center" valign="top" width="20%">
-      <strong>Appearance</strong><br>
-      <a href="docs/images/event-timeline-settings-appearance.png"><img src="docs/images/event-timeline-settings-appearance.png" width="120" alt="Appearance settings" /></a>
-    </td>
-  </tr>
-</table>
-
-</details>
-
-<details>
-<summary><strong>States</strong></summary>
-
-| No events | Retrieval-limit warning |
-| --- | --- |
-| Keeps the axes, grid, and summary visible and clearly states when no problem events match the current conditions. | Warns that results are partial and identifies the excluded period when the event retrieval limit is reached. |
-| [![No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
-
-</details>
-
-<details>
-<summary><strong>Theme</strong></summary>
-
-| Dark theme |
-| --- |
-| Adjusts line and text colors for the Zabbix dark theme to keep the chart readable. |
-| <a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a> |
-
-</details>
-
 ## Key features
 
 - **Four display modes**: switch between timeline, host, host group, and event views, with tooltips and drilldown for details.
@@ -126,6 +41,13 @@ Monitoring target and Event are configured independently as Fixed or Widget. The
 - If a widget source has not sent a selection, the widget shows "No target selected" rather than widening the scope to all hosts or events.
 - Runtime changes do not modify the saved configuration. They survive normal refreshes and reset when the dashboard is reloaded or the widget is recreated.
 
+### Navigator integration and runtime filters
+
+| Navigator integration | Runtime filters |
+| --- | --- |
+| Host and host-group selections from a navigator widget can drive the displayed targets. | Temporarily change severity, acknowledgement, value type, item type, and event-count mode. |
+| [![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) |
+
 ### Event count modes
 
 - **Occurred**: counts an event once in the bucket containing its start time. Bucket membership uses `start <= clock < end`.
@@ -151,6 +73,11 @@ Triggers that reference items on multiple hosts are not officially supported. Su
 ## Expanding LLD triggers
 
 When a discovered trigger is selected, Event Timeline resolves its parent trigger prototype and template inheritance to a canonical trigger prototype, then includes discovered triggers on the target hosts derived from the same canonical prototype.
+
+| LLD trigger expansion |
+| --- |
+| Shows the result of expanding a selected trigger prototype to the discovered triggers on the target hosts. |
+| [![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
 
 - LLD macro values such as `{#IFNAME}` are not used for matching; all triggers from the same prototype are included.
 - Matching uses prototype IDs, inheritance, and the discovery relationship. Names, expressions, severities, and macro values are never guessed.
@@ -178,13 +105,49 @@ Events can be filtered by the value type and item type of items directly referen
 
 ## Display and tooltips
 
+### Display modes
+
+| Timeline | Host |
+| --- | --- |
+| Splits the displayed period into automatically selected time buckets and shows problem-event counts as severity-stacked bars. | Compares problem-event counts by host and supports sorting and paging. |
+| [![Timeline view](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
+| **Host group** | **Event** |
+| Compares problem-event counts by host group to identify where the impact is concentrated. | Compares affected-host and event counts by trigger or top-level inherited prototype. |
+| [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
+
 - **Timeline**: the Y axis is the number of events under the active runtime filters.
 - **Host / Host group**: each bar represents a host or group and is stacked by severity. Sorting supports count, A–Z, and Z–A.
 - **Event**: each bar represents a trigger or prototype group and its height is the number of affected hosts. Sorting supports affected-host count, event count, A–Z, and Z–A.
 - **Tooltip**: shows the bucket range, total, hovered severity, and up to 10 event details per bucket and severity; remaining entries are summarized as "N more events".
 - **Details**: clicking a bar opens paged event details. Clicking an event name opens the standard Zabbix event menu when available.
-- **Empty state**: axes, grid, and footer remain visible with the state message centered in the chart.
-- **Automatic paging**: starts after one interval, stops while hovered or while the page is hidden, and resumes after interaction.
+
+### Event details
+
+| Tooltip | Drilldown |
+| --- | --- |
+| Events in a bucket and severity can be inspected by host or chronologically. | Open the event list from a bar to inspect status, acknowledgement, recovery, and matching items. |
+| [![Event tooltip](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![Event drilldown](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
+
+### Automatic paging
+
+Host, host-group, and event views can be split into pages and rotated automatically at the configured interval. Rotation pauses while hovered or while the page is hidden and resumes after interaction.
+
+<a href="docs/images/event-timeline-auto-paging.png"><img src="docs/images/event-timeline-auto-paging.png" width="420" alt="Automatic paging" /></a>
+
+### States
+
+| No events | Retrieval-limit warning |
+| --- | --- |
+| Keeps the axes, grid, and summary visible and clearly states when no problem events match the current conditions. | Warns that results are partial and identifies the excluded period when the event retrieval limit is reached. |
+| [![No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
+
+### Theme
+
+#### Dark theme
+
+Adjusts line and text colors for the Zabbix dark theme to keep the chart readable.
+
+<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a>
 
 ## Configuration form
 
@@ -199,6 +162,33 @@ The form has five tabs. Type, Name, Refresh interval, and Show header remain out
 | Appearance | Graph height, Y-axis minimum, X-axis labels, Line color, Text color |
 
 The form opens on Targets and preserves unsaved values while switching tabs. Validation marks every tab containing an error, opens the first invalid tab, and focuses the field. At least one severity and acknowledgement status are required. Value type and Item type use an exclusive "All" option to represent no restriction.
+
+Select any image to inspect the settings at full size.
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="20%">
+      <strong>Targets</strong><br>
+      <a href="docs/images/event-timeline-settings-targets.png"><img src="docs/images/event-timeline-settings-targets.png" width="120" alt="Target settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Display</strong><br>
+      <a href="docs/images/event-timeline-settings-display.png"><img src="docs/images/event-timeline-settings-display.png" width="120" alt="Display settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Filters</strong><br>
+      <a href="docs/images/event-timeline-settings-filters.png"><img src="docs/images/event-timeline-settings-filters.png" width="120" alt="Filter settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Time period</strong><br>
+      <a href="docs/images/event-timeline-settings-time-period.png"><img src="docs/images/event-timeline-settings-time-period.png" width="120" alt="Time-period settings" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>Appearance</strong><br>
+      <a href="docs/images/event-timeline-settings-appearance.png"><img src="docs/images/event-timeline-settings-appearance.png" width="120" alt="Appearance settings" /></a>
+    </td>
+  </tr>
+</table>
 
 ## Permissions required for trigger integration
 
