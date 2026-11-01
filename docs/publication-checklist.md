@@ -4,7 +4,7 @@ Use this checklist before publishing zabbix-widget-event-timeline from staging t
 
 ## Source
 
-- Confirm the staged source contains tag `v1.0.0` commit `8b23d15e5447b191919e96b406997a51a046f814`.
+- Confirm the staged `v1.0.0` tag points to the exact approved staging commit recorded in the release issue.
 - Confirm `manifest.json`, the RPM spec, and the Debian changelog all use version 1.0.0.
 - Confirm README release links, package filenames, installation commands, and source archive commands use v1.0.0.
 - Run both PHP test suites and both public-distribution check scripts.
@@ -15,11 +15,12 @@ Use this checklist before publishing zabbix-widget-event-timeline from staging t
 
 ## Release assets
 
-| File | SHA-256 |
-| --- | --- |
-| `zabbix-widget-event-timeline-1.0.0.noarch.rpm` | `9339483f82a8a055ebc6ac17a4e657dce73dade93c43c6396847abe168c7d9c2` |
-| `zabbix-widget-event-timeline_1.0.0_all.deb` | `a6b12e52e5c573c81fe0dfabed7a966584800b5397c551e5916796a6ad4581dd` |
-| `zabbix-widget-event-timeline-v1.0.0.zip` | `125a60539ec61bdd5143fe0d6fb185a833b10116ce528aa8cd16fe33728bb325` |
+Attach all of the following files to the staged and public releases. Record their SHA-256 values in the attached `SHA256SUMS` file and in the release issue.
+
+- `zabbix-widget-event-timeline-1.0.0.noarch.rpm`
+- `zabbix-widget-event-timeline_1.0.0_all.deb`
+- `zabbix-widget-event-timeline-v1.0.0.zip`
+- `SHA256SUMS`
 
 ## Public metadata
 
@@ -34,7 +35,7 @@ Use this checklist before publishing zabbix-widget-event-timeline from staging t
 - Confirm `README.md` contains synchronized Japanese and English descriptions.
 - Confirm the feature claims match the v1.0.0 implementation and documented v0.2.9 compatibility.
 - Confirm CHANGELOG, CONTRIBUTING, SECURITY, LICENSE, NOTICE, and THIRD_PARTY_NOTICES are present and accurate.
-- Confirm the README makes no image references until sanitized screenshots are added.
+- Confirm every README image reference resolves to a reviewed, sanitized capture in `docs/images/`.
 - Review the required and optional captures in `docs/screenshot-guide.md` before adding images.
 - Confirm GitHub private vulnerability reporting is enabled before relying on the SECURITY link.
 
