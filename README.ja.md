@@ -20,8 +20,10 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 | タイムライン | ホスト |
 | --- | --- |
+| 表示期間を自動選択した時間単位に分け、障害イベント数を深刻度別の積み上げ棒グラフで表示します。 | ホストごとの障害イベント数を深刻度別に比較します。並び替えとページ送りを利用できます。 |
 | [![タイムライン表示](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![ホスト単位の集計](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
 | **ホストグループ** | **イベント** |
+| ホストグループごとの障害イベント数を比較し、影響が集中しているグループを確認します。 | トリガーまたは最上位プロトタイプごとに、影響ホスト数とイベント発生数を比較します。 |
 | [![ホストグループ単位の集計](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![イベント単位の集計](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
 ### 詳細表示
@@ -48,15 +50,30 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 対象、表示、フィルター、期間、外観をタブごとに設定します。
 
-| 対象 | 表示 |
-| --- | --- |
-| [![対象の設定](docs/images/event-timeline-settings-targets-ja.png)](docs/images/event-timeline-settings-targets-ja.png) | [![表示の設定](docs/images/event-timeline-settings-display-ja.png)](docs/images/event-timeline-settings-display-ja.png) |
-
-| フィルター | 期間 |
-| --- | --- |
-| [![フィルターの設定](docs/images/event-timeline-settings-filters-ja.png)](docs/images/event-timeline-settings-filters-ja.png) | [![期間の設定](docs/images/event-timeline-settings-time-period-ja.png)](docs/images/event-timeline-settings-time-period-ja.png) |
-
-[![外観の設定](docs/images/event-timeline-settings-appearance-ja.png)](docs/images/event-timeline-settings-appearance-ja.png)
+<table>
+  <tr>
+    <td align="center" valign="top" width="20%">
+      <strong>対象</strong><br>
+      <a href="docs/images/event-timeline-settings-targets-ja.png"><img src="docs/images/event-timeline-settings-targets-ja.png" width="120" alt="対象の設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>表示</strong><br>
+      <a href="docs/images/event-timeline-settings-display-ja.png"><img src="docs/images/event-timeline-settings-display-ja.png" width="120" alt="表示の設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>フィルター</strong><br>
+      <a href="docs/images/event-timeline-settings-filters-ja.png"><img src="docs/images/event-timeline-settings-filters-ja.png" width="120" alt="フィルターの設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>期間</strong><br>
+      <a href="docs/images/event-timeline-settings-time-period-ja.png"><img src="docs/images/event-timeline-settings-time-period-ja.png" width="120" alt="期間の設定" /></a>
+    </td>
+    <td align="center" valign="top" width="20%">
+      <strong>外観</strong><br>
+      <a href="docs/images/event-timeline-settings-appearance-ja.png"><img src="docs/images/event-timeline-settings-appearance-ja.png" width="120" alt="外観の設定" /></a>
+    </td>
+  </tr>
+</table>
 
 </details>
 

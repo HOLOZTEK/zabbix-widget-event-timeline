@@ -26,6 +26,8 @@ These thirteen images cover the behavior a prospective user cannot fully underst
 
 If space is limited, the overview may also show the runtime filters, and the Navigator capture may combine linked selection with template-trigger expansion. Do not combine any of the five settings tabs; each contains independently important options.
 
+In the README, present the four display modes in a two-column, two-row table. Every mode must use the same title, description, and linked-image structure. Present the five configuration-tab captures as linked thumbnails in one row at 120 px width; keep each tab as a separate source image.
+
 ## Japanese localized settings captures
 
 The Japanese README uses localized captures for all five configuration tabs.
