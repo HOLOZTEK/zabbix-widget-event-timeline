@@ -1,6 +1,6 @@
 # Screenshot Guide
 
-The staging README intentionally contains no screenshots. Add only sanitized captures from a demo Zabbix environment.
+The staging README uses the reviewed captures listed below. Add only sanitized captures from a demo Zabbix environment.
 
 Store captures under `docs/images/`. Use lowercase kebab-case PNG names without a version suffix so that later releases can replace the same logical image. Add `-ja` before `.png` only when a separate Japanese-localized capture is required.
 
@@ -15,8 +15,8 @@ These twelve images cover the behavior a prospective user cannot fully understan
 | `event-timeline-by-host.png` | Host view with several hosts, severity stacks, sorting, and paging controls where applicable. |
 | `event-timeline-by-host-group.png` | Host group view with multiple groups and distinct totals. |
 | `event-timeline-by-event.png` | Event view showing affected-host counts and prototype grouping or individual-event behavior. |
-| `event-timeline-drilldown-matching-items.png` | Drilldown opened from a bar, including event rows and matching item details. |
-| `event-timeline-navigator-trigger-expansion.png` | A Navigator feeding host/trigger selections into Event Timeline, with one canonical trigger represented across multiple target hosts. |
+| `event-timeline-drilldown.png` | Drilldown opened from a bar, including event rows, severity, acknowledgement, status, and recovery details. |
+| `event-timeline-navigator-integration.png` | Tree Navigator feeding host and host-group selections into Event Timeline. |
 | `event-timeline-settings-targets.png` | Targets tab: fixed/widget sources and event retrieval limit. |
 | `event-timeline-settings-display.png` | Display tab: view, initial runtime state, sort, paging, and drilldown choices. |
 | `event-timeline-settings-filters.png` | Filters tab: severity, acknowledgement, value type, and item type, including All choices. |
@@ -30,7 +30,6 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 - `event-timeline-lld-expansion.png`: one trigger prototype expanded to discovered triggers on several hosts.
 - `event-timeline-runtime-filters.png`: close-up of severity, acknowledgement, value-type, item-type, and count-mode controls.
 - `event-timeline-empty-state.png`: the filtered/no-events empty state with chart structure retained.
-- `event-timeline-partial-result-warning.png`: a safe demo of partial trigger-matching results.
 - `event-timeline-event-limit-warning.png`: event retrieval limit warning.
 - `event-timeline-auto-paging.png`: page indicator and automatic page rotation.
 - `event-timeline-dark-theme.png`: theme-aware colors on the Zabbix dark theme.

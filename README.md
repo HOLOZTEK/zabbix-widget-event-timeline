@@ -20,6 +20,75 @@ Event Timeline displays Zabbix problem events as a severity-stacked bar chart ov
 - Severity, acknowledgement status, value type and item type can be narrowed temporarily in the view.
 - Zabbix permissions are never bypassed, and an unresolvable trigger selection never falls back to unfiltered events (fail-closed).
 
+## スクリーンショット / Screenshots
+
+タイムライン表示では、ダッシュボードの表示期間に合わせたイベント件数、Severity、実行時フィルターを一画面で確認できます。画像を選択すると原寸で表示できます。
+
+The timeline shows event counts, severities and runtime filters for the dashboard time period in one view. Select an image to open it at full size.
+
+[![Event Timelineのダッシュボード表示 / Event Timeline dashboard overview](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
+
+### 集計ビュー / Aggregation views
+
+| ホスト単位 / By host | ホストグループ単位 / By host group |
+| --- | --- |
+| [![ホスト単位の集計 / Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) | [![ホストグループ単位の集計 / Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) |
+
+イベント表示では、トリガーまたはトリガープロトタイプ単位で影響ホスト数とイベント発生数を比較できます。
+
+The event view compares affected-host and event counts by trigger or trigger prototype.
+
+[![イベント単位の集計 / Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png)
+
+### 詳細表示 / Event details
+
+| ツールチップ / Tooltip | ドリルダウン / Drilldown |
+| --- | --- |
+| BucketとSeverityに含まれるイベントをホスト単位または時系列で確認できます。<br>Events in a bucket and severity can be inspected by host or chronologically. | 棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。<br>Open the event list from a bar to inspect status, acknowledgement, recovery and matching items. |
+| [![イベントのツールチップ / Event tooltip](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![イベントのドリルダウン / Event drilldown](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
+
+### Widget連携と実行時操作 / Widget integration and runtime controls
+
+| Navigator連携 / Navigator integration | LLDトリガー展開 / LLD trigger expansion |
+| --- | --- |
+| Tree Navigatorのホスト・ホストグループ選択を表示対象に利用できます。<br>Host and host-group selections from Tree Navigator can drive the displayed targets. | 選択したトリガープロトタイプを、対象ホスト上のDiscovered Triggerへ展開できます。<br>A selected trigger prototype can be expanded to discovered triggers on the target hosts. |
+| [![Tree Navigatorとの連携 / Tree Navigator integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![LLDトリガーの展開 / LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
+
+| 実行時フィルター / Runtime filters | 自動ページ切替 / Automatic paging |
+| --- | --- |
+| Severity、確認状態、値の型、アイテムタイプ、イベント数の数え方を一時的に変更できます。<br>Temporarily change severity, acknowledgement, value type, item type and event-count mode. | ホスト・ホストグループ・イベント表示をページ分割し、設定した間隔で自動切替できます。<br>Host, host-group and event views can be paged and rotated automatically at the configured interval. |
+| [![実行時フィルター / Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) | [![自動ページ切替 / Automatic paging](docs/images/event-timeline-auto-paging.png)](docs/images/event-timeline-auto-paging.png) |
+
+<details>
+<summary><strong>設定画面 / Configuration form</strong></summary>
+
+対象、表示、フィルター、期間、外観をタブごとに設定します。
+
+Configure targets, display behavior, filters, time period and appearance on separate tabs.
+
+| 対象 / Targets | 表示 / Display |
+| --- | --- |
+| [![対象の設定 / Target settings](docs/images/event-timeline-settings-targets.png)](docs/images/event-timeline-settings-targets.png) | [![表示の設定 / Display settings](docs/images/event-timeline-settings-display.png)](docs/images/event-timeline-settings-display.png) |
+
+| フィルター / Filters | 期間 / Time period |
+| --- | --- |
+| [![フィルターの設定 / Filter settings](docs/images/event-timeline-settings-filters.png)](docs/images/event-timeline-settings-filters.png) | [![期間の設定 / Time-period settings](docs/images/event-timeline-settings-time-period.png)](docs/images/event-timeline-settings-time-period.png) |
+
+[![外観の設定 / Appearance settings](docs/images/event-timeline-settings-appearance.png)](docs/images/event-timeline-settings-appearance.png)
+
+</details>
+
+<details>
+<summary><strong>状態表示とテーマ / States and theme</strong></summary>
+
+| イベントなし / No events | 取得上限の警告 / Retrieval-limit warning |
+| --- | --- |
+| [![イベントなしの表示 / No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告 / Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
+
+[![ダークテーマ / Dark theme](docs/images/event-timeline-dark-theme.png)](docs/images/event-timeline-dark-theme.png)
+
+</details>
+
 ## 動作環境 / Requirements
 
 | 項目 / Item | 要件 / Requirement |
