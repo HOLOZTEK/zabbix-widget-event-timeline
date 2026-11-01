@@ -29,19 +29,20 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 Do not collect the captures in a standalone screenshot gallery. Place each capture beside the text that explains the corresponding behavior:
 
 - Keep the dashboard overview in **Overview**.
-- Place display modes, automatic paging, states, and theme in **Features**, next to the corresponding feature description.
+- Place display modes in **Features**, next to the corresponding feature description.
 - Place the five configuration-tab captures in **Configuration**.
 - Place navigator integration under **Behavior > Navigator integration**.
 - Place the tooltip under **Behavior > Selecting and narrowing the analysis scope**.
 - Place drilldown under **Behavior > Expanding triggers to target hosts**.
 - Place LLD expansion under **Behavior > Expanding LLD triggers**, combined with that explanation rather than as a separate feature subsection.
 - Place runtime filters under **Behavior > Filtering events by item characteristics**.
+- Place automatic paging, states, and theme under **Behavior**, immediately after **Permissions required for trigger integration**.
 
-Display the navigator integration, tooltip, drilldown, and runtime-filter captures at 420 px width so they retain the visual size they had in the former two-column tables. Preserve a link to each full-resolution source.
+Display the navigator integration, tooltip, drilldown, LLD-expansion, and runtime-filter captures at 420 px width so they share the same visual size. Preserve a link to each full-resolution source.
 
 Present the four display modes in a two-column, two-row table. Every mode must use the same title, description, and linked-image structure. Present the five configuration-tab captures as linked thumbnails in one row at 120 px width; keep each tab as a separate source image.
 
-Keep state examples and theme examples in separate subsections of **Features**. Every state example must have a title, description, and linked image. The theme example must likewise have its own title, description, and linked image. Display the dark-theme capture at 420 px width so it is visually comparable to one image in a two-column screenshot table while preserving the full-resolution source.
+Keep state examples and theme examples in separate subsections of **Behavior** after the permissions subsection. Every state example must have a title, description, and linked image. The theme example must likewise have its own title, description, and linked image. Display the automatic-paging and dark-theme captures at 420 px width while preserving links to the full-resolution sources.
 
 ## Japanese localized settings captures
 
