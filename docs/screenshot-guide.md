@@ -6,11 +6,12 @@ Store captures under `docs/images/`. Use lowercase kebab-case PNG names without 
 
 ## Required captures
 
-These twelve images cover the behavior a prospective user cannot fully understand from text alone.
+These thirteen images cover the behavior a prospective user cannot fully understand from text alone.
 
 | File | What the capture must show |
 | --- | --- |
-| `event-timeline-dashboard-overview.png` | A readable Timeline view with severity stacks, runtime controls, axes, period labels, and summary footer. |
+| `event-timeline-dashboard-overview.png` | The overview hero image: a readable dashboard view with severity stacks, runtime controls, axes, period labels, and summary footer. |
+| `event-timeline-timeline-view.png` | Timeline display mode for the four-mode comparison, distinct from the overview hero image. |
 | `event-timeline-tooltip.png` | A populated timeline tooltip with severity, event, host, and time details. |
 | `event-timeline-by-host.png` | Host view with several hosts, severity stacks, sorting, and paging controls where applicable. |
 | `event-timeline-by-host-group.png` | Host group view with multiple groups and distinct totals. |
@@ -24,6 +25,18 @@ These twelve images cover the behavior a prospective user cannot fully understan
 | `event-timeline-settings-appearance.png` | Appearance tab: graph size, axis labels, scale, and theme-aware colors. |
 
 If space is limited, the overview may also show the runtime filters, and the Navigator capture may combine linked selection with template-trigger expansion. Do not combine any of the five settings tabs; each contains independently important options.
+
+## Japanese localized settings captures
+
+The Japanese README uses localized captures for all five configuration tabs.
+
+| File | Tab |
+| --- | --- |
+| `event-timeline-settings-targets-ja.png` | 対象 |
+| `event-timeline-settings-display-ja.png` | 表示 |
+| `event-timeline-settings-filters-ja.png` | フィルター |
+| `event-timeline-settings-time-period-ja.png` | 期間 |
+| `event-timeline-settings-appearance-ja.png` | 外観 |
 
 ## Optional captures
 
@@ -41,5 +54,5 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 - Use the same time range, locale, theme, and demo dataset across related view captures.
 - Include enough events to make severity, grouping, filtering, and cross-host expansion visually obvious; avoid both empty and overcrowded charts.
 - Prefer PNG at 2x density. Compose overview/view images for a README width of about 750 px and settings images for about 620 px.
-- The README is bilingual. Use one consistent UI language for the main set and add `-ja` variants only when localization itself needs demonstration.
+- The English and Japanese READMEs are separate. Use one consistent UI language for each set and add `-ja` variants for Japanese-localized captures.
 - Review every image at full resolution before commit; thumbnails can hide sensitive text.
