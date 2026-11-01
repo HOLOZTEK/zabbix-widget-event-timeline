@@ -29,8 +29,13 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 Do not collect the captures in a standalone screenshot gallery. Place each capture beside the text that explains the corresponding behavior:
 
 - Keep the dashboard overview in **Overview**.
-- Place display modes, tooltips, drilldown, navigator integration, runtime filters, LLD expansion, automatic paging, states, and theme in **Features**, next to the corresponding feature description.
+- Place display modes, automatic paging, states, and theme in **Features**, next to the corresponding feature description.
 - Place the five configuration-tab captures in **Configuration**.
+- Place navigator integration under **Behavior > Navigator integration**.
+- Place the tooltip under **Behavior > Selecting and narrowing the analysis scope**.
+- Place drilldown under **Behavior > Expanding triggers to target hosts**.
+- Place LLD expansion under **Behavior > Expanding LLD triggers**, combined with that explanation rather than as a separate feature subsection.
+- Place runtime filters under **Behavior > Filtering events by item characteristics**.
 
 Present the four display modes in a two-column, two-row table. Every mode must use the same title, description, and linked-image structure. Present the five configuration-tab captures as linked thumbnails in one row at 120 px width; keep each tab as a separate source image.
 

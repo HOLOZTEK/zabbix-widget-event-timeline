@@ -32,26 +32,6 @@ It helps identify when events increased, which hosts or groups were affected, an
 | Compares problem-event counts by host group to identify where the impact is concentrated. | Compares affected-host and event counts by trigger or top-level inherited prototype. |
 | [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
-### Event details
-
-| Tooltip | Drilldown |
-| --- | --- |
-| Events in a bucket and severity can be inspected by host or chronologically. | Open the event list from a bar to inspect status, acknowledgement, recovery, and matching items. |
-| [![Event tooltip](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![Event drilldown](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
-
-### Navigator integration and runtime filters
-
-| Navigator integration | Runtime filters |
-| --- | --- |
-| Host and host-group selections from a navigator widget can drive the displayed targets. | Temporarily change severity, acknowledgement, value type, item type, and event-count mode. |
-| [![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) |
-
-### LLD trigger expansion
-
-Shows the result of expanding a selected trigger prototype to the discovered triggers on the target hosts.
-
-[![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png)
-
 ### Automatic paging
 
 Host, host-group, and event views can be split into pages and rotated automatically at the configured interval. Rotation pauses while hovered or while the page is hidden and resumes after interaction.
@@ -116,11 +96,23 @@ Select any image to inspect the settings at full size.
 
 ## Behavior
 
+### Navigator integration
+
+Host and host-group selections from a navigator widget can drive the displayed targets.
+
+[![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png)
+
 ### Selecting and narrowing the analysis scope
 
 Monitoring target and Event are configured independently as Fixed or Widget. The resulting condition is `Monitoring target AND Event selection`.
 
 Targets and triggers can be fixed or received from compatible navigator widgets. For a template-derived trigger, the widget uses its inherited source to identify the corresponding triggers on the target hosts. For an LLD-derived trigger, it uses the parent trigger prototype in the same way. If a required template cannot be accessed, the widget shows a warning instead of falling back to unfiltered events.
+
+#### Tooltip
+
+Events in a bucket and severity can be inspected by host or chronologically.
+
+[![Event tooltip](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png)
 
 - A navigator widget can provide hosts and host groups; subgroups are included and hosts are deduplicated.
 - Fixed triggers use the standard selector. Widget triggers are received from a compatible navigator widget.
@@ -139,6 +131,12 @@ The time axis automatically selects the smallest bucket size that keeps the disp
 
 When a trigger selection is combined with a host selection, Event Timeline shows events from triggers on the target hosts that derive from the same template trigger as the selected trigger.
 
+#### Drilldown
+
+Open the event list from a bar to inspect status, acknowledgement, recovery, and matching items.
+
+[![Event drilldown](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png)
+
 - Matching uses trigger IDs and inheritance (`templateid`), never names, expressions, or severity. Multi-level inheritance resolves to the top-level template trigger.
 - Multiple selected triggers are combined with OR and deduplicated.
 - A target host without the template simply has no matching trigger; this is not an error.
@@ -154,6 +152,8 @@ Triggers that reference items on multiple hosts are not officially supported. Su
 
 When a discovered trigger is selected, Event Timeline resolves its parent trigger prototype and template inheritance to a canonical trigger prototype, then includes discovered triggers on the target hosts derived from the same canonical prototype.
 
+[![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png)
+
 - LLD macro values such as `{#IFNAME}` are not used for matching; all triggers from the same prototype are included.
 - Matching uses prototype IDs, inheritance, and the discovery relationship. Names, expressions, severities, and macro values are never guessed.
 - Host-local prototypes match only discovered triggers from that prototype on the same host.
@@ -167,6 +167,12 @@ Nested LLD has been tested with Zabbix 8.0.0rc3. Its canonical prototype is the 
 ### Filtering events by item characteristics
 
 Events can be filtered by the value type and item type of items directly referenced by each trigger.
+
+#### Runtime filters
+
+Temporarily change severity, acknowledgement, value type, item type, and event-count mode.
+
+[![Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png)
 
 - Multiple values on the same axis use OR. Value type and item type use AND, and the same item must satisfy both.
 - A trigger matches when at least one referenced item matches. Events are never duplicated when several items match.
