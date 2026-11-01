@@ -78,13 +78,18 @@ Configure targets, display behavior, filters, time period, and appearance on sep
 </details>
 
 <details>
-<summary><strong>States and theme</strong></summary>
+<summary><strong>States</strong></summary>
 
 | No events | Retrieval-limit warning |
 | --- | --- |
 | [![No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
 
-[![Dark theme](docs/images/event-timeline-dark-theme.png)](docs/images/event-timeline-dark-theme.png)
+</details>
+
+<details>
+<summary><strong>Theme</strong></summary>
+
+<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a>
 
 </details>
 

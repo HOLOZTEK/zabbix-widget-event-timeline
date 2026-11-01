@@ -28,6 +28,8 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 
 In the README, present the four display modes in a two-column, two-row table. Every mode must use the same title, description, and linked-image structure. Present the five configuration-tab captures as linked thumbnails in one row at 120 px width; keep each tab as a separate source image.
 
+Keep state examples and theme examples in separate sections. Display the dark-theme capture as a linked image at 420 px width so it is visually comparable to one image in a two-column screenshot table while preserving the full-resolution source.
+
 ## Japanese localized settings captures
 
 The Japanese README uses localized captures for all five configuration tabs.
