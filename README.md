@@ -10,7 +10,9 @@ Event Timeline visualizes Zabbix events by time, host, host group, and event, al
 
 ## Why Event Timeline?
 
-It helps identify when events increased, which hosts or groups were affected, and which triggers were responsible. Runtime filters, tooltips, and drilldown provide the detail needed for further analysis.
+In environments where large numbers of problem events are recorded every day, table-based problem views alone make it difficult to recognize trends and changes in event occurrence.
+
+Event Timeline Widget displays problem-event counts per time bucket as a bar chart. In addition to showing volume and trends over time, it can switch among host, host-group, and event-type perspectives to visualize where problems occur and which types of problems are concentrated.
 
 ## Features
 
