@@ -191,10 +191,17 @@ Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側
 
 ### 状態表示
 
-| イベントなし | 取得上限の警告 |
-| --- | --- |
-| 現在の条件に一致する障害イベントがない場合も、軸、グリッド、集計情報を残して状態を明示します。 | イベント取得上限に達した場合は、結果が一部であることと集計対象外の期間を警告します。 |
-| [![イベントなしの表示](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
+#### イベントなし
+
+現在の条件に一致する障害イベントがない場合も、軸、グリッド、集計情報を残して状態を明示します。
+
+<a href="docs/images/event-timeline-empty-state.png"><img src="docs/images/event-timeline-empty-state.png" width="420" alt="イベントなしの表示" /></a>
+
+#### 取得上限の警告
+
+イベント取得上限に達した場合は、結果が一部であることと集計対象外の期間を警告します。
+
+<a href="docs/images/event-timeline-event-limit-warning.png"><img src="docs/images/event-timeline-event-limit-warning.png" width="420" alt="イベント取得上限の警告" /></a>
 
 ### テーマ
 

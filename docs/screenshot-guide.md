@@ -42,7 +42,7 @@ Display the navigator integration, tooltip, drilldown, LLD-expansion, and runtim
 
 Present the four display modes in a two-column, two-row table. Every mode must use the same title, description, and linked-image structure. Present the five configuration-tab captures as linked thumbnails in one row at 120 px width; keep each tab as a separate source image.
 
-Keep state examples and theme examples in separate subsections of **Behavior** after the permissions subsection. Every state example must have a title, description, and linked image. The theme example must likewise have its own title, description, and linked image. Display the automatic-paging and dark-theme captures at 420 px width while preserving links to the full-resolution sources.
+Keep state examples and theme examples in separate subsections of **Behavior** after the permissions subsection. Give each state example its own subheading, description, and linked image instead of combining the examples in a table. The theme example must likewise have its own title, description, and linked image. Display the automatic-paging, state, and dark-theme captures at 420 px width while preserving links to the full-resolution sources.
 
 ## Japanese localized settings captures
 
