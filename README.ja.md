@@ -6,9 +6,11 @@
 
 Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホストグループ、イベント単位で可視化し、ダッシュボード上で対象を切り替えながら分析できるウィジェットです。
 
-大量の Problem Event から、いつ、どのホストやグループで、どのトリガーにイベントが集中したかを把握し、フィルター、ツールチップ、ドリルダウンで詳細を確認できます。
+大量の障害イベントから、いつ、どのホストやグループで、どのトリガーにイベントが集中したかを把握し、フィルター、ツールチップ、ドリルダウンで詳細を確認できます。
 
-対象とトリガーは固定指定のほか、連携可能なナビゲータウィジェットから受け取れます。Template 由来のトリガーを選択した場合は、継承元を基準に対象ホスト上の対応するトリガーを特定します。LLD 由来の場合も、生成元のトリガープロトタイプを基準に対応するトリガーを特定します。特定に必要な Template を参照できない場合は、条件なしの全イベント表示へ切り替えず、警告を表示します。
+対象とトリガーは固定指定のほか、連携可能なナビゲータウィジェットから受け取れます。テンプレート由来のトリガーを選択した場合は、継承元を基準に対象ホスト上の対応するトリガーを特定します。LLD 由来の場合も、生成元のトリガープロトタイプを基準に対応するトリガーを特定します。特定に必要なテンプレートを参照できない場合は、条件なしの全イベント表示へ切り替えず、警告を表示します。
+
+[![Event Timeline の概要](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
 
 ## スクリーンショット
 
@@ -18,7 +20,7 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 | タイムライン | ホスト |
 | --- | --- |
-| [![タイムライン表示](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png) | [![ホスト単位の集計](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
+| [![タイムライン表示](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![ホスト単位の集計](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
 | **ホストグループ** | **イベント** |
 | [![ホストグループ単位の集計](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![イベント単位の集計](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
@@ -26,14 +28,14 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 | ツールチップ | ドリルダウン |
 | --- | --- |
-| Bucket と深刻度に含まれるイベントをホスト単位または時系列で確認できます。 | 棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。 |
+| 時間単位と深刻度に含まれるイベントをホスト単位または時系列で確認できます。 | 棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。 |
 | [![イベントのツールチップ](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![イベントのドリルダウン](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
 
 ### Widget 連携と実行時操作
 
 | Navigator 連携 | LLD トリガー展開 |
 | --- | --- |
-| ナビゲータウィジェットのホスト・ホストグループ選択を表示対象に利用できます。 | 選択したトリガープロトタイプを、対象ホスト上の Discovered Trigger へ展開できます。 |
+| ナビゲータウィジェットのホスト・ホストグループ選択を表示対象に利用できます。 | 選択したトリガープロトタイプを、対象ホスト上の自動生成されたトリガーへ展開できます。 |
 | [![ナビゲータウィジェットとの連携](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![LLD トリガーの展開](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
 
 | 実行時フィルター | 自動ページ切替 |
@@ -48,13 +50,13 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 | 対象 | 表示 |
 | --- | --- |
-| [![対象の設定](docs/images/event-timeline-settings-targets.png)](docs/images/event-timeline-settings-targets.png) | [![表示の設定](docs/images/event-timeline-settings-display.png)](docs/images/event-timeline-settings-display.png) |
+| [![対象の設定](docs/images/event-timeline-settings-targets-ja.png)](docs/images/event-timeline-settings-targets-ja.png) | [![表示の設定](docs/images/event-timeline-settings-display-ja.png)](docs/images/event-timeline-settings-display-ja.png) |
 
 | フィルター | 期間 |
 | --- | --- |
-| [![フィルターの設定](docs/images/event-timeline-settings-filters.png)](docs/images/event-timeline-settings-filters.png) | [![期間の設定](docs/images/event-timeline-settings-time-period.png)](docs/images/event-timeline-settings-time-period.png) |
+| [![フィルターの設定](docs/images/event-timeline-settings-filters-ja.png)](docs/images/event-timeline-settings-filters-ja.png) | [![期間の設定](docs/images/event-timeline-settings-time-period-ja.png)](docs/images/event-timeline-settings-time-period-ja.png) |
 
-[![外観の設定](docs/images/event-timeline-settings-appearance.png)](docs/images/event-timeline-settings-appearance.png)
+[![外観の設定](docs/images/event-timeline-settings-appearance-ja.png)](docs/images/event-timeline-settings-appearance-ja.png)
 
 </details>
 
@@ -74,9 +76,9 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 - **4つの表示モード**: タイムライン、ホスト、ホストグループ、イベントを切り替え、ツールチップとドリルダウンで詳細を確認できます。
 - **表示内フィルター**: 深刻度、確認状態、値の型、アイテムタイプで一時的に絞り込み、設定時の初期値へリセットできます。
 - **Widget 連携**: 連携可能なナビゲータウィジェットからホスト、ホストグループ、トリガーを受け取れます。
-- **Template 継承と LLD**: トリガー継承とトリガープロトタイプを ID と構造情報で追跡し、対象ホスト上の対応するイベントを表示します。
+- **テンプレート継承と LLD**: トリガー継承とトリガープロトタイプを ID と構造情報で追跡し、対象ホスト上の対応するイベントを表示します。
 - **集計とページング**: 発生イベント数 / 継続イベント加算、並び替え、手動ページング、自動ページ切替に対応します。
-- **時間軸**: 表示期間に応じて Bucket 幅を自動選択し、ログインユーザーのタイムゾーン、現地暦、週開始曜日、DST を反映します。
+- **時間軸**: 表示期間に応じて時間単位の幅を自動選択し、ログインユーザーのタイムゾーン、現地暦、週開始曜日、DST を反映します。
 - **表示とロケール**: Zabbix 標準の深刻度ごとの色、Light / Dark テーマ、日本語 / English ロケールに対応します。
 
 ## 動作環境
@@ -86,7 +88,7 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 | Zabbix | 7.0.x（7.0.31 で動作確認）、8.0.0rc3 で動作確認。Zabbix 8.0 正式版は未確認です。 |
 | PHP | 8.1 以上（8.3 / 8.4 で動作確認） |
 | パッケージ対象 OS | RHEL 互換 9 / 10（RPM）、Ubuntu 22.04 / 24.04（DEB） |
-| 権限 | 対象ホストの読み取り権限。Template 由来のトリガーでは、継承チェーン上のすべての Template の参照権限も必要です。 |
+| 権限 | 対象ホストの読み取り権限。テンプレート由来のトリガーでは、継承チェーン上のすべてのテンプレートの参照権限も必要です。 |
 
 ## 分析対象の選択と絞り込み
 
@@ -100,18 +102,18 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 
 ### イベント数の数え方
 
-- **発生イベント数**: イベントの開始時刻が属する Bucket に1回だけ加算します。Bucket 境界は `start <= clock < end` です。
-- **継続イベント加算**: `start < bucket_end AND end > bucket_start` を満たすすべての Bucket に加算します。未復旧イベントは現在時刻または期間終端までとし、未来の Bucket には加算しません。
+- **発生イベント数**: イベントの開始時刻が属する時間単位に1回だけ加算します。境界は `start <= clock < end` です。
+- **継続イベント加算**: `start < bucket_end AND end > bucket_start` を満たすすべての時間単位に加算します。未復旧イベントは現在時刻または期間終端までとし、未来の時間単位には加算しません。
 
-時間軸は表示期間から100本以下になる最小の Bucket 幅を自動選択します。X軸は最小時間単位を目盛りに表示し、日付と年を軸下の期間線で示します。
+時間軸は表示期間から100本以下になる最小の時間単位幅を自動選択します。X軸は最小時間単位を目盛りに表示し、日付と年を軸下の期間線で示します。
 
 ## トリガーの対象ホスト展開
 
-トリガー選択とホスト選択を組み合わせると、選択したトリガーと同じ Template トリガーに由来する、対象ホスト上のトリガーのイベントを表示します。
+トリガー選択とホスト選択を組み合わせると、選択したトリガーと同じテンプレートトリガーに由来する、対象ホスト上のトリガーのイベントを表示します。
 
-- 一致判定にはトリガー ID と継承元（`templateid`）だけを使い、名前、条件式、深刻度は使いません。多段継承は最上位の Template トリガーまで解決します。
+- 一致判定にはトリガー ID と継承元（`templateid`）だけを使い、名前、条件式、深刻度は使いません。多段継承は最上位のテンプレートトリガーまで解決します。
 - 複数選択は OR で結合し、重複を排除します。
-- 対象ホストに Template が適用されていない場合は一致なしとなるだけで、エラーにはしません。
+- 対象ホストにテンプレートが適用されていない場合は一致なしとなるだけで、エラーにはしません。
 - 展開結果が0件でも条件なしの全イベント表示には切り替えません。
 - ホストへ直接作成したローカルトリガーは他ホストへ展開しません。自身のホストが対象の場合だけ使用します。
 - 対象ホスト上のトリガーは一括取得し、ホスト数に応じて API 呼び出し回数が増える構造にはしていません。
@@ -122,7 +124,7 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 
 ## LLD トリガーの対象ホスト展開
 
-Discovered Trigger を選択すると、生成元トリガープロトタイプと Template 継承を Canonical トリガープロトタイプまで解決し、同じ Canonical に由来する対象ホスト上の Discovered Trigger を表示します。
+自動生成されたトリガーを選択すると、生成元トリガープロトタイプからテンプレート継承をたどり、継承元を持たない最上位のトリガープロトタイプ（以下「最上位プロトタイプ」）を特定します。対象ホスト上で同じ最上位プロトタイプに由来する自動生成されたトリガーのイベントを表示します。
 
 - `{#IFNAME}` などの LLD マクロ値では絞り込みません。同じプロトタイプから生成されたすべてのトリガーが対象です。
 - 判定にはプロトタイプ ID、継承関係、生成元の関係だけを使い、名前、条件式、深刻度、マクロ値から推測しません。
@@ -130,9 +132,9 @@ Discovered Trigger を選択すると、生成元トリガープロトタイプ�
 - 通常トリガーと LLD トリガーは同時に選択でき、結果を OR で結合して重複排除します。
 - Lost のトリガーは Zabbix に存在する間は対象です。削除済みトリガーとその過去イベントは取得できず、名前から推測しません。
 - 生成元プロトタイプと継承元プロトタイプの参照権限が必要で、解決は fail-closed です。
-- イベント表示では Canonical トリガープロトタイプ単位で集計します。継承元を解決できない場合はホスト単位に分割される可能性があり、警告を表示します。
+- イベント表示では最上位プロトタイプ単位で集計します。継承元を解決できない場合はホスト単位に分割される可能性があり、警告を表示します。
 
-Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側の LLD がホスト・検出行ごとに生成したプロトタイプを Canonical とするため、展開と集計は同じホスト・外側の検出行に限定されます。
+Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側の LLD がホスト・検出行ごとに生成したプロトタイプを最上位プロトタイプとして扱うため、展開と集計は同じホスト・外側の検出行に限定されます。
 
 ## アイテム条件による絞り込み
 
@@ -153,45 +155,45 @@ Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側
 - **タイムライン**: Y軸は現在の実行時フィルター下のイベント件数です。
 - **ホスト / ホストグループ**: 1本の棒が1ホストまたは1グループで、深刻度を積み上げます。件数順、A–Z、Z–A で並べ替えられます。
 - **イベント**: 1本の棒が1トリガーまたはプロトタイプグループで、高さは影響ホスト数です。影響ホスト数順、イベント発生数順、A–Z、Z–A を選べます。
-- **ツールチップ**: Bucket 範囲、合計、Hover した深刻度、Bucket × 深刻度あたり最大10件の詳細を表示し、残りを「ほか N イベント」とまとめます。
+- **ツールチップ**: 時間単位の範囲、合計、Hover した深刻度、時間単位 × 深刻度あたり最大10件の詳細を表示し、残りを「ほか N イベント」とまとめます。
 - **詳細**: 棒をクリックするとページング付きのイベント一覧を開きます。イベント名から利用可能な Zabbix 標準イベントメニューを開けます。
 - **空状態**: イベント0件でも軸、Grid、フッターを残し、状態を中央に表示します。
 - **自動ページ切替**: 1間隔後に開始し、Hover 中やページ非表示時は停止します。操作後は次の間隔から再開します。
 
 ## 設定画面
 
-設定画面は5タブ構成です。Type、Name、Refresh interval、Show header は Zabbix 標準ウィジェットと同様にタブ外にあります。
+設定画面は5タブ構成です。「タイプ」「名前」「リフレッシュ間隔」「ヘッダーを表示」は、Zabbix 標準ウィジェットと同様にタブ外にあります。
 
 | タブ | 項目 |
 | --- | --- |
-| 対象 | Hosts、Host groups、Triggers、Event retrieval limit |
-| 表示 | Display mode、Event grouping、Sort order、Aggregation method、Chart items per page、Auto paging、Detail items per page |
-| フィルター | 深刻度、Acknowledgement、Value type、Item type |
-| 期間 | Time period、First day of week |
-| 外観 | Graph height、Y-axis minimum、X-axis labels、Line color、Text color |
+| 対象 | ホスト、ホストグループ、トリガー、イベント取得上限数 |
+| 表示 | 表示モード、イベント表示、並び順、集計方法、グラフの1ページ表示件数、自動ページ送り、詳細一覧の1ページ表示件数 |
+| フィルター | 深刻度、確認状態、値の型、アイテムタイプ |
+| 期間 | 期間、週の開始曜日 |
+| 外観 | グラフの高さ、Y軸最小値、X軸ラベル、線の色、文字の色 |
 
 設定画面は「対象」タブで開き、タブ移動中も未保存値を保持します。入力エラーがあるタブへ印を付け、最初のエラータブを開いて項目へフォーカスします。深刻度と確認状態は最低1件の選択が必要です。値の型とアイテムタイプの「すべて」は、条件なしを表す排他的な選択肢です。
 
 ## トリガー連携に必要な権限
 
-Template 由来のトリガーを利用するユーザーには、継承チェーン上のすべての Template を参照できる権限が必要です。Event Timeline は Zabbix の権限を迂回しません。
+テンプレート由来のトリガーを利用するユーザーには、継承チェーン上のすべてのテンプレートを参照できる権限が必要です。Event Timeline は Zabbix の権限を迂回しません。
 
 - 選択したトリガーを1件でも解決できない場合は、選択全体を利用不可とし、解決できた一部だけでは絞り込みません。
 - 権限警告は、正常なイベント0件の表示とは区別されます。
 - LLD トリガーでは生成元トリガープロトタイプと継承元プロトタイプへの参照権限も必要です。
-- ホストローカルのトリガーでは、この解決処理のための Template 参照権限は不要です。
+- ホストローカルのトリガーでは、この解決処理のためのテンプレート参照権限は不要です。
 - 選択を解除するか解決可能なトリガーへ変更すると、ページ再読み込みなしで通常表示へ戻ります。
 
 ## 制約事項
 
 - イベントは5,000件単位で取得します。取得上限に達すると古いイベントから対象外になります。継続モードでは表示期間より前に始まったイベントも上限に含みます。
-- 約8年を超える期間では1か月 Bucket でも100本を超える場合があります。通常、Zabbix の表示期間上限は730日です。
+- 約8年を超える期間では1か月の時間単位でも100本を超える場合があります。通常、Zabbix の表示期間上限は730日です。
 - 監視の有効 / 無効を区別しません。
 - 削除済みのトリガーとアイテムは取得できず、過去イベントも表示しません。
 - アイテムタイプの判定で、依存アイテムのマスターへは遡りません。
 - 複数ホストのアイテムを参照するトリガーとトリガープロトタイプは正式対応外です。
 - Zabbix 8.0 のネストした LLD は、前述のとおり同一ホスト・外側の検出行に限定されます。
-- Template 選択と無関係でも、継承元を解決できない対象ホスト上のトリガーを安全側で PARTIAL と数える場合があります。fail-open を避けるための挙動です。
+- テンプレート選択と無関係でも、継承元を解決できない対象ホスト上のトリガーを安全側で PARTIAL と数える場合があります。fail-open を避けるための挙動です。
 - PARTIAL 警告は本体に表示しますが、ドリルダウンダイアログでは再表示しません。
 - 実用上の最小幅は約216pxです。約400px未満ではツールバーが折り返し、グラフをウィジェット内で縦スクロールします。
 - Zabbix 8.0 正式版は未確認で、8.0.0rc3 まで動作確認済みです。
@@ -263,12 +265,12 @@ php tests/run_tests.php
 php tests/run_final_tests.php
 ```
 
-Bucket 選択と境界、DST、全7曜日の週開始設定、深刻度集計などの純粋ロジックを検証します。`tests/` はソース ZIP にだけ含まれます。
+時間単位の選択と境界、DST、全7曜日の週開始設定、深刻度集計などの純粋ロジックを検証します。`tests/` はソース ZIP にだけ含まれます。
 
 ## 今後の改善候補
 
 - Zabbix 8.0 正式版での動作確認。
-- ネストした LLD トリガーを、Template 上のトリガープロトタイプ単位で照合・集計すること。
+- ネストした LLD トリガーを、テンプレート上のトリガープロトタイプ単位で照合・集計すること。
 - ドリルダウンダイアログで PARTIAL 警告を再表示すること。
 
 ## ライセンス

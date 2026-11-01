@@ -10,6 +10,8 @@ It helps identify when events increased, which hosts or groups were affected, an
 
 Targets and triggers can be fixed or received from compatible navigator widgets. For a template-derived trigger, the widget uses its inherited source to identify the corresponding triggers on the target hosts. For an LLD-derived trigger, it uses the parent trigger prototype in the same way. If a required template cannot be accessed, the widget shows a warning instead of falling back to unfiltered events.
 
+[![Event Timeline overview](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
+
 ## Screenshots
 
 The timeline shows event counts, severities, and runtime filters for the dashboard time period in one view. Select an image to open it at full size.
@@ -18,7 +20,7 @@ The timeline shows event counts, severities, and runtime filters for the dashboa
 
 | Timeline | Host |
 | --- | --- |
-| [![Timeline view](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png) | [![Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
+| [![Timeline view](docs/images/event-timeline-timeline-view.png)](docs/images/event-timeline-timeline-view.png) | [![Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
 | **Host group** | **Event** |
 | [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
@@ -167,7 +169,7 @@ The form has five tabs. Type, Name, Refresh interval, and Show header remain out
 | Targets | Hosts, Host groups, Triggers, Event retrieval limit |
 | Display | Display mode, Event grouping, Sort order, Aggregation method, Chart items per page, Auto paging, Detail items per page |
 | Filters | Severity, Acknowledgement, Value type, Item type |
-| Time period | Time period source, First day of week |
+| Time period | Time period, First day of week |
 | Appearance | Graph height, Y-axis minimum, X-axis labels, Line color, Text color |
 
 The form opens on Targets and preserves unsaved values while switching tabs. Validation marks every tab containing an error, opens the first invalid tab, and focuses the field. At least one severity and acknowledgement status are required. Value type and Item type use an exclusive "All" option to represent no restriction.
