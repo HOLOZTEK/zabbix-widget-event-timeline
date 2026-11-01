@@ -191,10 +191,17 @@ Host, host-group, and event views can be split into pages and rotated automatica
 
 ### States
 
-| No events | Retrieval-limit warning |
-| --- | --- |
-| Keeps the axes, grid, and summary visible and clearly states when no problem events match the current conditions. | Warns that results are partial and identifies the excluded period when the event retrieval limit is reached. |
-| [![No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
+#### No events
+
+Keeps the axes, grid, and summary visible and clearly states when no problem events match the current conditions.
+
+<a href="docs/images/event-timeline-empty-state.png"><img src="docs/images/event-timeline-empty-state.png" width="420" alt="No-events state" /></a>
+
+#### Retrieval-limit warning
+
+Warns that results are partial and identifies the excluded period when the event retrieval limit is reached.
+
+<a href="docs/images/event-timeline-event-limit-warning.png"><img src="docs/images/event-timeline-event-limit-warning.png" width="420" alt="Event retrieval-limit warning" /></a>
 
 ### Theme
 
