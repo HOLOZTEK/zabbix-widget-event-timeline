@@ -32,27 +32,6 @@ It helps identify when events increased, which hosts or groups were affected, an
 | Compares problem-event counts by host group to identify where the impact is concentrated. | Compares affected-host and event counts by trigger or top-level inherited prototype. |
 | [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
-### Automatic paging
-
-Host, host-group, and event views can be split into pages and rotated automatically at the configured interval. Rotation pauses while hovered or while the page is hidden and resumes after interaction.
-
-<a href="docs/images/event-timeline-auto-paging.png"><img src="docs/images/event-timeline-auto-paging.png" width="420" alt="Automatic paging" /></a>
-
-### States
-
-| No events | Retrieval-limit warning |
-| --- | --- |
-| Keeps the axes, grid, and summary visible and clearly states when no problem events match the current conditions. | Warns that results are partial and identifies the excluded period when the event retrieval limit is reached. |
-| [![No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
-
-### Theme
-
-#### Dark theme
-
-Adjusts line and text colors for the Zabbix dark theme to keep the chart readable.
-
-<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a>
-
 ## Configuration
 
 The form has five tabs. Type, Name, Refresh interval, and Show header remain outside the tabs as in standard Zabbix widgets.
@@ -152,7 +131,7 @@ Triggers that reference items on multiple hosts are not officially supported. Su
 
 When a discovered trigger is selected, Event Timeline resolves its parent trigger prototype and template inheritance to a canonical trigger prototype, then includes discovered triggers on the target hosts derived from the same canonical prototype.
 
-[![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png)
+<a href="docs/images/event-timeline-lld-expansion.png"><img src="docs/images/event-timeline-lld-expansion.png" width="420" alt="LLD trigger expansion" /></a>
 
 - LLD macro values such as `{#IFNAME}` are not used for matching; all triggers from the same prototype are included.
 - Matching uses prototype IDs, inheritance, and the discovery relationship. Names, expressions, severities, and macro values are never guessed.
@@ -201,6 +180,27 @@ The logged-in user must be able to access every template in the inheritance chai
 - LLD triggers also require access to the parent trigger prototype and inherited prototypes.
 - Host-local triggers do not require template access for this resolution step.
 - Clearing or replacing the trigger selection restores normal display without reloading the page.
+
+### Automatic paging
+
+Host, host-group, and event views can be split into pages and rotated automatically at the configured interval. Rotation pauses while hovered or while the page is hidden and resumes after interaction.
+
+<a href="docs/images/event-timeline-auto-paging.png"><img src="docs/images/event-timeline-auto-paging.png" width="420" alt="Automatic paging" /></a>
+
+### States
+
+| No events | Retrieval-limit warning |
+| --- | --- |
+| Keeps the axes, grid, and summary visible and clearly states when no problem events match the current conditions. | Warns that results are partial and identifies the excluded period when the event retrieval limit is reached. |
+| [![No-events state](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![Event retrieval-limit warning](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
+
+### Theme
+
+#### Dark theme
+
+Adjusts line and text colors for the Zabbix dark theme to keep the chart readable.
+
+<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a>
 
 ## Known limitations
 

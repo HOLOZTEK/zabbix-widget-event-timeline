@@ -32,27 +32,6 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 | ホストグループごとの障害イベント数を比較し、影響が集中しているグループを確認します。 | トリガーまたは最上位プロトタイプごとに、影響ホスト数とイベント発生数を比較します。 |
 | [![ホストグループ単位の集計](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![イベント単位の集計](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
-### 自動ページ切替
-
-ホスト、ホストグループ、イベント表示をページ分割し、設定した間隔で自動切替できます。Hover 中やページ非表示時は停止し、操作後は次の間隔から再開します。
-
-<a href="docs/images/event-timeline-auto-paging.png"><img src="docs/images/event-timeline-auto-paging.png" width="420" alt="自動ページ切替" /></a>
-
-### 状態表示
-
-| イベントなし | 取得上限の警告 |
-| --- | --- |
-| 現在の条件に一致する障害イベントがない場合も、軸、グリッド、集計情報を残して状態を明示します。 | イベント取得上限に達した場合は、結果が一部であることと集計対象外の期間を警告します。 |
-| [![イベントなしの表示](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
-
-### テーマ
-
-#### ダークテーマ
-
-Zabbix のダークテーマに合わせて線と文字の色を調整し、グラフの視認性を維持します。
-
-<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="ダークテーマ" /></a>
-
 ## 設定項目
 
 設定画面は5タブ構成です。「タイプ」「名前」「リフレッシュ間隔」「ヘッダーを表示」は、Zabbix 標準ウィジェットと同様にタブ外にあります。
@@ -152,7 +131,7 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 
 自動生成されたトリガーを選択すると、生成元トリガープロトタイプからテンプレート継承をたどり、継承元を持たない最上位のトリガープロトタイプ（以下「最上位プロトタイプ」）を特定します。対象ホスト上で同じ最上位プロトタイプに由来する自動生成されたトリガーのイベントを表示します。
 
-[![LLD トリガーの展開](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png)
+<a href="docs/images/event-timeline-lld-expansion.png"><img src="docs/images/event-timeline-lld-expansion.png" width="420" alt="LLD トリガーの展開" /></a>
 
 - `{#IFNAME}` などの LLD マクロ値では絞り込みません。同じプロトタイプから生成されたすべてのトリガーが対象です。
 - 判定にはプロトタイプ ID、継承関係、生成元の関係だけを使い、名前、条件式、深刻度、マクロ値から推測しません。
@@ -201,6 +180,27 @@ Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側
 - LLD トリガーでは生成元トリガープロトタイプと継承元プロトタイプへの参照権限も必要です。
 - ホストローカルのトリガーでは、この解決処理のためのテンプレート参照権限は不要です。
 - 選択を解除するか解決可能なトリガーへ変更すると、ページ再読み込みなしで通常表示へ戻ります。
+
+### 自動ページ切替
+
+ホスト、ホストグループ、イベント表示をページ分割し、設定した間隔で自動切替できます。Hover 中やページ非表示時は停止し、操作後は次の間隔から再開します。
+
+<a href="docs/images/event-timeline-auto-paging.png"><img src="docs/images/event-timeline-auto-paging.png" width="420" alt="自動ページ切替" /></a>
+
+### 状態表示
+
+| イベントなし | 取得上限の警告 |
+| --- | --- |
+| 現在の条件に一致する障害イベントがない場合も、軸、グリッド、集計情報を残して状態を明示します。 | イベント取得上限に達した場合は、結果が一部であることと集計対象外の期間を警告します。 |
+| [![イベントなしの表示](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
+
+### テーマ
+
+#### ダークテーマ
+
+Zabbix のダークテーマに合わせて線と文字の色を調整し、グラフの視認性を維持します。
+
+<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="ダークテーマ" /></a>
 
 ## 制約事項
 
