@@ -16,7 +16,7 @@ These twelve images cover the behavior a prospective user cannot fully understan
 | `event-timeline-by-host-group.png` | Host group view with multiple groups and distinct totals. |
 | `event-timeline-by-event.png` | Event view showing affected-host counts and prototype grouping or individual-event behavior. |
 | `event-timeline-drilldown.png` | Drilldown opened from a bar, including event rows, severity, acknowledgement, status, and recovery details. |
-| `event-timeline-navigator-integration.png` | Tree Navigator feeding host and host-group selections into Event Timeline. |
+| `event-timeline-navigator-integration.png` | A navigator widget feeding host and host-group selections into Event Timeline. |
 | `event-timeline-settings-targets.png` | Targets tab: fixed/widget sources and event retrieval limit. |
 | `event-timeline-settings-display.png` | Display tab: view, initial runtime state, sort, paging, and drilldown choices. |
 | `event-timeline-settings-filters.png` | Filters tab: severity, acknowledgement, value type, and item type, including All choices. |
