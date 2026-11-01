@@ -100,7 +100,7 @@ Zabbix のダークテーマに合わせて線と文字の色を調整し、グ�
 
 ナビゲータウィジェットのホスト・ホストグループ選択を表示対象に利用できます。
 
-[![ナビゲータウィジェットとの連携](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png)
+<a href="docs/images/event-timeline-navigator-integration.png"><img src="docs/images/event-timeline-navigator-integration.png" width="420" alt="ナビゲータウィジェットとの連携" /></a>
 
 ### 分析対象の選択と絞り込み
 
@@ -112,7 +112,7 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 
 時間単位と深刻度に含まれるイベントをホスト単位または時系列で確認できます。
 
-[![イベントのツールチップ](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png)
+<a href="docs/images/event-timeline-tooltip.png"><img src="docs/images/event-timeline-tooltip.png" width="420" alt="イベントのツールチップ" /></a>
 
 - ナビゲータウィジェットからホストとホストグループを受け取れます。サブグループを含み、ホストは重複排除します。
 - Triggers = Fixed は標準の選択 UI を使います。Triggers = Widget は連携元のナビゲータウィジェットからトリガー選択を受け取ります。
@@ -135,7 +135,7 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 
 棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。
 
-[![イベントのドリルダウン](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png)
+<a href="docs/images/event-timeline-drilldown.png"><img src="docs/images/event-timeline-drilldown.png" width="420" alt="イベントのドリルダウン" /></a>
 
 - 一致判定にはトリガー ID と継承元（`templateid`）だけを使い、名前、条件式、深刻度は使いません。多段継承は最上位のテンプレートトリガーまで解決します。
 - 複数選択は OR で結合し、重複を排除します。
@@ -172,7 +172,7 @@ Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側
 
 深刻度、確認状態、値の型、アイテムタイプ、イベント数の数え方を一時的に変更できます。
 
-[![実行時フィルター](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png)
+<a href="docs/images/event-timeline-runtime-filters.png"><img src="docs/images/event-timeline-runtime-filters.png" width="420" alt="実行時フィルター" /></a>
 
 - 同じ軸の複数選択は OR、値の型とアイテムタイプは AND です。両方を指定した場合は同じアイテムが両条件を満たす必要があります。
 - 参照アイテムの1件以上が一致すればトリガーが一致します。複数アイテムが一致してもイベントは重複しません。

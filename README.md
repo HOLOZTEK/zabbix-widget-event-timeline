@@ -100,7 +100,7 @@ Select any image to inspect the settings at full size.
 
 Host and host-group selections from a navigator widget can drive the displayed targets.
 
-[![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png)
+<a href="docs/images/event-timeline-navigator-integration.png"><img src="docs/images/event-timeline-navigator-integration.png" width="420" alt="Navigator widget integration" /></a>
 
 ### Selecting and narrowing the analysis scope
 
@@ -112,7 +112,7 @@ Targets and triggers can be fixed or received from compatible navigator widgets.
 
 Events in a bucket and severity can be inspected by host or chronologically.
 
-[![Event tooltip](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png)
+<a href="docs/images/event-timeline-tooltip.png"><img src="docs/images/event-timeline-tooltip.png" width="420" alt="Event tooltip" /></a>
 
 - A navigator widget can provide hosts and host groups; subgroups are included and hosts are deduplicated.
 - Fixed triggers use the standard selector. Widget triggers are received from a compatible navigator widget.
@@ -135,7 +135,7 @@ When a trigger selection is combined with a host selection, Event Timeline shows
 
 Open the event list from a bar to inspect status, acknowledgement, recovery, and matching items.
 
-[![Event drilldown](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png)
+<a href="docs/images/event-timeline-drilldown.png"><img src="docs/images/event-timeline-drilldown.png" width="420" alt="Event drilldown" /></a>
 
 - Matching uses trigger IDs and inheritance (`templateid`), never names, expressions, or severity. Multi-level inheritance resolves to the top-level template trigger.
 - Multiple selected triggers are combined with OR and deduplicated.
@@ -172,7 +172,7 @@ Events can be filtered by the value type and item type of items directly referen
 
 Temporarily change severity, acknowledgement, value type, item type, and event-count mode.
 
-[![Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png)
+<a href="docs/images/event-timeline-runtime-filters.png"><img src="docs/images/event-timeline-runtime-filters.png" width="420" alt="Runtime filters" /></a>
 
 - Multiple values on the same axis use OR. Value type and item type use AND, and the same item must satisfy both.
 - A trigger matches when at least one referenced item matches. Events are never duplicated when several items match.

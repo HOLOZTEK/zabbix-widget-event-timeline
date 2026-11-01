@@ -37,6 +37,8 @@ Do not collect the captures in a standalone screenshot gallery. Place each captu
 - Place LLD expansion under **Behavior > Expanding LLD triggers**, combined with that explanation rather than as a separate feature subsection.
 - Place runtime filters under **Behavior > Filtering events by item characteristics**.
 
+Display the navigator integration, tooltip, drilldown, and runtime-filter captures at 420 px width so they retain the visual size they had in the former two-column tables. Preserve a link to each full-resolution source.
+
 Present the four display modes in a two-column, two-row table. Every mode must use the same title, description, and linked-image structure. Present the five configuration-tab captures as linked thumbnails in one row at 120 px width; keep each tab as a separate source image.
 
 Keep state examples and theme examples in separate subsections of **Features**. Every state example must have a title, description, and linked image. The theme example must likewise have its own title, description, and linked image. Display the dark-theme capture at 420 px width so it is visually comparable to one image in a two-column screenshot table while preserving the full-resolution source.
