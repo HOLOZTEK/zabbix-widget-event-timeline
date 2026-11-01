@@ -32,26 +32,6 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 | ホストグループごとの障害イベント数を比較し、影響が集中しているグループを確認します。 | トリガーまたは最上位プロトタイプごとに、影響ホスト数とイベント発生数を比較します。 |
 | [![ホストグループ単位の集計](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![イベント単位の集計](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
-### 詳細表示
-
-| ツールチップ | ドリルダウン |
-| --- | --- |
-| 時間単位と深刻度に含まれるイベントをホスト単位または時系列で確認できます。 | 棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。 |
-| [![イベントのツールチップ](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![イベントのドリルダウン](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
-
-### ナビゲータ連携と実行時フィルター
-
-| ナビゲータ連携 | 実行時フィルター |
-| --- | --- |
-| ナビゲータウィジェットのホスト・ホストグループ選択を表示対象に利用できます。 | 深刻度、確認状態、値の型、アイテムタイプ、イベント数の数え方を一時的に変更できます。 |
-| [![ナビゲータウィジェットとの連携](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![実行時フィルター](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) |
-
-### LLD トリガー展開
-
-選択したトリガープロトタイプを、対象ホスト上の自動生成されたトリガーへ展開した結果を確認できます。
-
-[![LLD トリガーの展開](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png)
-
 ### 自動ページ切替
 
 ホスト、ホストグループ、イベント表示をページ分割し、設定した間隔で自動切替できます。Hover 中やページ非表示時は停止し、操作後は次の間隔から再開します。
@@ -116,11 +96,23 @@ Zabbix のダークテーマに合わせて線と文字の色を調整し、グ�
 
 ## 動作
 
+### ナビゲータ連携
+
+ナビゲータウィジェットのホスト・ホストグループ選択を表示対象に利用できます。
+
+[![ナビゲータウィジェットとの連携](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png)
+
 ### 分析対象の選択と絞り込み
 
 Monitoring target と Event は、それぞれ独立して Fixed または Widget を選択します。適用条件は `Monitoring target AND Event selection` です。
 
 対象とトリガーは固定指定のほか、連携可能なナビゲータウィジェットから受け取れます。テンプレート由来のトリガーを選択した場合は、継承元を基準に対象ホスト上の対応するトリガーを特定します。LLD 由来の場合も、生成元のトリガープロトタイプを基準に対応するトリガーを特定します。特定に必要なテンプレートを参照できない場合は、条件なしの全イベント表示へ切り替えず、警告を表示します。
+
+#### ツールチップ
+
+時間単位と深刻度に含まれるイベントをホスト単位または時系列で確認できます。
+
+[![イベントのツールチップ](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png)
 
 - ナビゲータウィジェットからホストとホストグループを受け取れます。サブグループを含み、ホストは重複排除します。
 - Triggers = Fixed は標準の選択 UI を使います。Triggers = Widget は連携元のナビゲータウィジェットからトリガー選択を受け取ります。
@@ -139,6 +131,12 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 
 トリガー選択とホスト選択を組み合わせると、選択したトリガーと同じテンプレートトリガーに由来する、対象ホスト上のトリガーのイベントを表示します。
 
+#### ドリルダウン
+
+棒グラフからイベント一覧を開き、状態、確認状況、復旧情報、一致したアイテムを確認できます。
+
+[![イベントのドリルダウン](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png)
+
 - 一致判定にはトリガー ID と継承元（`templateid`）だけを使い、名前、条件式、深刻度は使いません。多段継承は最上位のテンプレートトリガーまで解決します。
 - 複数選択は OR で結合し、重複を排除します。
 - 対象ホストにテンプレートが適用されていない場合は一致なしとなるだけで、エラーにはしません。
@@ -154,6 +152,8 @@ Monitoring target と Event は、それぞれ独立して Fixed または Widge
 
 自動生成されたトリガーを選択すると、生成元トリガープロトタイプからテンプレート継承をたどり、継承元を持たない最上位のトリガープロトタイプ（以下「最上位プロトタイプ」）を特定します。対象ホスト上で同じ最上位プロトタイプに由来する自動生成されたトリガーのイベントを表示します。
 
+[![LLD トリガーの展開](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png)
+
 - `{#IFNAME}` などの LLD マクロ値では絞り込みません。同じプロトタイプから生成されたすべてのトリガーが対象です。
 - 判定にはプロトタイプ ID、継承関係、生成元の関係だけを使い、名前、条件式、深刻度、マクロ値から推測しません。
 - ホストローカルのプロトタイプは、同じホスト上の自身から生成されたトリガーだけに一致します。
@@ -167,6 +167,12 @@ Zabbix 8.0 のネストした LLD は 8.0.0rc3 で確認しています。外側
 ### アイテム条件による絞り込み
 
 トリガーが直接参照するアイテムの「値の型」と「アイテムタイプ」でイベントを絞り込めます。
+
+#### 実行時フィルター
+
+深刻度、確認状態、値の型、アイテムタイプ、イベント数の数え方を一時的に変更できます。
+
+[![実行時フィルター](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png)
 
 - 同じ軸の複数選択は OR、値の型とアイテムタイプは AND です。両方を指定した場合は同じアイテムが両条件を満たす必要があります。
 - 参照アイテムの1件以上が一致すればトリガーが一致します。複数アイテムが一致してもイベントは重複しません。
