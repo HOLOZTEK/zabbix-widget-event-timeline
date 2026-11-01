@@ -4,11 +4,11 @@
 
 ## Overview
 
-Event Timeline is a Zabbix dashboard widget that aggregates problem events into time buckets aligned with the dashboard time period and displays them as a severity-stacked bar chart.
+Event Timeline visualizes Zabbix events by time, host, host group, and event, allowing operators to switch the analysis scope directly on a dashboard.
 
-Besides the timeline, events can be aggregated by host, host group, or event (trigger / trigger prototype), with drilldown event details. Targets and triggers can be fixed or received from compatible widgets such as Tree Navigator, Event Navigator, and Metric Navigator.
+It helps identify when events increased, which hosts or groups were affected, and which triggers were responsible. Runtime filters, tooltips, and drilldown provide the detail needed for further analysis.
 
-The widget never bypasses Zabbix permissions. An unresolvable trigger selection is handled fail-closed and never falls back to unfiltered events.
+Targets and triggers can be fixed or received from compatible widgets such as Tree Navigator, Event Navigator, and Metric Navigator. The widget traces template trigger inheritance and LLD trigger prototypes for matching without bypassing Zabbix permissions. An unresolvable selection is handled fail-closed and never falls back to unfiltered events.
 
 ## Screenshots
 
@@ -16,7 +16,7 @@ The timeline shows event counts, severities, and runtime filters for the dashboa
 
 [![Event Timeline dashboard overview](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
 
-### Aggregation views
+### Display modes
 
 | By host | By host group |
 | --- | --- |
@@ -73,35 +73,26 @@ Configure targets, display behavior, filters, time period, and appearance on sep
 
 </details>
 
+## Key features
+
+- **Four display modes**: switch between timeline, host, host group, and event views, with tooltips and drilldown for details.
+- **In-view filters**: narrow results temporarily by severity, acknowledgement, value type, and item type, then reset to the configured initial state.
+- **Widget integration**: receive hosts, host groups, and triggers from Tree Navigator, Event Navigator, Metric Navigator, and other compatible widgets.
+- **Template inheritance and LLD**: trace trigger inheritance and trigger prototypes by IDs and structural data to show the corresponding events on target hosts.
+- **Aggregation and paging**: choose occurred or continuing event counts, sort results, page manually, or rotate pages automatically.
+- **Time axis**: select bucket size automatically for the displayed period and honor the user's time zone, local calendar, first day of week, and DST.
+- **Display and locales**: use standard Zabbix severity colors with light/dark themes and Japanese/English locales.
+
 ## Requirements
 
-| Item | Requirement |
+| Item | Requirement / verification |
 | --- | --- |
 | Zabbix | 7.0.x (tested with 7.0.31); tested with 8.0.0rc3. The Zabbix 8.0 final release has not been tested. |
 | PHP | 8.1 or later (tested with 8.3 / 8.4) |
 | Package OS | RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
 | Permissions | Read access to the target hosts; for template-inherited triggers, also access to every template in the inheritance chain. |
 
-## Features
-
-- **Targets**: union of hosts and host groups, including subgroups; duplicate hosts are counted once.
-- **Time period**: follows the dashboard time period, or uses a widget-specific period.
-- **Events**: trigger-created problem events, including suppressed events. One event ID is one event, and severity is the value at event creation.
-- **Display modes**: timeline, host, host group, and event. Event mode supports trigger and canonical trigger-prototype grouping.
-- **Runtime filters**: severity, acknowledgement, value type, and item type. Reset returns to the configured initial state.
-- **Count modes**: Occurred counts an event only in the bucket containing its start time; Continuing counts it in every bucket overlapping its duration.
-- **Automatic bucket size**: selects the smallest natural-boundary interval that produces at most 100 buckets from `1m, 5m, 10m, 15m, 30m, 1h, 2h, 3h, 6h, 12h, 1d, 7d, 1month`.
-- **Calendar-aware buckets**: days, weeks, and months follow the logged-in user's effective time zone. Week start is configurable to any day. DST days remain one calendar bucket.
-- **Stacked bars**: Not classified through Disaster, using standard Zabbix severity colors.
-- **Tooltips and drilldown**: show event time, name, host, acknowledgement, status, recovery, and matching items where applicable.
-- **Paging**: manual and automatic paging for host, host-group, and event views.
-- **Retrieval limit**: configurable, default 100,000 events. A warning identifies the excluded period when the limit is reached.
-- **Appearance**: graph height, Y-axis minimum, X-axis labels, line color, and text color, with light/dark theme support.
-- Japanese and English locales.
-
-Bucket membership uses `start <= clock < end`. The X axis shows the smallest time unit as ticks and displays dates and years as period lines below the axis.
-
-## Widget integration, runtime filters, and counting
+## Selecting and narrowing the analysis scope
 
 Monitoring target and Event are configured independently as Fixed or Widget. The resulting condition is `Monitoring target AND Event selection`.
 
@@ -110,7 +101,13 @@ Monitoring target and Event are configured independently as Fixed or Widget. The
 - Without a trigger selection, all events for the target hosts in the period are included.
 - If a widget source has not sent a selection, the widget shows "No target selected" rather than widening the scope to all hosts or events.
 - Runtime changes do not modify the saved configuration. They survive normal refreshes and reset when the dashboard is reloaded or the widget is recreated.
-- In Continuing mode, an event is counted when `start < bucket_end AND end > bucket_start`. Unresolved events continue only through the current time or period end and are never added to future buckets.
+
+### Event count modes
+
+- **Occurred**: counts an event once in the bucket containing its start time. Bucket membership uses `start <= clock < end`.
+- **Continuing**: counts an event in every bucket satisfying `start < bucket_end AND end > bucket_start`. Unresolved events continue only through the current time or period end and are never added to future buckets.
+
+The time axis automatically selects the smallest bucket size that keeps the displayed period at or below 100 buckets. It shows the smallest time unit as ticks and dates and years as period lines below the axis.
 
 ## Expanding triggers to target hosts
 
@@ -179,7 +176,7 @@ The form has five tabs. Type, Name, Refresh interval, and Show header remain out
 
 The form opens on Targets and preserves unsaved values while switching tabs. Validation marks every tab containing an error, opens the first invalid tab, and focuses the field. At least one severity and acknowledgement status are required. Value type and Item type use an exclusive "All" option to represent no restriction.
 
-## Permissions for trigger integration
+## Permissions required for trigger integration
 
 The logged-in user must be able to access every template in the inheritance chain of a template-derived trigger. Event Timeline never bypasses Zabbix permissions.
 
@@ -272,7 +269,7 @@ php tests/run_final_tests.php
 
 These scripts test pure logic including bucket selection and boundaries, DST, every first-day-of-week setting, and severity aggregation. `tests/` is included only in the source ZIP.
 
-## Future work
+## Potential future improvements
 
 - Test with the Zabbix 8.0 final release.
 - Match and group nested LLD triggers by the trigger prototype on the template.
