@@ -29,14 +29,12 @@ If space is limited, the overview may also show the runtime filters, and the Nav
 Do not collect the captures in a standalone screenshot gallery. Place each capture beside the text that explains the corresponding behavior:
 
 - Keep the dashboard overview in **Overview**.
-- Place navigator integration and runtime filters in **Selecting and narrowing the analysis scope**.
-- Place LLD expansion in **Expanding LLD triggers**.
-- Place display modes, tooltips, drilldown, automatic paging, states, and theme in **Display and tooltips**.
-- Place the five configuration-tab captures in **Configuration form**.
+- Place display modes, tooltips, drilldown, navigator integration, runtime filters, LLD expansion, automatic paging, states, and theme in **Features**, next to the corresponding feature description.
+- Place the five configuration-tab captures in **Configuration**.
 
 Present the four display modes in a two-column, two-row table. Every mode must use the same title, description, and linked-image structure. Present the five configuration-tab captures as linked thumbnails in one row at 120 px width; keep each tab as a separate source image.
 
-Keep state examples and theme examples in separate subsections of **Display and tooltips**. Every state example must have a title, description, and linked image. The theme example must likewise have its own title, description, and linked image. Display the dark-theme capture at 420 px width so it is visually comparable to one image in a two-column screenshot table while preserving the full-resolution source.
+Keep state examples and theme examples in separate subsections of **Features**. Every state example must have a title, description, and linked image. The theme example must likewise have its own title, description, and linked image. Display the dark-theme capture at 420 px width so it is visually comparable to one image in a two-column screenshot table while preserving the full-resolution source.
 
 ## Japanese localized settings captures
 

@@ -6,13 +6,13 @@
 
 Event Timeline visualizes Zabbix events by time, host, host group, and event, allowing operators to switch the analysis scope directly on a dashboard.
 
-It helps identify when events increased, which hosts or groups were affected, and which triggers were responsible. Runtime filters, tooltips, and drilldown provide the detail needed for further analysis.
-
-Targets and triggers can be fixed or received from compatible navigator widgets. For a template-derived trigger, the widget uses its inherited source to identify the corresponding triggers on the target hosts. For an LLD-derived trigger, it uses the parent trigger prototype in the same way. If a required template cannot be accessed, the widget shows a warning instead of falling back to unfiltered events.
-
 [![Event Timeline overview](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
 
-## Key features
+## Why Event Timeline?
+
+It helps identify when events increased, which hosts or groups were affected, and which triggers were responsible. Runtime filters, tooltips, and drilldown provide the detail needed for further analysis.
+
+## Features
 
 - **Four display modes**: switch between timeline, host, host group, and event views, with tooltips and drilldown for details.
 - **In-view filters**: narrow results temporarily by severity, acknowledgement, value type, and item type, then reset to the configured initial state.
@@ -21,89 +21,6 @@ Targets and triggers can be fixed or received from compatible navigator widgets.
 - **Aggregation and paging**: choose occurred or continuing event counts, sort results, page manually, or rotate pages automatically.
 - **Time axis**: select bucket size automatically for the displayed period and honor the user's time zone, local calendar, first day of week, and DST.
 - **Display and locales**: use standard Zabbix severity colors with light/dark themes and Japanese/English locales.
-
-## Requirements
-
-| Item | Requirement / verification |
-| --- | --- |
-| Zabbix | 7.0.x (tested with 7.0.31); tested with 8.0.0rc3. The Zabbix 8.0 final release has not been tested. |
-| PHP | 8.1 or later (tested with 8.3 / 8.4) |
-| Package OS | RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
-| Permissions | Read access to the target hosts; for template-inherited triggers, also access to every template in the inheritance chain. |
-
-## Selecting and narrowing the analysis scope
-
-Monitoring target and Event are configured independently as Fixed or Widget. The resulting condition is `Monitoring target AND Event selection`.
-
-- A navigator widget can provide hosts and host groups; subgroups are included and hosts are deduplicated.
-- Fixed triggers use the standard selector. Widget triggers are received from a compatible navigator widget.
-- Without a trigger selection, all events for the target hosts in the period are included.
-- If a widget source has not sent a selection, the widget shows "No target selected" rather than widening the scope to all hosts or events.
-- Runtime changes do not modify the saved configuration. They survive normal refreshes and reset when the dashboard is reloaded or the widget is recreated.
-
-### Navigator integration and runtime filters
-
-| Navigator integration | Runtime filters |
-| --- | --- |
-| Host and host-group selections from a navigator widget can drive the displayed targets. | Temporarily change severity, acknowledgement, value type, item type, and event-count mode. |
-| [![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) |
-
-### Event count modes
-
-- **Occurred**: counts an event once in the bucket containing its start time. Bucket membership uses `start <= clock < end`.
-- **Continuing**: counts an event in every bucket satisfying `start < bucket_end AND end > bucket_start`. Unresolved events continue only through the current time or period end and are never added to future buckets.
-
-The time axis automatically selects the smallest bucket size that keeps the displayed period at or below 100 buckets. It shows the smallest time unit as ticks and dates and years as period lines below the axis.
-
-## Expanding triggers to target hosts
-
-When a trigger selection is combined with a host selection, Event Timeline shows events from triggers on the target hosts that derive from the same template trigger as the selected trigger.
-
-- Matching uses trigger IDs and inheritance (`templateid`), never names, expressions, or severity. Multi-level inheritance resolves to the top-level template trigger.
-- Multiple selected triggers are combined with OR and deduplicated.
-- A target host without the template simply has no matching trigger; this is not an error.
-- If expansion finds no match, the result is "No events" and never falls back to unfiltered events.
-- Host-local triggers are not expanded to other hosts. They are used only when their own host is a target.
-- Triggers on the target hosts are fetched in bulk; the API-call count does not grow with the host count.
-- If a selected trigger itself cannot be resolved, the whole selection is rejected with a permission warning.
-- If the selection is resolved but inheritance for some target-host triggers cannot be traced, matched results are shown with a partial-result warning.
-
-Triggers that reference items on multiple hosts are not officially supported. Such a trigger is treated as one trigger and matches when any referenced host is a target.
-
-## Expanding LLD triggers
-
-When a discovered trigger is selected, Event Timeline resolves its parent trigger prototype and template inheritance to a canonical trigger prototype, then includes discovered triggers on the target hosts derived from the same canonical prototype.
-
-| LLD trigger expansion |
-| --- |
-| Shows the result of expanding a selected trigger prototype to the discovered triggers on the target hosts. |
-| [![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
-
-- LLD macro values such as `{#IFNAME}` are not used for matching; all triggers from the same prototype are included.
-- Matching uses prototype IDs, inheritance, and the discovery relationship. Names, expressions, severities, and macro values are never guessed.
-- Host-local prototypes match only discovered triggers from that prototype on the same host.
-- Normal and LLD trigger selections can be combined; their results are unioned and deduplicated.
-- Lost triggers pending deletion are included while they exist in Zabbix. Deleted triggers and their past events cannot be retrieved and are not inferred from names.
-- Access to the parent and inherited prototypes is required. Resolution is fail-closed.
-- Event mode groups prototypes by canonical trigger prototype. Unresolvable inheritance may split groups per host and produces a warning.
-
-Nested LLD has been tested with Zabbix 8.0.0rc3. Its canonical prototype is the prototype generated by the outer LLD per host and outer discovery row, so expansion and grouping remain limited to that host and outer row.
-
-## Filtering events by item characteristics
-
-Events can be filtered by the value type and item type of items directly referenced by each trigger.
-
-- Multiple values on the same axis use OR. Value type and item type use AND, and the same item must satisfy both.
-- A trigger matches when at least one referenced item matches. Events are never duplicated when several items match.
-- Relationships come only from Zabbix structural data (`trigger.get` functions); expressions, names, and item keys are not parsed.
-- Both normal and LLD triggers are supported. LLD triggers are evaluated using their discovered items.
-- Dependent items are classified as Dependent item; the master item's type is not followed.
-- All referenced items are evaluated, including items on hosts outside the target hosts. Disabled items remain eligible for past events.
-- When filters are active, drilldown shows the matching items with host, name, key, value type, and item type.
-- Classification uses the current Zabbix configuration, not the configuration at the event time.
-- If item information cannot be retrieved safely, only confirmed matches are shown with a partial-result warning. A normal zero-match result has no warning.
-
-## Display and tooltips
 
 ### Display modes
 
@@ -115,18 +32,25 @@ Events can be filtered by the value type and item type of items directly referen
 | Compares problem-event counts by host group to identify where the impact is concentrated. | Compares affected-host and event counts by trigger or top-level inherited prototype. |
 | [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
-- **Timeline**: the Y axis is the number of events under the active runtime filters.
-- **Host / Host group**: each bar represents a host or group and is stacked by severity. Sorting supports count, A–Z, and Z–A.
-- **Event**: each bar represents a trigger or prototype group and its height is the number of affected hosts. Sorting supports affected-host count, event count, A–Z, and Z–A.
-- **Tooltip**: shows the bucket range, total, hovered severity, and up to 10 event details per bucket and severity; remaining entries are summarized as "N more events".
-- **Details**: clicking a bar opens paged event details. Clicking an event name opens the standard Zabbix event menu when available.
-
 ### Event details
 
 | Tooltip | Drilldown |
 | --- | --- |
 | Events in a bucket and severity can be inspected by host or chronologically. | Open the event list from a bar to inspect status, acknowledgement, recovery, and matching items. |
 | [![Event tooltip](docs/images/event-timeline-tooltip.png)](docs/images/event-timeline-tooltip.png) | [![Event drilldown](docs/images/event-timeline-drilldown.png)](docs/images/event-timeline-drilldown.png) |
+
+### Navigator integration and runtime filters
+
+| Navigator integration | Runtime filters |
+| --- | --- |
+| Host and host-group selections from a navigator widget can drive the displayed targets. | Temporarily change severity, acknowledgement, value type, item type, and event-count mode. |
+| [![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![Runtime filters](docs/images/event-timeline-runtime-filters.png)](docs/images/event-timeline-runtime-filters.png) |
+
+### LLD trigger expansion
+
+Shows the result of expanding a selected trigger prototype to the discovered triggers on the target hosts.
+
+[![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png)
 
 ### Automatic paging
 
@@ -149,7 +73,7 @@ Adjusts line and text colors for the Zabbix dark theme to keep the chart readabl
 
 <a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="Dark theme" /></a>
 
-## Configuration form
+## Configuration
 
 The form has five tabs. Type, Name, Refresh interval, and Show header remain outside the tabs as in standard Zabbix widgets.
 
@@ -190,7 +114,79 @@ Select any image to inspect the settings at full size.
   </tr>
 </table>
 
-## Permissions required for trigger integration
+## Behavior
+
+### Selecting and narrowing the analysis scope
+
+Monitoring target and Event are configured independently as Fixed or Widget. The resulting condition is `Monitoring target AND Event selection`.
+
+Targets and triggers can be fixed or received from compatible navigator widgets. For a template-derived trigger, the widget uses its inherited source to identify the corresponding triggers on the target hosts. For an LLD-derived trigger, it uses the parent trigger prototype in the same way. If a required template cannot be accessed, the widget shows a warning instead of falling back to unfiltered events.
+
+- A navigator widget can provide hosts and host groups; subgroups are included and hosts are deduplicated.
+- Fixed triggers use the standard selector. Widget triggers are received from a compatible navigator widget.
+- Without a trigger selection, all events for the target hosts in the period are included.
+- If a widget source has not sent a selection, the widget shows "No target selected" rather than widening the scope to all hosts or events.
+- Runtime changes do not modify the saved configuration. They survive normal refreshes and reset when the dashboard is reloaded or the widget is recreated.
+
+#### Event count modes
+
+- **Occurred**: counts an event once in the bucket containing its start time. Bucket membership uses `start <= clock < end`.
+- **Continuing**: counts an event in every bucket satisfying `start < bucket_end AND end > bucket_start`. Unresolved events continue only through the current time or period end and are never added to future buckets.
+
+The time axis automatically selects the smallest bucket size that keeps the displayed period at or below 100 buckets. It shows the smallest time unit as ticks and dates and years as period lines below the axis.
+
+### Expanding triggers to target hosts
+
+When a trigger selection is combined with a host selection, Event Timeline shows events from triggers on the target hosts that derive from the same template trigger as the selected trigger.
+
+- Matching uses trigger IDs and inheritance (`templateid`), never names, expressions, or severity. Multi-level inheritance resolves to the top-level template trigger.
+- Multiple selected triggers are combined with OR and deduplicated.
+- A target host without the template simply has no matching trigger; this is not an error.
+- If expansion finds no match, the result is "No events" and never falls back to unfiltered events.
+- Host-local triggers are not expanded to other hosts. They are used only when their own host is a target.
+- Triggers on the target hosts are fetched in bulk; the API-call count does not grow with the host count.
+- If a selected trigger itself cannot be resolved, the whole selection is rejected with a permission warning.
+- If the selection is resolved but inheritance for some target-host triggers cannot be traced, matched results are shown with a partial-result warning.
+
+Triggers that reference items on multiple hosts are not officially supported. Such a trigger is treated as one trigger and matches when any referenced host is a target.
+
+### Expanding LLD triggers
+
+When a discovered trigger is selected, Event Timeline resolves its parent trigger prototype and template inheritance to a canonical trigger prototype, then includes discovered triggers on the target hosts derived from the same canonical prototype.
+
+- LLD macro values such as `{#IFNAME}` are not used for matching; all triggers from the same prototype are included.
+- Matching uses prototype IDs, inheritance, and the discovery relationship. Names, expressions, severities, and macro values are never guessed.
+- Host-local prototypes match only discovered triggers from that prototype on the same host.
+- Normal and LLD trigger selections can be combined; their results are unioned and deduplicated.
+- Lost triggers pending deletion are included while they exist in Zabbix. Deleted triggers and their past events cannot be retrieved and are not inferred from names.
+- Access to the parent and inherited prototypes is required. Resolution is fail-closed.
+- Event mode groups prototypes by canonical trigger prototype. Unresolvable inheritance may split groups per host and produces a warning.
+
+Nested LLD has been tested with Zabbix 8.0.0rc3. Its canonical prototype is the prototype generated by the outer LLD per host and outer discovery row, so expansion and grouping remain limited to that host and outer row.
+
+### Filtering events by item characteristics
+
+Events can be filtered by the value type and item type of items directly referenced by each trigger.
+
+- Multiple values on the same axis use OR. Value type and item type use AND, and the same item must satisfy both.
+- A trigger matches when at least one referenced item matches. Events are never duplicated when several items match.
+- Relationships come only from Zabbix structural data (`trigger.get` functions); expressions, names, and item keys are not parsed.
+- Both normal and LLD triggers are supported. LLD triggers are evaluated using their discovered items.
+- Dependent items are classified as Dependent item; the master item's type is not followed.
+- All referenced items are evaluated, including items on hosts outside the target hosts. Disabled items remain eligible for past events.
+- When filters are active, drilldown shows the matching items with host, name, key, value type, and item type.
+- Classification uses the current Zabbix configuration, not the configuration at the event time.
+- If item information cannot be retrieved safely, only confirmed matches are shown with a partial-result warning. A normal zero-match result has no warning.
+
+### Display and tooltips
+
+- **Timeline**: the Y axis is the number of events under the active runtime filters.
+- **Host / Host group**: each bar represents a host or group and is stacked by severity. Sorting supports count, A–Z, and Z–A.
+- **Event**: each bar represents a trigger or prototype group and its height is the number of affected hosts. Sorting supports affected-host count, event count, A–Z, and Z–A.
+- **Tooltip**: shows the bucket range, total, hovered severity, and up to 10 event details per bucket and severity; remaining entries are summarized as "N more events".
+- **Details**: clicking a bar opens paged event details. Clicking an event name opens the standard Zabbix event menu when available.
+
+### Permissions required for trigger integration
 
 The logged-in user must be able to access every template in the inheritance chain of a template-derived trigger. Event Timeline never bypasses Zabbix permissions.
 
@@ -215,6 +211,15 @@ The logged-in user must be able to access every template in the inheritance chai
 - Zabbix 8.0 final has not been tested; testing currently covers 8.0.0rc3.
 - Debug resolution data is returned only for users with Zabbix debug mode and is written to `console.debug`, never to the visible UI.
 - Zabbix 8.0 and later use `trigger.get` with `selectDiscoveryData`; Zabbix 7.0 uses `selectTriggerDiscovery`.
+
+## Requirements
+
+| Item | Requirement / verification |
+| --- | --- |
+| Zabbix | 7.0.x (tested with 7.0.31); tested with 8.0.0rc3. The Zabbix 8.0 final release has not been tested. |
+| PHP | 8.1 or later (tested with 8.3 / 8.4) |
+| Package OS | RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
+| Permissions | Read access to the target hosts; for template-inherited triggers, also access to every template in the inheritance chain. |
 
 ## Installation
 
