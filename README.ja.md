@@ -78,13 +78,18 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 </details>
 
 <details>
-<summary><strong>状態表示とテーマ</strong></summary>
+<summary><strong>状態表示</strong></summary>
 
 | イベントなし | 取得上限の警告 |
 | --- | --- |
 | [![イベントなしの表示](docs/images/event-timeline-empty-state.png)](docs/images/event-timeline-empty-state.png) | [![イベント取得上限の警告](docs/images/event-timeline-event-limit-warning.png)](docs/images/event-timeline-event-limit-warning.png) |
 
-[![ダークテーマ](docs/images/event-timeline-dark-theme.png)](docs/images/event-timeline-dark-theme.png)
+</details>
+
+<details>
+<summary><strong>テーマ</strong></summary>
+
+<a href="docs/images/event-timeline-dark-theme.png"><img src="docs/images/event-timeline-dark-theme.png" width="420" alt="ダークテーマ" /></a>
 
 </details>
 
