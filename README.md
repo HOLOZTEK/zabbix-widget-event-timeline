@@ -8,23 +8,19 @@ Event Timeline visualizes Zabbix events by time, host, host group, and event, al
 
 It helps identify when events increased, which hosts or groups were affected, and which triggers were responsible. Runtime filters, tooltips, and drilldown provide the detail needed for further analysis.
 
-Targets and triggers can be fixed or received from compatible widgets such as Tree Navigator, Event Navigator, and Metric Navigator. The widget traces template trigger inheritance and LLD trigger prototypes for matching without bypassing Zabbix permissions. An unresolvable selection is handled fail-closed and never falls back to unfiltered events.
+Targets and triggers can be fixed or received from compatible navigator widgets. For a template-derived trigger, the widget uses its inherited source to identify the corresponding triggers on the target hosts. For an LLD-derived trigger, it uses the parent trigger prototype in the same way. If a required template cannot be accessed, the widget shows a warning instead of falling back to unfiltered events.
 
 ## Screenshots
 
 The timeline shows event counts, severities, and runtime filters for the dashboard time period in one view. Select an image to open it at full size.
 
-[![Event Timeline dashboard overview](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
-
 ### Display modes
 
-| By host | By host group |
+| Timeline | Host |
 | --- | --- |
-| [![Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) | [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) |
-
-The event view compares affected-host and event counts by trigger or trigger prototype.
-
-[![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png)
+| [![Timeline view](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png) | [![Aggregation by host](docs/images/event-timeline-by-host.png)](docs/images/event-timeline-by-host.png) |
+| **Host group** | **Event** |
+| [![Aggregation by host group](docs/images/event-timeline-by-host-group.png)](docs/images/event-timeline-by-host-group.png) | [![Aggregation by event](docs/images/event-timeline-by-event.png)](docs/images/event-timeline-by-event.png) |
 
 ### Event details
 
@@ -37,8 +33,8 @@ The event view compares affected-host and event counts by trigger or trigger pro
 
 | Navigator integration | LLD trigger expansion |
 | --- | --- |
-| Host and host-group selections from Tree Navigator can drive the displayed targets. | A selected trigger prototype can be expanded to discovered triggers on the target hosts. |
-| [![Tree Navigator integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
+| Host and host-group selections from a navigator widget can drive the displayed targets. | A selected trigger prototype can be expanded to discovered triggers on the target hosts. |
+| [![Navigator widget integration](docs/images/event-timeline-navigator-integration.png)](docs/images/event-timeline-navigator-integration.png) | [![LLD trigger expansion](docs/images/event-timeline-lld-expansion.png)](docs/images/event-timeline-lld-expansion.png) |
 
 | Runtime filters | Automatic paging |
 | --- | --- |
@@ -77,7 +73,7 @@ Configure targets, display behavior, filters, time period, and appearance on sep
 
 - **Four display modes**: switch between timeline, host, host group, and event views, with tooltips and drilldown for details.
 - **In-view filters**: narrow results temporarily by severity, acknowledgement, value type, and item type, then reset to the configured initial state.
-- **Widget integration**: receive hosts, host groups, and triggers from Tree Navigator, Event Navigator, Metric Navigator, and other compatible widgets.
+- **Widget integration**: receive hosts, host groups, and triggers from compatible navigator widgets.
 - **Template inheritance and LLD**: trace trigger inheritance and trigger prototypes by IDs and structural data to show the corresponding events on target hosts.
 - **Aggregation and paging**: choose occurred or continuing event counts, sort results, page manually, or rotate pages automatically.
 - **Time axis**: select bucket size automatically for the displayed period and honor the user's time zone, local calendar, first day of week, and DST.
@@ -96,8 +92,8 @@ Configure targets, display behavior, filters, time period, and appearance on sep
 
 Monitoring target and Event are configured independently as Fixed or Widget. The resulting condition is `Monitoring target AND Event selection`.
 
-- A Tree Navigator selection can provide hosts and host groups; subgroups are included and hosts are deduplicated.
-- Fixed triggers use the standard selector. Widget triggers can come from Event Navigator, Metric Navigator, or another compatible widget.
+- A navigator widget can provide hosts and host groups; subgroups are included and hosts are deduplicated.
+- Fixed triggers use the standard selector. Widget triggers are received from a compatible navigator widget.
 - Without a trigger selection, all events for the target hosts in the period are included.
 - If a widget source has not sent a selection, the widget shows "No target selected" rather than widening the scope to all hosts or events.
 - Runtime changes do not modify the saved configuration. They survive normal refreshes and reset when the dashboard is reloaded or the widget is recreated.
