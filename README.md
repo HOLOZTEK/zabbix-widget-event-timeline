@@ -10,19 +10,17 @@ Event Timeline visualizes Zabbix events by time, host, host group, and event, al
 
 ## Why Event Timeline?
 
-In environments where large numbers of problem events are recorded every day, table-based problem views alone make it difficult to recognize trends and changes in event occurrence.
+Zabbix's standard Problems view provides a table of individual problem events. However, in environments with many events, it is difficult to compare when events concentrate within a period, whether they cluster around particular hosts or host groups, and how distributions differ by event type in a single view.
 
-Event Timeline Widget displays problem-event counts per time bucket as a bar chart. In addition to showing volume and trends over time, it can switch among host, host-group, and event-type perspectives to visualize where problems occur and which types of problems are concentrated.
+Event Timeline visualizes problem-event counts as bars for each time bucket and lets users switch among host, host-group, and event perspectives. This makes it easier to analyze when, where, and what kinds of problems are concentrated directly on a dashboard.
 
 ## Features
 
 - **Four display modes**: switch between timeline, host, host group, and event views, with tooltips and drilldown for details.
-- **In-view filters**: narrow results temporarily by severity, acknowledgement, value type, and item type, then reset to the configured initial state.
-- **Widget integration**: receive hosts, host groups, and triggers from compatible navigator widgets.
-- **Template inheritance and LLD**: trace trigger inheritance and trigger prototypes by IDs and structural data to show the corresponding events on target hosts.
-- **Aggregation and paging**: choose occurred or continuing event counts, sort results, page manually, or rotate pages automatically.
-- **Time axis**: select bucket size automatically for the displayed period and honor the user's time zone, local calendar, first day of week, and DST.
-- **Display and locales**: use standard Zabbix severity colors with light/dark themes and Japanese/English locales.
+- **Navigator integration**: receive hosts, host groups, and triggers from compatible navigator widgets.
+- **Multi-condition filters**: combine severity, acknowledgement, value type, item type, and other conditions to narrow the display.
+- **Trigger and LLD support**: trace template trigger inheritance and LLD trigger prototypes to identify events on target hosts.
+- **Time axis and bucket processing**: select time buckets automatically for the displayed period and honor the user's time zone and calendar.
 
 ### Display modes
 
@@ -175,7 +173,7 @@ Temporarily change severity, acknowledgement, value type, item type, and event-c
 
 ### Permissions required for trigger integration
 
-The logged-in user must be able to access every template in the inheritance chain of a template-derived trigger. Event Timeline never bypasses Zabbix permissions.
+The logged-in user must have read access to every template in the inheritance chain of a template-derived trigger. Event Timeline never bypasses Zabbix permissions.
 
 - If any selected trigger cannot be resolved, the whole selection is unusable; results are not filtered by only the resolvable subset.
 - The widget shows a permission warning distinct from a normal zero-event result.
@@ -233,7 +231,7 @@ Adjusts line and text colors for the Zabbix dark theme to keep the chart readabl
 | Zabbix | 7.0.x (tested with 7.0.31); tested with 8.0.0rc3. The Zabbix 8.0 final release has not been tested. |
 | PHP | 8.1 or later (tested with 8.3 / 8.4) |
 | Package OS | RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
-| Permissions | Read access to the target hosts; for template-inherited triggers, also access to every template in the inheritance chain. |
+| Permissions | Read access to the target hosts; for template-inherited triggers, also read access to every template in the inheritance chain. |
 
 ## Installation
 
