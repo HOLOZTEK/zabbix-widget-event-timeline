@@ -8,7 +8,7 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Event Timeline"
-msgstr "Event Timeline"
+msgstr "イベントタイムライン"
 
 msgid "Interval"
 msgstr "間隔"
