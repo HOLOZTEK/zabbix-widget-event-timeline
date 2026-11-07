@@ -228,25 +228,25 @@ Zabbix のダークテーマに合わせて線と文字の色を調整し、グ�
 
 | 項目 | 要件 / 確認実績 |
 | --- | --- |
-| Zabbix | 7.0.x（7.0.31 で動作確認）、8.0.0rc3 で動作確認。Zabbix 8.0 正式版は未確認です。 |
+| Zabbix | 7.0.x（7.0.31 で動作確認）、8.0.0 で動作確認 |
 | PHP | 8.1 以上（8.3 / 8.4 で動作確認） |
 | パッケージ対象 OS | RHEL 互換 9 / 10（RPM）、Ubuntu 22.04 / 24.04（DEB） |
 | 権限 | 対象ホストの読み取り権限。テンプレート由来のトリガーでは、継承チェーン上のすべてのテンプレートに対する読み取り権限も必要です。 |
 
 ## インストール
 
-RPM / DEB パッケージ、または GitHub Release に添付したソース ZIP からインストールします。正式なソースアーカイブは `zabbix-widget-event-timeline-v1.0.0.zip` です。自動生成される「Source code」アーカイブとは展開後のディレクトリ名が異なります。
+RPM / DEB パッケージ、または GitHub Release に添付したソース ZIP からインストールします。正式なソースアーカイブは `zabbix-widget-event-timeline-v1.0.1.zip` です。自動生成される「Source code」アーカイブとは展開後のディレクトリ名が異なります。
 
 ### RPM パッケージ
 
 ```bash
-rpm -Uvh zabbix-widget-event-timeline-1.0.0.noarch.rpm
+rpm -Uvh zabbix-widget-event-timeline-1.0.1.noarch.rpm
 ```
 
 ### DEB パッケージ
 
 ```bash
-dpkg -i zabbix-widget-event-timeline_1.0.0_all.deb
+dpkg -i zabbix-widget-event-timeline_1.0.1_all.deb
 ```
 
 パッケージは `/usr/share/zabbix-widget-event-timeline/` にファイルを置き、`/usr/share/zabbix/ui/modules` があれば `event-timeline` をその下へ、なければ `/usr/share/zabbix/modules` へコピーします。両方がない場合は警告し、モジュールをコピーしません。パッケージに `tests/` は含みません。
@@ -254,11 +254,11 @@ dpkg -i zabbix-widget-event-timeline_1.0.0_all.deb
 ### 手動インストール
 
 ```bash
-unzip zabbix-widget-event-timeline-v1.0.0.zip
+unzip zabbix-widget-event-timeline-v1.0.1.zip
 # このディレクトリが存在する場合はこちらを優先
-cp -r zabbix-widget-event-timeline-v1.0.0 /usr/share/zabbix/ui/modules/event-timeline
+cp -r zabbix-widget-event-timeline-v1.0.1 /usr/share/zabbix/ui/modules/event-timeline
 # 上記が存在しない場合
-cp -r zabbix-widget-event-timeline-v1.0.0 /usr/share/zabbix/modules/event-timeline
+cp -r zabbix-widget-event-timeline-v1.0.1 /usr/share/zabbix/modules/event-timeline
 ```
 
 `tests/` は実行時には不要です。
@@ -302,7 +302,6 @@ php tests/run_final_tests.php
 
 ## 今後の改善候補
 
-- Zabbix 8.0 正式版での動作確認。
 - ネストした LLD トリガーを、テンプレート上のトリガープロトタイプ単位で照合・集計すること。
 - ドリルダウンダイアログで PARTIAL 警告を再表示すること。
 

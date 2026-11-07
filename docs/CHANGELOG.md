@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## v1.0.1 - 2026-11-07
+
+- Verified operation with the Zabbix 8.0.0 final release while retaining the documented nested-LLD limitations.
+- Fixed the Japanese widget type and default header name to display as `イベントタイムライン`.
+- Updated the public installation examples and package metadata to version 1.0.1.
+
 ## v1.0.0 - 2026-10-31
 
 - Declared the first stable release with no functional or saved-configuration changes from v0.2.9.
