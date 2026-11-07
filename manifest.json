@@ -4,7 +4,7 @@
 	"type": "widget",
 	"name": "Event Timeline",
 	"namespace": "EventTimeline",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"author": "HOLOZTEK",
 	"url": "https://github.com/HOLOZTEK/zabbix-widget-event-timeline",
 	"description": "Zabbix dashboard widget that shows problem events over time as a stacked bar chart by severity, with filtering by host, host group, trigger, severity, acknowledgement status, value type and item type.",

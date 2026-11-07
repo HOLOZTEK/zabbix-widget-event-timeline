@@ -228,25 +228,25 @@ Adjusts line and text colors for the Zabbix dark theme to keep the chart readabl
 
 | Item | Requirement / verification |
 | --- | --- |
-| Zabbix | 7.0.x (tested with 7.0.31); tested with 8.0.0rc3. The Zabbix 8.0 final release has not been tested. |
+| Zabbix | 7.0.x (tested with 7.0.31); tested with 8.0.0 |
 | PHP | 8.1 or later (tested with 8.3 / 8.4) |
 | Package OS | RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
 | Permissions | Read access to the target hosts; for template-inherited triggers, also read access to every template in the inheritance chain. |
 
 ## Installation
 
-Install the RPM / DEB package or use the source ZIP attached to the GitHub release. The official source archive is `zabbix-widget-event-timeline-v1.0.0.zip`; the automatically generated "Source code" archives use a different extracted-directory name.
+Install the RPM / DEB package or use the source ZIP attached to the GitHub release. The official source archive is `zabbix-widget-event-timeline-v1.0.1.zip`; the automatically generated "Source code" archives use a different extracted-directory name.
 
 ### RPM package
 
 ```bash
-rpm -Uvh zabbix-widget-event-timeline-1.0.0.noarch.rpm
+rpm -Uvh zabbix-widget-event-timeline-1.0.1.noarch.rpm
 ```
 
 ### DEB package
 
 ```bash
-dpkg -i zabbix-widget-event-timeline_1.0.0_all.deb
+dpkg -i zabbix-widget-event-timeline_1.0.1_all.deb
 ```
 
 Packages install files under `/usr/share/zabbix-widget-event-timeline/` and copy the module to `event-timeline` under `/usr/share/zabbix/ui/modules` when present, otherwise `/usr/share/zabbix/modules`. If neither exists, the installer warns and does not copy the module. Packages do not include `tests/`.
@@ -254,11 +254,11 @@ Packages install files under `/usr/share/zabbix-widget-event-timeline/` and copy
 ### Manual installation
 
 ```bash
-unzip zabbix-widget-event-timeline-v1.0.0.zip
+unzip zabbix-widget-event-timeline-v1.0.1.zip
 # Preferred when this directory exists
-cp -r zabbix-widget-event-timeline-v1.0.0 /usr/share/zabbix/ui/modules/event-timeline
+cp -r zabbix-widget-event-timeline-v1.0.1 /usr/share/zabbix/ui/modules/event-timeline
 # Otherwise
-cp -r zabbix-widget-event-timeline-v1.0.0 /usr/share/zabbix/modules/event-timeline
+cp -r zabbix-widget-event-timeline-v1.0.1 /usr/share/zabbix/modules/event-timeline
 ```
 
 `tests/` is not required at runtime.
@@ -302,7 +302,6 @@ These scripts test pure logic including bucket selection and boundaries, DST, ev
 
 ## Potential future improvements
 
-- Test with the Zabbix 8.0 final release.
 - Match and group nested LLD triggers by the trigger prototype on the template.
 - Repeat the PARTIAL warning in the drilldown dialog.
 

@@ -1,6 +1,6 @@
 %define _rpmfilename %%{NAME}-%%{VERSION}.%%{ARCH}.rpm
 Name:           zabbix-widget-event-timeline
-Version:        1.0.0
+Version:        1.0.1
 Release:        0
 Summary:        Event Timeline widget for Zabbix dashboard
 License:        MIT
@@ -103,6 +103,11 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sat Nov 07 2026 HOLOZTEK <ttake-55@users.noreply.github.com> - 1.0.1-0
+- 日本語環境でウィジェットのタイプ名が英語（Event Timeline）のまま表示される
+  問題を修正（日本語表記「イベントタイムライン」）。
+- Zabbix 8.0.0 正式版で動作確認。README の動作確認バージョンを更新。
+
 * Thu Oct 29 2026 HOLOZTEK <ttake-55@users.noreply.github.com> - 1.0.0-0
 - 最初の正式安定版。機能・設定の保存形式は 0.2.9 から変更なし（移行作業不要）。
 - README を正式版の構成に改訂（動作環境・アップデート・アンインストール・

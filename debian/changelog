@@ -1,3 +1,11 @@
+zabbix-widget-event-timeline (1.0.1) unstable; urgency=medium
+
+  * 日本語環境でウィジェットのタイプ名が英語（Event Timeline）のまま
+    表示される問題を修正（日本語表記「イベントタイムライン」）。
+  * Zabbix 8.0.0 正式版で動作確認。README の動作確認バージョンを更新。
+
+ -- HOLOZTEK <ttake-55@users.noreply.github.com>  Sat, 07 Nov 2026 12:00:00 +0900
+
 zabbix-widget-event-timeline (1.0.0) unstable; urgency=medium
 
   * 最初の正式安定版。機能・設定の保存形式は 0.2.9 から変更なし
