@@ -226,12 +226,12 @@ Adjusts line and text colors for the Zabbix dark theme to keep the chart readabl
 
 ## Requirements
 
-| Item | Requirement / verification |
-| --- | --- |
-| Zabbix | 7.0.x (tested with 7.0.31); tested with 8.0.0 |
-| PHP | 8.1 or later (tested with 8.3 / 8.4) |
-| Package OS | RHEL-compatible 9 / 10 (RPM), Ubuntu 22.04 / 24.04 (DEB) |
-| Permissions | Read access to the target hosts; for template-inherited triggers, also read access to every template in the inheritance chain. |
+- Supported versions: Zabbix 7.0 and 8.0
+- Tested versions: Zabbix 7.0.31 and 8.0.0
+- PHP 8.1 or later (tested with 8.3 / 8.4)
+- RPM package: RHEL-compatible 9 / 10
+- DEB package: Ubuntu 22.04 / 24.04
+- Required permissions: Read access to the target hosts; for template-inherited triggers, also read access to every template in the inheritance chain.
 
 ## Installation
 
