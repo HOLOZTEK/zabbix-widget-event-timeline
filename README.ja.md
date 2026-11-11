@@ -8,6 +8,8 @@ Event Timeline は、Zabbix のイベントを時間軸、ホスト、ホスト�
 
 [![Event Timeline の概要](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
 
+[最新リリース](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/tag/v1.0.1) | [RPM](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v1.0.1/zabbix-widget-event-timeline-1.0.1.noarch.rpm) | [DEB](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v1.0.1/zabbix-widget-event-timeline_1.0.1_all.deb) | [ソース](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v1.0.1/zabbix-widget-event-timeline-v1.0.1.zip)
+
 ## Event Timeline を使う理由
 
 Zabbix 標準の障害画面では、個々の障害イベントを一覧で確認できます。ただし、イベントが多い環境では、一定期間内の発生の偏り、特定のホストやホストグループへの集中、イベント種類ごとの差を同じ画面で比較することは容易ではありません。
@@ -235,7 +237,9 @@ Zabbix のダークテーマに合わせて線と文字の色を調整し、グ�
 
 ## インストール
 
-RPM / DEB パッケージ、または GitHub Release に添付したソース ZIP からインストールします。正式なソースアーカイブは `zabbix-widget-event-timeline-v1.0.1.zip` です。自動生成される「Source code」アーカイブとは展開後のディレクトリ名が異なります。
+このページ上部のリリースリンクから、環境に合ったファイルをダウンロードします。Debian／UbuntuではDEBパッケージ、RHEL互換環境ではRPMパッケージ、手動インストールではReleaseの配布物として添付したソースZIPを使用します。
+
+この手順で使用する正式なソースアーカイブは `zabbix-widget-event-timeline-v1.0.1.zip` です。**Code → Download ZIP** で取得される `zabbix-widget-event-timeline-main.zip` や、自動生成される **Source code** アーカイブは使用しないでください。この手順で使用するReleaseの配布物ではなく、展開後のディレクトリ名も異なります。
 
 ### RPM パッケージ
 
