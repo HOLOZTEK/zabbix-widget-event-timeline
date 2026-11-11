@@ -240,7 +240,7 @@ Adjusts line and text colors for the Zabbix dark theme to keep the chart readabl
 Install from the RPM / DEB package or the official source ZIP attached to GitHub Releases. Download the distribution files from [GitHub Releases](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases).
 
 - Use the RPM package on RHEL-compatible systems.
-- The DEB package is recommended on Debian / Ubuntu.
+- For Debian / Ubuntu, we recommend using the DEB package.
 - For manual installation, use the official source ZIP attached to the GitHub release.
 
 The official source archive for this procedure is `zabbix-widget-event-timeline-v1.0.1.zip`, uploaded as a release asset. The automatically generated **Source code (zip)** / **Source code (tar.gz)** archives and `zabbix-widget-event-timeline-main.zip` from the repository's **Code → Download ZIP** have different extracted-directory names and are outside the scope of the manual installation commands below.
@@ -255,7 +255,7 @@ rpm -Uvh zabbix-widget-event-timeline-1.0.1.noarch.rpm
 
 ### DEB package
 
-On Debian / Ubuntu, installation with this DEB package is recommended.
+For Debian / Ubuntu, we recommend using the DEB package.
 
 ```bash
 dpkg -i zabbix-widget-event-timeline_1.0.1_all.deb
@@ -267,7 +267,7 @@ Packages install files under `/usr/share/zabbix-widget-event-timeline/` and copy
 
 For manual installation, use the official source ZIP `zabbix-widget-event-timeline-v1.0.1.zip` attached to the GitHub release.
 
-`zabbix-widget-event-timeline-main.zip` from **Code → Download ZIP** and the automatically generated **Source code** archives have different extracted-directory names and are outside the scope of the commands below.
+Do not use the repository archive downloaded via **Code → Download ZIP** (`zabbix-widget-event-timeline-main.zip`) with the manual installation commands below. The automatically generated **Source code** archives also use different extracted-directory names and are outside the scope of these commands.
 
 ```bash
 unzip zabbix-widget-event-timeline-v1.0.1.zip
