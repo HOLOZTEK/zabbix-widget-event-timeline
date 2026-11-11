@@ -237,17 +237,25 @@ Adjusts line and text colors for the Zabbix dark theme to keep the chart readabl
 
 ## Installation
 
-Download the appropriate file from the release links near the top of this page. Use the DEB package on Debian / Ubuntu, the RPM package on RHEL-compatible systems, or the source ZIP attached as a release asset for manual installation.
+Install from the RPM / DEB package or the official source ZIP attached to GitHub Releases. Download the distribution files from [GitHub Releases](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases).
 
-The official source archive for this procedure is `zabbix-widget-event-timeline-v1.0.1.zip`. Do not use `zabbix-widget-event-timeline-main.zip` from **Code → Download ZIP** or the automatically generated **Source code** archives; they are not the release asset used by this procedure and have different extracted-directory names.
+- Use the RPM package on RHEL-compatible systems.
+- The DEB package is recommended on Debian / Ubuntu.
+- For manual installation, use the official source ZIP attached to the GitHub release.
+
+The official source archive for this procedure is `zabbix-widget-event-timeline-v1.0.1.zip`, uploaded as a release asset. The automatically generated **Source code (zip)** / **Source code (tar.gz)** archives and `zabbix-widget-event-timeline-main.zip` from the repository's **Code → Download ZIP** have different extracted-directory names and are outside the scope of the manual installation commands below.
 
 ### RPM package
+
+The RPM package can be used on RHEL-compatible 9 / 10 systems.
 
 ```bash
 rpm -Uvh zabbix-widget-event-timeline-1.0.1.noarch.rpm
 ```
 
 ### DEB package
+
+On Debian / Ubuntu, installation with this DEB package is recommended.
 
 ```bash
 dpkg -i zabbix-widget-event-timeline_1.0.1_all.deb
@@ -256,6 +264,10 @@ dpkg -i zabbix-widget-event-timeline_1.0.1_all.deb
 Packages install files under `/usr/share/zabbix-widget-event-timeline/` and copy the module to `event-timeline` under `/usr/share/zabbix/ui/modules` when present, otherwise `/usr/share/zabbix/modules`. If neither exists, the installer warns and does not copy the module. Packages do not include `tests/`.
 
 ### Manual installation
+
+For manual installation, use the official source ZIP `zabbix-widget-event-timeline-v1.0.1.zip` attached to the GitHub release.
+
+`zabbix-widget-event-timeline-main.zip` from **Code → Download ZIP** and the automatically generated **Source code** archives have different extracted-directory names and are outside the scope of the commands below.
 
 ```bash
 unzip zabbix-widget-event-timeline-v1.0.1.zip
