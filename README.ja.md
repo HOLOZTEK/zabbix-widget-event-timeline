@@ -237,17 +237,25 @@ Zabbix のダークテーマに合わせて線と文字の色を調整し、グ�
 
 ## インストール
 
-このページ上部のリリースリンクから、環境に合ったファイルをダウンロードします。Debian／UbuntuではDEBパッケージ、RHEL互換環境ではRPMパッケージ、手動インストールではReleaseの配布物として添付したソースZIPを使用します。
+RPM／DEB パッケージ、または GitHub Releases に添付された正式なソース ZIP からインストールします。配布ファイルは [GitHub Releases](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases) から取得してください。
 
-この手順で使用する正式なソースアーカイブは `zabbix-widget-event-timeline-v1.0.1.zip` です。**Code → Download ZIP** で取得される `zabbix-widget-event-timeline-main.zip` や、自動生成される **Source code** アーカイブは使用しないでください。この手順で使用するReleaseの配布物ではなく、展開後のディレクトリ名も異なります。
+- RHEL 互換環境では RPM パッケージを使用します。
+- Debian／Ubuntu 環境では DEB パッケージの利用を推奨します。
+- 手動インストールでは、GitHub Release に添付された正式なソース ZIP を使用します。
+
+この手順で使用する正式なソースアーカイブは、Release の配布物として添付された `zabbix-widget-event-timeline-v1.0.1.zip` です。GitHub が自動生成する **Source code (zip)**／**Source code (tar.gz)** や、リポジトリ画面の **Code → Download ZIP** で取得される `zabbix-widget-event-timeline-main.zip` は、展開後のディレクトリ名が異なるため、以下の手動インストール手順の対象外です。
 
 ### RPM パッケージ
+
+RHEL 互換 9／10 では RPM パッケージを使用できます。
 
 ```bash
 rpm -Uvh zabbix-widget-event-timeline-1.0.1.noarch.rpm
 ```
 
 ### DEB パッケージ
+
+Debian／Ubuntu 環境では、この DEB パッケージによるインストールを推奨します。
 
 ```bash
 dpkg -i zabbix-widget-event-timeline_1.0.1_all.deb
@@ -256,6 +264,10 @@ dpkg -i zabbix-widget-event-timeline_1.0.1_all.deb
 パッケージは `/usr/share/zabbix-widget-event-timeline/` にファイルを置き、`/usr/share/zabbix/ui/modules` があれば `event-timeline` をその下へ、なければ `/usr/share/zabbix/modules` へコピーします。両方がない場合は警告し、モジュールをコピーしません。パッケージに `tests/` は含みません。
 
 ### 手動インストール
+
+手動インストールでは、GitHub Release に添付された正式なソース ZIP `zabbix-widget-event-timeline-v1.0.1.zip` を使用してください。
+
+**Code → Download ZIP** で取得される `zabbix-widget-event-timeline-main.zip` と、GitHub が自動生成する **Source code** アーカイブは、展開後のディレクトリ名が異なるため、以下の手順の対象外です。
 
 ```bash
 unzip zabbix-widget-event-timeline-v1.0.1.zip
