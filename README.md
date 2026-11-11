@@ -8,6 +8,8 @@ Event Timeline visualizes Zabbix events by time, host, host group, and event, al
 
 [![Event Timeline overview](docs/images/event-timeline-dashboard-overview.png)](docs/images/event-timeline-dashboard-overview.png)
 
+[Latest release](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/tag/v1.0.1) | [RPM](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v1.0.1/zabbix-widget-event-timeline-1.0.1.noarch.rpm) | [DEB](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v1.0.1/zabbix-widget-event-timeline_1.0.1_all.deb) | [Source](https://github.com/HOLOZTEK/zabbix-widget-event-timeline/releases/download/v1.0.1/zabbix-widget-event-timeline-v1.0.1.zip)
+
 ## Why Event Timeline?
 
 Zabbix's standard Problems view provides a table of individual problem events. However, in environments with many events, it is difficult to compare when events concentrate within a period, whether they cluster around particular hosts or host groups, and how distributions differ by event type in a single view.
@@ -235,7 +237,9 @@ Adjusts line and text colors for the Zabbix dark theme to keep the chart readabl
 
 ## Installation
 
-Install the RPM / DEB package or use the source ZIP attached to the GitHub release. The official source archive is `zabbix-widget-event-timeline-v1.0.1.zip`; the automatically generated "Source code" archives use a different extracted-directory name.
+Download the appropriate file from the release links near the top of this page. Use the DEB package on Debian / Ubuntu, the RPM package on RHEL-compatible systems, or the source ZIP attached as a release asset for manual installation.
+
+The official source archive for this procedure is `zabbix-widget-event-timeline-v1.0.1.zip`. Do not use `zabbix-widget-event-timeline-main.zip` from **Code → Download ZIP** or the automatically generated **Source code** archives; they are not the release asset used by this procedure and have different extracted-directory names.
 
 ### RPM package
 
